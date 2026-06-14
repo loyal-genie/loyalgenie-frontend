@@ -52,12 +52,13 @@ npm run preview
 
 ## Git
 
-Personal repo — run git commands from this folder:
+Org repo — run git commands from this folder:
 
 ```bash
+git pull origin main
 git add .
 git commit -m "your message"
-git push -u origin main
+git push origin main
 ```
 
 Remote: `git@github.com-personal:loyal-genie/loyalgenie-frontend.git`
