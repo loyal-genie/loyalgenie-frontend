@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import type { AuthAudience } from '@/components/auth/AuthRoleToggle'
 import { AuthRoleToggle } from '@/components/auth/AuthRoleToggle'
 
@@ -38,6 +39,13 @@ export function AuthShell({
       </div>
 
       <div className="flex-1 flex flex-col justify-center px-6 py-12 sm:px-12">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-v-text-2 hover:text-v-purple mb-6 no-underline w-fit transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to home
+        </Link>
+
         <Link to="/" className="inline-flex items-center gap-2 text-v-text font-black text-xl mb-8 no-underline w-fit">
           <span
             className="w-9 h-9 rounded-xl flex items-center justify-center text-lg border border-gold/35"

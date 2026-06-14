@@ -65,6 +65,10 @@ export interface OnboardingPayload {
   facebook?: string
   website?: string
   googleReview?: string
+  logoData?: string
+  coverBannerData?: string
+  interiorPhotosData?: string[]
+  exteriorPhotosData?: string[]
 }
 
 export interface OnboardingResult {
@@ -105,4 +109,61 @@ export function getApiErrorMessage(err: unknown, fallback: string) {
     if (body?.error) return body.error
   }
   return fallback
+}
+
+export interface BusinessProfile {
+  id: string
+  name: string
+  tagline: string
+  description: string
+  businessType: string
+  ownerName: string
+  mobile: string
+  whatsapp: string
+  email: string
+  city: string
+  pincode: string
+  landmark: string
+  address: string
+  mapLink: string
+  operatingHours: string
+  weeklyOff: string
+  brandColor: string
+  instagram: string
+  facebook: string
+  website: string
+  googleReview: string
+  qrSlug: string
+  branchName: string
+  branchCity: string
+  branchAddress: string
+  logoData: string
+  coverBannerData: string
+  interiorPhotosData: string[]
+  exteriorPhotosData: string[]
+}
+
+export type BusinessProfileUpdate = Partial<Omit<BusinessProfile, 'id' | 'qrSlug'>>
+
+export interface BusinessQr {
+  businessId: string
+  businessName: string
+  qrSlug: string
+  joinUrl: string
+  qrCodeDataUrl: string
+}
+
+export async function fetchBusinessProfile() {
+  const { data } = await api.get<{ success: boolean; data: BusinessProfile }>('/business/me')
+  return data.data
+}
+
+export async function updateBusinessProfile(payload: BusinessProfileUpdate) {
+  const { data } = await api.patch<{ success: boolean; data: BusinessProfile }>('/business/me', payload)
+  return data.data
+}
+
+export async function fetchBusinessQr() {
+  const { data } = await api.get<{ success: boolean; data: BusinessQr }>('/business/me/qr')
+  return data.data
 }

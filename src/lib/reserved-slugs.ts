@@ -14,6 +14,7 @@ export const RESERVED_SLUGS = new Set([
   'settings',
   'campaigns',
   'customers',
+  'qr-code',
 ])
 
 export function isReservedSlug(slug: string) {

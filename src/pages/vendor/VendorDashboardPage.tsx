@@ -4,9 +4,10 @@ import { Plus, ArrowRight, TrendingUp, TrendingDown, Minus, AlertTriangle, Crown
 import { Card, ProgressBar } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MechanicBadge } from '@/components/ui/badge'
+import { VendorPageHeader } from '@/components/vendor/VendorPageHeader'
+import { useBusinessProfile } from '@/hooks/useBusinessProfile'
 import { campaigns, customers, redemptionQueue } from '@/lib/mock-data'
 import { capPercent, getMechanicEmoji } from '@/lib/utils'
-import { business } from '@/lib/mock-data'
 import type { Customer } from '@/lib/types'
 
 const TODAY = new Date('2026-06-13')
@@ -63,6 +64,8 @@ function LivePIN({ pin, expiresAt }: { pin: string; expiresAt: number }) {
 }
 
 export function VendorDashboardPage() {
+  const { data: profile } = useBusinessProfile()
+  const businessName = profile?.name ?? 'Business'
   const withSeg = customers.map((c) => ({ ...c, seg: getSegment(c) }))
   const seg = {
     loyalist: withSeg.filter((c) => c.seg === 'loyalist'),
@@ -88,16 +91,16 @@ export function VendorDashboardPage() {
   const totalVal = Object.values(segVal).reduce((s, v) => s + v, 0)
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-v-text">Good morning, {business.name} ☕</h1>
-          <p className="text-v-text-2 text-sm mt-1">Friday, 13 June 2026 · {activeCamps.length} campaigns running</p>
-        </div>
-        <Link to="/vendor/campaigns/create">
-          <Button variant="primary"><Plus className="w-4 h-4" /> New Campaign</Button>
-        </Link>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl space-y-6">
+      <VendorPageHeader
+        title={`Good morning, ${businessName} ☕`}
+        subtitle={`Friday, 13 June 2026 · ${activeCamps.length} campaigns running`}
+        actions={
+          <Link to="/vendor/campaigns/create">
+            <Button variant="primary"><Plus className="w-4 h-4" /> New Campaign</Button>
+          </Link>
+        }
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="p-6 bg-gradient-to-br from-v-surface to-purple-50 border-purple-200 overflow-hidden relative">

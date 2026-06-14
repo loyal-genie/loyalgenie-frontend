@@ -12,6 +12,7 @@ import { VendorCampaignCreatePage } from '@/pages/vendor/VendorCampaignCreatePag
 import { VendorCustomersPage } from '@/pages/vendor/VendorCustomersPage'
 import { VendorCustomerDetailPage } from '@/pages/vendor/VendorCustomerDetailPage'
 import { VendorSettingsPage } from '@/pages/vendor/VendorSettingsPage'
+import { VendorQrCodePage } from '@/pages/vendor/VendorQrCodePage'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
 export function App() {
@@ -47,6 +48,7 @@ export function App() {
           <Route path="campaigns/:id" element={<VendorCampaignDetailPage />} />
           <Route path="customers" element={<VendorCustomersPage />} />
           <Route path="customers/:id" element={<VendorCustomerDetailPage />} />
+          <Route path="qr-code" element={<VendorQrCodePage />} />
           <Route path="settings" element={<VendorSettingsPage />} />
         </Route>
 

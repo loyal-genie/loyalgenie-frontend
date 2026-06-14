@@ -1,5 +1,6 @@
 import { ChevronDown, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { readFileAsDataUrl, readFilesAsDataUrls } from '@/lib/file-upload'
 
 export const onboardingTheme = {
   bg: '#0D0B28',
@@ -116,17 +117,89 @@ export function OnboardingSelect({ value, onChange, options, placeholder, error 
   )
 }
 
-export function OnboardingUpload({ label, hint }: { label: string; hint?: string }) {
+export function OnboardingUpload({
+  label,
+  hint,
+  value,
+  values,
+  onChange,
+  onMultiChange,
+  accept = 'image/png,image/jpeg,image/webp,image/svg+xml',
+  multiple = false,
+}: {
+  label: string
+  hint?: string
+  value?: string
+  values?: string[]
+  onChange?: (dataUrl: string) => void
+  onMultiChange?: (dataUrls: string[]) => void
+  accept?: string
+  multiple?: boolean
+}) {
+  const previews = multiple ? (values ?? []) : value ? [value] : []
+
+  async function handleFiles(fileList: FileList | null) {
+    if (!fileList?.length) return
+    try {
+      if (multiple && onMultiChange) {
+        const urls = await readFilesAsDataUrls(fileList)
+        onMultiChange([...(values ?? []), ...urls])
+      } else if (onChange) {
+        const url = await readFileAsDataUrl(fileList[0])
+        onChange(url)
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Upload failed')
+    }
+  }
+
   return (
     <div>
       <OnboardingLabel>{label}</OnboardingLabel>
-      <div
+      <label
         className="w-full rounded-xl flex items-center gap-3 px-5 py-5 cursor-pointer transition-all hover:opacity-80"
         style={{ background: onboardingTheme.input, border: `1px dashed ${onboardingTheme.inputBorder}` }}
       >
+        <input
+          type="file"
+          accept={accept}
+          multiple={multiple}
+          className="sr-only"
+          onChange={(e) => {
+            handleFiles(e.target.files)
+            e.target.value = ''
+          }}
+        />
         <Upload className="w-5 h-5 shrink-0" style={{ color: onboardingTheme.textMuted }} />
-        <span className="text-sm" style={{ color: onboardingTheme.textMuted }}>{hint ?? 'Click to upload or drag & drop'}</span>
-      </div>
+        <span className="text-sm" style={{ color: onboardingTheme.textMuted }}>
+          {hint ?? 'Click to upload or drag & drop'}
+        </span>
+      </label>
+      {previews.length > 0 && (
+        <div className={cn('mt-3 flex flex-wrap gap-2', multiple && 'grid grid-cols-2 sm:grid-cols-3')}>
+          {previews.map((src, i) => (
+            <div key={i} className="relative rounded-lg overflow-hidden border border-white/10">
+              <img src={src} alt="" className={cn('object-cover', multiple ? 'w-full h-24' : 'h-20 w-auto max-w-full')} />
+              {(onChange || onMultiChange) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (multiple && onMultiChange) {
+                      onMultiChange((values ?? []).filter((_, idx) => idx !== i))
+                    } else if (onChange) {
+                      onChange('')
+                    }
+                  }}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center cursor-pointer border-0"
+                  aria-label="Remove"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

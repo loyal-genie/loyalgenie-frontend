@@ -42,6 +42,10 @@ const initial: FormData = {
   facebook: '',
   website: '',
   googleReview: '',
+  logoData: '',
+  coverBannerData: '',
+  interiorPhotosData: [] as string[],
+  exteriorPhotosData: [] as string[],
 }
 
 function sectionOf(globalStep: number) {
@@ -86,6 +90,8 @@ export function OnboardingPage() {
   const [copied, setCopied] = useState(false)
 
   const set = (k: keyof FormData) => (v: string) => setForm((p) => ({ ...p, [k]: v }))
+  const setPhotos = (k: 'interiorPhotosData' | 'exteriorPhotosData') => (v: string[]) =>
+    setForm((p) => ({ ...p, [k]: v }))
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -113,6 +119,10 @@ export function OnboardingPage() {
         facebook: form.facebook,
         website: form.website,
         googleReview: form.googleReview,
+        logoData: form.logoData,
+        coverBannerData: form.coverBannerData,
+        interiorPhotosData: form.interiorPhotosData ?? [],
+        exteriorPhotosData: form.exteriorPhotosData ?? [],
       }
       return completeOnboarding(payload)
     },
@@ -427,11 +437,33 @@ export function OnboardingPage() {
                   <h2 className="text-2xl font-black mb-1" style={{ color: D.text }}>Brand Your Cafe</h2>
                   <p className="text-sm mb-7" style={{ color: D.textMuted }}>This is what your customers will see inside the LoyalGenie app — your logo, your colours, your vibe.</p>
                   <div className="space-y-5">
-                    <OnboardingUpload label="Logo" hint="PNG/SVG, transparent background preferred" />
-                    <OnboardingUpload label="Cover Banner Image" hint="1920×600px recommended" />
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <OnboardingUpload label="Interior Photos" hint="Add a few photos inside" />
-                      <OnboardingUpload label="Exterior Photos" hint="Add photos outside" />
+                    <OnboardingUpload
+                      label="Logo"
+                      hint="PNG/SVG, transparent background preferred"
+                      value={form.logoData ?? ''}
+                      onChange={set('logoData')}
+                    />
+                    <OnboardingUpload
+                      label="Cover Banner Image"
+                      hint="1920×600px recommended"
+                      value={form.coverBannerData ?? ''}
+                      onChange={set('coverBannerData')}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <OnboardingUpload
+                        label="Interior Photos"
+                        hint="Add a few photos inside"
+                        values={form.interiorPhotosData ?? []}
+                        onMultiChange={setPhotos('interiorPhotosData')}
+                        multiple
+                      />
+                      <OnboardingUpload
+                        label="Exterior Photos"
+                        hint="Add photos outside"
+                        values={form.exteriorPhotosData ?? []}
+                        onMultiChange={setPhotos('exteriorPhotosData')}
+                        multiple
+                      />
                     </div>
                     <div className="pt-2">
                       <p className="text-base font-bold mb-0.5" style={{ color: D.text }}>Social media handles</p>
@@ -452,9 +484,9 @@ export function OnboardingPage() {
                 <p className="mt-6 text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">{error}</p>
               )}
 
-              <div className={`flex gap-3 mt-8 ${isFirst ? 'justify-end' : 'justify-between'}`}>
+              <div className={`flex flex-col-reverse sm:flex-row gap-3 mt-8 ${isFirst ? 'sm:justify-end' : 'sm:justify-between'}`}>
                 {!isFirst && (
-                  <button type="button" onClick={back} className="flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-80 cursor-pointer" style={{ border: '1.5px solid rgba(255,255,255,0.2)', color: D.text, background: 'transparent' }}>
+                  <button type="button" onClick={back} className="flex items-center justify-center gap-2 px-7 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-80 cursor-pointer w-full sm:w-auto" style={{ border: '1.5px solid rgba(255,255,255,0.2)', color: D.text, background: 'transparent' }}>
                     <ArrowLeft className="w-4 h-4" /> Back
                   </button>
                 )}
@@ -468,13 +500,13 @@ export function OnboardingPage() {
                       mutation.mutate()
                     }}
                     disabled={mutation.isPending}
-                    className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 cursor-pointer disabled:opacity-60"
+                    className="flex items-center justify-center gap-2 px-8 py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 cursor-pointer disabled:opacity-60 w-full sm:w-auto"
                     style={{ background: `linear-gradient(135deg, ${D.purple}, ${D.purple2})`, color: '#fff' }}
                   >
                     {mutation.isPending ? 'Generating...' : 'Generate My QR Code ✦'}
                   </button>
                 ) : (
-                  <button type="button" onClick={next} className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 cursor-pointer" style={{ background: `linear-gradient(135deg, ${D.purple}, ${D.purple2})`, color: '#fff' }}>
+                  <button type="button" onClick={next} className="flex items-center justify-center gap-2 px-8 py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 cursor-pointer w-full sm:w-auto" style={{ background: `linear-gradient(135deg, ${D.purple}, ${D.purple2})`, color: '#fff' }}>
                     Continue ✦
                   </button>
                 )}
