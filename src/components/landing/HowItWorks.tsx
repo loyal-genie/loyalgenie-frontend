@@ -17,8 +17,8 @@ const steps: {
     modal: {
       icon: '⚙️', title: 'Set Up Your Campaign',
       sections: [
-        { label: 'WHAT HAPPENS HERE?', text: 'You log into the LoyalGenie dashboard on any device — phone, tablet, or laptop. Choose from ready-made templates for salons, cafes, restaurants, gyms, and more. Pick your mechanics, define your rewards, and hit publish. Most businesses are live in under 10 minutes.' },
-        { label: 'WHAT DO YOU CONTROL?', text: 'Everything. You decide the reward type, the probability of each prize, the validity period, and when to run flash promotions. Want to push a special offer on a slow Tuesday? Change it in 60 seconds from your phone.' },
+        { label: 'WHAT HAPPENS HERE?', text: 'You log into the LoyalGenie dashboard on any device — phone, tablet, or laptop. Choose from ready-made templates for salons, cafes, restaurants, gyms, and more. Pick your mechanics, define your rewards (what customers win, the value, expiry), and hit publish. Most businesses are live in under 10 minutes.' },
+        { label: 'WHAT DO YOU CONTROL?', text: 'Everything. You decide the reward type (discount, free item, bonus points), the probability of each prize, the validity period, and when to run flash promotions. Want to push a special offer on a slow Tuesday? Change it in 60 seconds from your phone. No developers, no waiting, no cost.' },
       ],
       proof: { text: '"Pro tip: Start with Stamp Card + Shake & Win combination. This pairing consistently delivers the highest new customer engagement and repeat visit rates in the first 30 days."', source: 'LoyalGenie onboarding data' },
     },
@@ -29,10 +29,10 @@ const steps: {
     modal: {
       icon: '🪧', title: 'Place the Standee',
       sections: [
-        { label: 'WHAT IS THE STANDEE?', text: 'Your LoyalGenie standee arrives printed, branded, and ready to use. It displays your business name, a unique QR code, and a simple call-to-action. Place it at eye level on your billing counter.' },
-        { label: 'WHY DOES PLACEMENT MATTER?', text: 'Customers already have a habit loop around QR codes at the counter. Counter-level placement at billing is the highest-converting position because the customer is already holding their phone.' },
+        { label: 'WHAT IS THE STANDEE?', text: 'Your LoyalGenie standee arrives printed, branded, and ready to use. It displays your business name, a unique QR code, and a simple call-to-action. Place it at eye level on your billing counter — exactly where your Google Pay or Paytm standee sits today.' },
+        { label: 'WHY DOES PLACEMENT MATTER?', text: 'Customers already have a habit loop around QR codes at the counter — they pick up their phone to pay, and seeing a loyalty standee right next to it triggers an instant scan. Counter-level placement at billing is the highest-converting position because the customer is already holding their phone.' },
       ],
-      proof: { text: '"Businesses that place the standee at the billing counter see 3× more scans than those who place it on tables or near the door."', source: 'LoyalGenie placement A/B test data' },
+      proof: { text: '"Businesses that place the standee at the billing counter see 3× more scans than those who place it on tables or near the door. Eye contact at payment moment is the highest-intent touchpoint in your entire store."', source: 'LoyalGenie placement A/B test data' },
     },
   },
   {
@@ -41,10 +41,10 @@ const steps: {
     modal: {
       icon: '📲', title: 'Customer Scans & Joins',
       sections: [
-        { label: 'WHAT DOES THE CUSTOMER DO?', text: 'They scan your QR code with their phone camera. A lightweight web page loads instantly — no app download required to get started. They enter their name and phone number. The entire process takes under 30 seconds.' },
-        { label: 'WHAT DO YOU GET?', text: 'Their name and phone number — stored in your LoyalGenie dashboard forever. This is your customer database, built automatically with every scan.' },
+        { label: 'WHAT DOES THE CUSTOMER DO?', text: 'They scan your QR code with their phone camera. A lightweight web page loads instantly — no app download required to get started. They enter their name and phone number. That\'s it. The entire process takes under 30 seconds. First-time reward is triggered immediately to create instant delight.' },
+        { label: 'WHAT DO YOU GET?', text: 'Their name and phone number — stored in your LoyalGenie dashboard forever. This is your customer database, built automatically with every scan. You now have the ability to send them targeted offers, re-engagement messages, and personalised rewards. Something most small businesses never have.' },
       ],
-      proof: { text: '"The average Indian SME has no idea who their top 20 customers are. LoyalGenie changes that from day one."', source: 'LoyalGenie product philosophy' },
+      proof: { text: '"The average Indian SME has no idea who their top 20 customers are. LoyalGenie changes that from day one — every scan builds a customer profile you can act on. Data privacy is fully compliant; customer data belongs to you."', source: 'LoyalGenie product philosophy' },
     },
   },
   {
@@ -53,10 +53,10 @@ const steps: {
     modal: {
       icon: '🎉', title: 'Shake It & Win It',
       sections: [
-        { label: 'WHAT IS THIS MOMENT?', text: 'This is the moment that makes LoyalGenie unforgettable. The customer shakes their phone. An animation plays. Confetti bursts. A reward is revealed — a discount, free item, or bonus stamps.' },
-        { label: 'WHY IS THIS SO POWERFUL?', text: 'Physical interaction creates embodied memory — customers remember an experience they physically did, far longer than a static coupon they received.' },
+        { label: 'WHAT IS THIS MOMENT?', text: 'This is the moment that makes LoyalGenie unforgettable. The customer shakes their phone. An animation plays. Confetti bursts. A reward is revealed — a discount on their next visit, a free item, or bonus stamps. It takes 3 seconds and leaves a lasting impression.' },
+        { label: 'WHY IS THIS SO POWERFUL?', text: 'Physical interaction creates embodied memory — customers remember an experience they physically did, far longer than a static coupon they received. The "shake" is also inherently social: customers pull out their phones and show friends sitting across the table, generating organic word-of-mouth at zero cost to you. Every shake is a brand moment.' },
       ],
-      proof: { text: '"Research shows physical gestures make digital rewards feel more real and earned. Swiggy\'s Shake to Win campaign during IPL 2023 saw 3× higher engagement vs. static offers."', source: 'Consumer psychology research + Swiggy campaign data' },
+      proof: { text: '"Research shows physical gestures make digital rewards feel more real and earned. Customers remember experiential rewards 4× longer than passive ones. Swiggy\'s \'Shake to Win\' campaign during IPL 2023 saw 3× higher engagement vs. static offers."', source: 'Consumer psychology research + Swiggy campaign data' },
     },
   },
   {
@@ -65,10 +65,10 @@ const steps: {
     modal: {
       icon: '🔄', title: 'They Come Back',
       sections: [
-        { label: 'WHAT DO YOU SEE?', text: 'Your dashboard shows every customer — how often they visit, when they last came in, what rewards they\'ve won and redeemed. You can see your top 10 regulars at a glance.' },
-        { label: 'WHAT HAPPENS AUTOMATICALLY?', text: 'When a regular hasn\'t visited in 30 days, LoyalGenie automatically flags them and can send a personalised nudge — "We miss you! Here\'s a special reward just for you."' },
+        { label: 'WHAT DO YOU SEE?', text: 'Your dashboard shows every customer — how often they visit, when they last came in, what rewards they\'ve won and redeemed. You can see your top 10 regulars at a glance, identify customers who are drifting, and trigger targeted re-engagement offers — all from your phone.' },
+        { label: 'WHAT HAPPENS AUTOMATICALLY?', text: 'When a regular hasn\'t visited in 30 days (you define the window), LoyalGenie automatically flags them and can send a personalised nudge — "We miss you! Here\'s a special reward just for you." This silent retention system runs in the background while you focus on running your business.' },
       ],
-      proof: { text: '"The top 20% of your customers generate 80% of your revenue. Businesses using our re-engagement campaigns report recovering 30–40% of lapsed regulars."', source: 'Gartner research + LoyalGenie merchant data' },
+      proof: { text: '"The top 20% of your customers generate 80% of your revenue (Gartner/Pareto). LoyalGenie helps you identify, protect, and deepen relationships with exactly those customers. Businesses using our re-engagement campaigns report recovering 30–40% of lapsed regulars."', source: 'Gartner research + LoyalGenie merchant data' },
     },
   },
 ]
@@ -118,7 +118,7 @@ function StepCard({
 }) {
   return (
     <div className="card-glass p-6 sm:p-8 relative flex flex-col">
-      <div className="absolute -top-2 -right-2 text-[80px] font-black text-white/[0.03] leading-none select-none pointer-events-none">
+      <div className="absolute -top-2.5 -right-2.5 text-[80px] font-black text-white/[0.03] leading-none select-none pointer-events-none">
         {step.step}
       </div>
       <div
@@ -127,19 +127,19 @@ function StepCard({
       >
         <step.Icon size={24} color={step.color} strokeWidth={1.75} />
       </div>
-      <span className="text-gold text-xs font-bold tracking-widest mb-2">STEP {step.step}</span>
-      <h3 className="text-white text-lg font-bold mb-3">{step.title}</h3>
+      <div className="text-gold text-xs font-bold tracking-wider mb-2">STEP {step.step}</div>
+      <h3 className="text-white text-lg font-bold mb-3 leading-snug">{step.title}</h3>
       <p className="text-muted text-sm leading-relaxed flex-1">{step.desc}</p>
       <button
         type="button"
         onClick={onLearnMore}
-        className="mt-4 text-left text-gold/60 hover:text-gold text-xs font-semibold bg-transparent border-none cursor-pointer p-0 transition-colors"
+        className="mt-4 text-left text-xs font-semibold text-gold/60 hover:text-gold transition-colors border-0 bg-transparent cursor-pointer p-0"
       >
         More detail →
       </button>
       {index < total - 1 && (
         <div
-          className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-0.5 z-10 pointer-events-none"
+          className="hidden md:block absolute -right-3 top-1/2 w-6 h-0.5 z-10"
           style={{ background: 'linear-gradient(90deg, rgba(240,192,64,0.4), transparent)' }}
         />
       )}

@@ -3,18 +3,14 @@ import { motion } from 'framer-motion'
 import { LogOut } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
 import { Button } from '@/components/ui/button'
-import { customers, business } from '@/lib/mock-data'
+import { business } from '@/lib/mock-data'
 import { getMechanicEmoji, formatDate, formatRelativeTime } from '@/lib/utils'
-import { clearSession, getUser } from '@/lib/auth'
-
-const demo = customers[0]
+import { clearSession } from '@/lib/auth'
+import { useCustomerSession } from '@/hooks/useCustomerSession'
 
 export function CustomerProfilePage() {
   const navigate = useNavigate()
-  const sessionUser = getUser()
-  const displayName = sessionUser?.name ?? demo.name
-  const displayPhone = sessionUser?.phone ?? demo.phone
-  const displayEmail = sessionUser?.email ?? demo.email
+  const { customer, displayName, displayPhone, displayEmail } = useCustomerSession()
 
   function handleSignOut() {
     clearSession()
@@ -30,7 +26,7 @@ export function CustomerProfilePage() {
           </div>
           <h1 className="text-xl font-extrabold text-gray-900">{displayName}</h1>
           <p className="text-sm text-gray-500 mt-1">{displayPhone}</p>
-          <p className="text-xs text-gray-400 mt-0.5">Member since {formatDate(demo.joinedAt)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">Member since {formatDate(customer.joinedAt)}</p>
         </motion.div>
 
         {/* Loyalty stats */}
@@ -41,9 +37,9 @@ export function CustomerProfilePage() {
           className="grid grid-cols-3 gap-2 mb-6"
         >
           {[
-            { label: 'Visits',  value: demo.totalVisits,   icon: '📅' },
-            { label: 'Games',   value: demo.gamesPlayed,   icon: '🎮' },
-            { label: 'Rewards', value: demo.rewardsEarned, icon: '🎁' },
+            { label: 'Visits',  value: customer.totalVisits,   icon: '📅' },
+            { label: 'Games',   value: customer.gamesPlayed,   icon: '🎮' },
+            { label: 'Rewards', value: customer.rewardsEarned, icon: '🎁' },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl p-3 text-center border border-gray-100 shadow-sm">
               <div className="text-2xl mb-1">{s.icon}</div>
@@ -80,7 +76,7 @@ export function CustomerProfilePage() {
         >
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Recent Activity</h2>
           <div className="space-y-2">
-            {demo.gameHistory.map((g, i) => (
+            {customer.gameHistory.map((g, i) => (
               <motion.div
                 key={g.id}
                 initial={{ opacity: 0, x: -12 }}
@@ -120,8 +116,8 @@ export function CustomerProfilePage() {
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Profile</h2>
           {[
             { label: 'Email', value: displayEmail },
-            { label: 'Date of Birth', value: formatDate(demo.dob) },
-            { label: 'Last Visit', value: formatRelativeTime(demo.lastVisit) },
+            { label: 'Date of Birth', value: formatDate(customer.dob) },
+            { label: 'Last Visit', value: formatRelativeTime(customer.lastVisit) },
           ].map((item) => (
             <div key={item.label} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
               <span className="text-xs text-gray-400">{item.label}</span>

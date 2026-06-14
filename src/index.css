@@ -245,6 +245,16 @@
       padding: 6rem 5rem;
     }
   }
+
+  .hero-scene-wrap {
+    position: relative;
+    contain: layout paint;
+  }
+
+  .hero-scene-wrap canvas {
+    display: block;
+    max-width: 100%;
+  }
 }
 
 @keyframes shimmer {
@@ -287,6 +297,10 @@
 
 .animate-float {
   animation: float 5s ease-in-out infinite;
+}
+
+.float {
+  animation: float 3s ease-in-out infinite;
 }
 
 .animate-spin-slow {
@@ -341,6 +355,11 @@
 
   .hero-scene-wrap {
     margin-top: 0.5rem;
+  }
+
+  .hero-float-card,
+  .hero-tagline {
+    display: none !important;
   }
 }
 

@@ -3,12 +3,10 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Bell, Search, Star } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
-import { customers, customerBusinesses } from '@/lib/mock-data'
+import { customerBusinesses } from '@/lib/mock-data'
 import { MECHANIC_META } from '@/lib/utils'
-import { getUser } from '@/lib/auth'
+import { useCustomerSession } from '@/hooks/useCustomerSession'
 import type { CustomerBusiness } from '@/lib/types'
-
-const demo = customers[0]
 const CATEGORIES = ['All', 'Cafe', 'Salon', 'Gym', 'Restaurant', 'Jewellery'] as const
 type Category = typeof CATEGORIES[number]
 
@@ -77,18 +75,16 @@ function BusinessCard({ biz }: { biz: CustomerBusiness }) {
 }
 
 export function CustomerPage() {
-  const sessionUser = getUser()
-  const displayName = sessionUser?.name ?? demo.name
-  const firstName = displayName.split(' ')[0]
-  const activeCount = demo.rewards.filter((r) => r.status === 'pending').length
-  const redeemedCount = demo.rewards.filter((r) => r.status === 'redeemed').length
+  const { firstName, customer, activeRewards, redeemedRewards } = useCustomerSession()
+  const activeCount = activeRewards.length
+  const redeemedCount = redeemedRewards.length
 
   const REWARD_ICONS = [
-    { emoji: '🧾', label: 'Stamps', count: demo.rewards.filter((r) => r.mechanic === 'stamp').length },
-    { emoji: '🎴', label: 'Cards', count: demo.rewards.filter((r) => r.mechanic === 'spin' || r.mechanic === 'shake').length },
-    { emoji: '📦', label: 'Mystery', count: demo.rewards.filter((r) => r.mechanic === 'dice').length },
-    { emoji: '🎡', label: 'Spins', count: demo.rewards.filter((r) => r.mechanic === 'spin').length },
-    { emoji: '🎟️', label: 'Lottery', count: demo.rewards.filter((r) => r.mechanic === 'lottery').length },
+    { emoji: '🧾', label: 'Stamps', count: customer.rewards.filter((r) => r.mechanic === 'stamp').length },
+    { emoji: '🎴', label: 'Cards', count: customer.rewards.filter((r) => r.mechanic === 'spin' || r.mechanic === 'shake').length },
+    { emoji: '📦', label: 'Mystery', count: customer.rewards.filter((r) => r.mechanic === 'dice').length },
+    { emoji: '🎡', label: 'Spins', count: customer.rewards.filter((r) => r.mechanic === 'spin').length },
+    { emoji: '🎟️', label: 'Lottery', count: customer.rewards.filter((r) => r.mechanic === 'lottery').length },
   ]
 
   const [search, setSearch] = useState('')

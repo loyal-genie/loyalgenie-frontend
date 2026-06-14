@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { HomePage } from '@/pages/HomePage'
+import { DemoLauncherPage } from '@/pages/DemoLauncherPage'
 import { SignInPage } from '@/pages/auth/SignInPage'
 import { SignUpPage } from '@/pages/auth/SignUpPage'
 import { OnboardingPage } from '@/pages/onboarding/OnboardingPage'
@@ -33,6 +34,7 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/demo" element={<DemoLauncherPage />} />
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/business/signin" element={<Navigate to="/signin" replace />} />

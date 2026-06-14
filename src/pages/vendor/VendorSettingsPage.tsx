@@ -1,14 +1,25 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { CreditCard, Globe, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { VendorPageHeader } from '@/components/vendor/VendorPageHeader'
+import { VendorSettingsBilling } from '@/components/vendor/VendorSettingsBilling'
+import { VendorSettingsQrTab } from '@/components/vendor/VendorSettingsQrTab'
 import { ProfileImageUpload } from '@/components/vendor/ProfileImageUpload'
 import { useBusinessProfile, useUpdateBusinessProfile } from '@/hooks/useBusinessProfile'
 import { getApiErrorMessage, type BusinessProfile, type BusinessProfileUpdate } from '@/lib/api'
 import { brandColors, businessTypes } from '@/content/onboarding'
+
+type SettingsTab = 'profile' | 'billing' | 'qr'
+
+const TABS: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
+  { key: 'profile', label: 'Business Profile', icon: <Star className="w-3.5 h-3.5" /> },
+  { key: 'billing', label: 'Billing & Plan', icon: <CreditCard className="w-3.5 h-3.5" /> },
+  { key: 'qr', label: 'QR Code', icon: <Globe className="w-3.5 h-3.5" /> },
+]
 
 function profileToForm(p: BusinessProfile): BusinessProfileUpdate {
   return {
@@ -46,6 +57,7 @@ export function VendorSettingsPage() {
   const { data: profile, isLoading } = useBusinessProfile()
   const updateMutation = useUpdateBusinessProfile()
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [tab, setTab] = useState<SettingsTab>('profile')
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<BusinessProfileUpdate>()
 
@@ -79,18 +91,29 @@ export function VendorSettingsPage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl space-y-6">
       <VendorPageHeader
         title="Settings"
-        subtitle="Manage your business profile and preferences"
+        subtitle="Manage your profile, plan, and integrations"
       />
 
-      <div className="flex gap-2 border-b border-v-border pb-0">
-        <button
-          type="button"
-          className="px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px border-v-purple text-v-purple cursor-pointer bg-transparent"
-        >
-          Profile
-        </button>
+      <div className="flex gap-1 mb-7 bg-v-surface-2 border border-v-border rounded-xl p-1 w-fit overflow-x-auto max-w-full">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer border-0',
+              tab === t.key ? 'bg-white text-v-text shadow-sm border border-v-border' : 'text-v-text-2 hover:text-v-text bg-transparent',
+            )}
+          >
+            {t.icon}{t.label}
+          </button>
+        ))}
       </div>
 
+      {tab === 'billing' && <VendorSettingsBilling />}
+      {tab === 'qr' && <VendorSettingsQrTab />}
+
+      {tab === 'profile' && (
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Step 1 — Business basics */}
         <Card className="p-4 sm:p-6">
@@ -320,6 +343,7 @@ export function VendorSettingsPage() {
           )}
         </div>
       </form>
+      )}
     </div>
   )
 }

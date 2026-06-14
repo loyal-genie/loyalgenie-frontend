@@ -2,12 +2,9 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bell } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
-import { customers } from '@/lib/mock-data'
 import { MECHANIC_META, formatDate } from '@/lib/utils'
+import { useCustomerSession } from '@/hooks/useCustomerSession'
 import type { CustomerReward } from '@/lib/types'
-
-const demo = customers[0]
-const firstName = demo.name.split(' ')[0]
 type Tab = 'active' | 'history'
 
 // Stamp grid visualiser (shows 10 cells, filled = earned)
@@ -111,9 +108,8 @@ function HistoryRewardCard({ reward }: { reward: CustomerReward }) {
 
 export function CustomerWalletPage() {
   const [tab, setTab] = useState<Tab>('active')
-
-  const activeRewards  = demo.rewards.filter(r => r.status === 'pending')
-  const historyRewards = demo.rewards.filter(r => r.status === 'redeemed')
+  const { firstName, activeRewards, redeemedRewards } = useCustomerSession()
+  const historyRewards = redeemedRewards
   const shown = tab === 'active' ? activeRewards : historyRewards
 
   return (

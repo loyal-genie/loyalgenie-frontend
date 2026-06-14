@@ -79,6 +79,19 @@ export function VendorQrCodePage() {
           </Button>
         </div>
       </div>
+
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-v-text">Order Printed Standee</h2>
+            <p className="text-xs text-v-text-3 mt-0.5">We print and courier a branded counter standee within 5 business days.</p>
+          </div>
+          <Button variant="primary" size="sm">Order Standee →</Button>
+        </div>
+        <p className="text-xs text-v-text-2 leading-relaxed">
+          Your standee includes your business name, QR code, and a clear call-to-action — ready to place next to your billing counter, just like Google Pay or Paytm.
+        </p>
+      </Card>
     </div>
   )
 }

@@ -1,12 +1,9 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
-
-const WIN_PROBABILITY = 0.65
-const MAX_PLAYS = 2
-const REWARD = 'Free Coffee ☕'
+import { getCampaignForMechanic } from '@/lib/customer-game'
 
 type State = 'idle' | 'shaking' | 'result'
 
@@ -14,6 +11,14 @@ const PARTICLE_COLORS = ['#7C3AED', '#F5C518', '#EC4899', '#06B6D4', '#22C55E', 
 
 export function CustomerShakePage() {
   const navigate = useNavigate()
+  const { search } = useLocation()
+  const campaign = getCampaignForMechanic(search, 'shake')
+  const shakeConfig = campaign.config as { playsPerUser?: number; winProbability?: number }
+  const WIN_PROBABILITY = shakeConfig.winProbability ?? 0.65
+  const MAX_PLAYS = shakeConfig.playsPerUser ?? campaign.playsPerUser ?? 2
+  const defaultReward = campaign.rewards[0]
+  const REWARD = defaultReward ? `${defaultReward.name} ${defaultReward.icon}` : 'Free Coffee ☕'
+
   const [state, setState] = useState<State>('idle')
   const [won, setWon] = useState(false)
   const [playsLeft, setPlaysLeft] = useState(MAX_PLAYS)

@@ -1,18 +1,21 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
-import { campaigns } from '@/lib/mock-data'
+import { getCampaignForMechanic } from '@/lib/customer-game'
 import type { SpinSegment } from '@/lib/types'
-
-const spinCampaign = campaigns.find(c => c.mechanic === 'spin')!
-const segments = (spinCampaign.config as { segments: SpinSegment[] }).segments
 
 type State = 'idle' | 'spinning' | 'result'
 
 export function CustomerSpinPage() {
   const navigate = useNavigate()
+  const { search } = useLocation()
+  const campaign = getCampaignForMechanic(search, 'spin')
+  const segments = useMemo(
+    () => (campaign.config as { segments: SpinSegment[] }).segments,
+    [campaign],
+  )
   const [state, setState] = useState<State>('idle')
   const [rotation, setRotation] = useState(0)
   const [won, setWon] = useState(false)
