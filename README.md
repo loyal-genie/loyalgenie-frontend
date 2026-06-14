@@ -1,17 +1,62 @@
-# LoyalGenie Landing Page
+# LoyalGenie Frontend
 
-Next.js marketing site for LoyalGenie. See the [root README](../README.md) for project overview and setup.
+React + Vite + Tailwind CSS application for the LoyalGenie marketing site, auth, onboarding, and vendor admin portal.
 
-## Key paths
+## Stack
 
-- `src/app/page.tsx` — page composition
-- `src/content/` — section copy and data (edit content here)
-- `src/lib/constants.ts` — Typeform URL, nav links
-- `src/components/sections/` — section UI components
-- `src/components/three/FloatingScene.tsx` — 3D hero animation
+- React 19 + TypeScript
+- Vite
+- Tailwind CSS v4
+- React Router
+- TanStack Query
+- Axios
+- React Hook Form
+- Radix UI primitives (shadcn-style components)
+- Lucide Icons
 
-## Content updates
+## Development
 
-To change signup links, edit `TYPEFORM_URL` in `src/lib/constants.ts`.
+```bash
+cd frontend
+npm install
+cp .env.example .env   # optional — defaults to http://localhost:4000/api
+npm run dev            # http://localhost:5173
+```
 
-To update section copy (stats, mechanics, how-it-works steps), edit files in `src/content/`.
+> **Note:** This is a Vite app (`loyalgenie-frontend`). Do not run the old Next.js prototype (`LoyalGenie-Landing-Page/`) when working on this codebase.
+
+Set `VITE_API_URL` in `.env` to point at the backend (default: `http://localhost:4000/api`).
+
+## Routes
+
+| Path | Description |
+|------|-------------|
+| `/` | Marketing landing page |
+| `/signin` | Sign in (Business / Customer toggle) |
+| `/signup` | Create account → onboarding |
+| `/onboarding` | Business onboarding wizard (protected) |
+| `/:slug` | Public café join / standee page |
+| `/vendor/dashboard` | Admin dashboard (protected) |
+| `/vendor/campaigns` | Campaign management |
+| `/vendor/customers` | Customer CRM |
+| `/vendor/settings` | Business settings |
+
+Legacy `/business/signin` and `/business/signup` redirect to `/signin` and `/signup`.
+
+## Build
+
+```bash
+npm run build
+npm run preview
+```
+
+## Git (personal account)
+
+This folder is pushed from the monorepo root via subtree:
+
+```bash
+# From loyal-genie/
+git subtree push --prefix=frontend frontend main
+```
+
+Remote: `git@github.com-personal:loyal-genie/loyalgenie-frontend.git`
