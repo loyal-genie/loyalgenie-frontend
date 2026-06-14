@@ -63,6 +63,10 @@ export async function signUpCustomer(payload: {
   return data.data
 }
 
+export async function resetPasswordByEmail(role: 'business' | 'customer', email: string, password: string) {
+  await api.post(`/auth/${role}/forgot-password`, { email, password })
+}
+
 /** Matches backend `onboardingSchema` in backend/src/services/onboarding.ts */
 export interface OnboardingPayload {
   name: string
@@ -125,6 +129,9 @@ export async function fetchBusinessBySlug(slug: string) {
 
 export function getApiErrorMessage(err: unknown, fallback: string) {
   if (axios.isAxiosError(err)) {
+    if (err.response?.status === 404) {
+      return '404: Service endpoint not found'
+    }
     const body = err.response?.data as { error?: string; details?: Record<string, string[]> } | undefined
     if (body?.details) {
       const first = Object.values(body.details).flat()[0]

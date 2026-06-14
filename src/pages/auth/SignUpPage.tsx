@@ -7,6 +7,7 @@ import { AuthShell } from '@/components/auth/AuthShell'
 import { type AuthAudience } from '@/components/auth/AuthRoleToggle'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { signUpBusiness, signUpCustomer, getApiErrorMessage } from '@/lib/api'
 import { setSession } from '@/lib/auth'
 
@@ -133,9 +134,8 @@ export function SignUpPage() {
 
             <div className="space-y-2">
               <Label htmlFor="customer-password">Password</Label>
-              <Input
+              <PasswordInput
                 id="customer-password"
-                type="password"
                 autoComplete="new-password"
                 placeholder="Min 8 characters"
                 {...customerForm.register('password', { required: true, minLength: 8 })}
@@ -147,9 +147,8 @@ export function SignUpPage() {
 
             <div className="space-y-2">
               <Label htmlFor="customer-confirm">Confirm password</Label>
-              <Input
+              <PasswordInput
                 id="customer-confirm"
-                type="password"
                 autoComplete="new-password"
                 {...customerForm.register('confirmPassword', {
                   required: true,
@@ -209,9 +208,8 @@ export function SignUpPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 placeholder="Min 8 characters"
                 {...businessForm.register('password', { required: true, minLength: 8 })}
@@ -223,9 +221,8 @@ export function SignUpPage() {
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm password</Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 {...businessForm.register('confirmPassword', {
                   required: true,

@@ -3,6 +3,7 @@ import { HomePage } from '@/pages/HomePage'
 import { DemoLauncherPage } from '@/pages/DemoLauncherPage'
 import { SignInPage } from '@/pages/auth/SignInPage'
 import { SignUpPage } from '@/pages/auth/SignUpPage'
+import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
 import { OnboardingPage } from '@/pages/onboarding/OnboardingPage'
 import { SlugPage } from '@/pages/SlugPage'
 import { VendorLayout } from '@/pages/vendor/VendorLayout'
@@ -37,6 +38,7 @@ export function App() {
         <Route path="/demo" element={<DemoLauncherPage />} />
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/business/signin" element={<Navigate to="/signin" replace />} />
         <Route path="/business/signup" element={<Navigate to="/signup" replace />} />
         <Route

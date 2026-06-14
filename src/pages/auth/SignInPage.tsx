@@ -6,7 +6,8 @@ import { AuthShell } from '@/components/auth/AuthShell'
 import { type AuthAudience } from '@/components/auth/AuthRoleToggle'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
-import { signInBusiness, signInCustomer } from '@/lib/api'
+import { PasswordInput } from '@/components/ui/password-input'
+import { signInBusiness, signInCustomer, getApiErrorMessage } from '@/lib/api'
 import { setSession } from '@/lib/auth'
 
 interface BusinessSignInForm {
@@ -43,7 +44,12 @@ export function SignInPage() {
       })
       navigate(data.onboarded === false ? '/onboarding' : from, { replace: true })
     },
-    onError: () => setError('Invalid email or password. Please try again.'),
+    onError: (err) => {
+      const msg = getApiErrorMessage(err, 'Invalid email or password. Please try again.')
+      setError(msg.includes('404') || msg.toLowerCase().includes('not found')
+        ? 'Sign-in service is unavailable. The server may need an update — try again later or contact support.'
+        : msg)
+    },
   })
 
   const customerMutation = useMutation({
@@ -58,7 +64,12 @@ export function SignInPage() {
       })
       navigate(from.startsWith('/customer') ? from : '/customer', { replace: true })
     },
-    onError: () => setError('Invalid email or password. Please try again.'),
+    onError: (err) => {
+      const msg = getApiErrorMessage(err, 'Invalid email or password. Please try again.')
+      setError(msg.includes('404') || msg.toLowerCase().includes('not found')
+        ? 'Customer sign-in is unavailable. The server may need an update — try again later.'
+        : msg)
+    },
   })
 
   const isPending = businessMutation.isPending || customerMutation.isPending
@@ -97,10 +108,17 @@ export function SignInPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="customer-password">Password</Label>
-              <Input
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="customer-password">Password</Label>
+                <Link
+                  to="/forgot-password?role=customer"
+                  className="text-xs font-semibold text-v-purple hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <PasswordInput
                 id="customer-password"
-                type="password"
                 autoComplete="current-password"
                 {...customerForm.register('password', { required: 'Password is required' })}
               />
@@ -149,10 +167,17 @@ export function SignInPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  to="/forgot-password?role=business"
+                  className="text-xs font-semibold text-v-purple hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="current-password"
                 {...businessForm.register('password', { required: 'Password is required' })}
               />
