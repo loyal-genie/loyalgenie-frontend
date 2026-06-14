@@ -52,13 +52,19 @@ npm run preview
 
 ## Git
 
-Org repo — run git commands from this folder:
+This folder **is its own git repo**. Always `cd` here before any git command — the parent `loyal-genie/` folder has no `.git`.
 
 ```bash
+cd frontend
+git status                    # expect: ## main...origin/main
 git pull origin main
 git add .
 git commit -m "your message"
 git push origin main
 ```
 
-Remote: `git@github.com-personal:loyal-genie/loyalgenie-frontend.git`
+| What | Value |
+|------|-------|
+| Branch | `main` → tracks `origin/main` |
+| Remote | `git@github.com-personal:loyal-genie/loyalgenie-frontend.git` |
+| Deploy | Vercel pulls from this repo |
