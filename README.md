@@ -60,4 +60,4 @@ git commit -m "your message"
 git push -u origin main
 ```
 
-Remote: `git@github.com-personal:v-a-dinesh/loyalgenie-frontend.git`
+Remote: `git@github.com-personal:loyal-genie/loyalgenie-frontend.git`
