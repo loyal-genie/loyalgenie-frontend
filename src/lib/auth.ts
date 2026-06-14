@@ -1,10 +1,15 @@
 const TOKEN_KEY = 'lg_token'
 const USER_KEY = 'lg_user'
 
+export type UserRole = 'business' | 'customer'
+
 export interface StoredUser {
   userId: string
   email: string
-  onboarded: boolean
+  role: UserRole
+  onboarded?: boolean
+  name?: string
+  phone?: string
 }
 
 export function getToken(): string | null {
@@ -15,7 +20,9 @@ export function getUser(): StoredUser | null {
   const raw = localStorage.getItem(USER_KEY)
   if (!raw) return null
   try {
-    return JSON.parse(raw) as StoredUser
+    const parsed = JSON.parse(raw) as StoredUser
+    if (!parsed.role) parsed.role = 'business'
+    return parsed
   } catch {
     return null
   }
@@ -33,4 +40,14 @@ export function clearSession() {
 
 export function isAuthenticated() {
   return Boolean(getToken())
+}
+
+export function isCustomerAuthenticated() {
+  const user = getUser()
+  return Boolean(getToken() && user?.role === 'customer')
+}
+
+export function isBusinessAuthenticated() {
+  const user = getUser()
+  return Boolean(getToken() && user?.role === 'business')
 }

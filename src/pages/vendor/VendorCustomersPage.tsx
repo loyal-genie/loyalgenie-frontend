@@ -1,57 +1,268 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { SegmentBadge } from '@/components/ui/badge'
+import { motion } from 'framer-motion'
+import { Search, Crown, TrendingUp, Clock, Users, Activity, Gift, Gamepad2, CheckCircle2 } from 'lucide-react'
+import { Card } from '@/components/ui/card'
 import { customers } from '@/lib/mock-data'
+import { formatRelativeTime } from '@/lib/utils'
 import type { Customer } from '@/lib/types'
 
-function getSegment(c: Customer) {
-  const days = Math.floor((Date.now() - new Date(c.lastVisit).getTime()) / 86400000)
-  if (days > 45) return 'inactive'
-  if (days > 14) return 'at-risk'
-  if (c.totalVisits >= 15) return 'loyalist'
+// ── Segment logic ─────────────────────────────────────────────────────────────
+const TODAY_DATE = new Date('2026-06-13')
+function daysSince(iso: string) {
+  return Math.floor((TODAY_DATE.getTime() - new Date(iso).getTime()) / 86400000)
+}
+
+type Segment = 'loyalist' | 'regular' | 'at-risk' | 'inactive'
+
+function getSegment(c: Customer): Segment {
+  const days  = daysSince(c.lastVisit)
+  const visits = c.totalVisits
+  if (days > 45)  return 'inactive'
+  if (days > 14)  return 'at-risk'
+  if (visits >= 15) return 'loyalist'
   return 'regular'
 }
 
+const SEGMENTS: { key: Segment | 'all'; label: string; icon: React.ReactNode; color: string; bg: string; border: string }[] = [
+  { key: 'all',      label: 'All',      icon: <Users className="w-3.5 h-3.5" />,     color: '#6B68A8', bg: 'bg-v-surface-2',   border: 'border-v-border' },
+  { key: 'loyalist', label: 'Loyalists', icon: <Crown className="w-3.5 h-3.5" />,     color: '#B45309', bg: 'bg-amber-50',       border: 'border-amber-200' },
+  { key: 'regular',  label: 'Regulars',  icon: <TrendingUp className="w-3.5 h-3.5" />, color: '#1D4ED8', bg: 'bg-blue-50',        border: 'border-blue-200' },
+  { key: 'at-risk',  label: 'At-Risk',   icon: <Clock className="w-3.5 h-3.5" />,      color: '#C2410C', bg: 'bg-orange-50',      border: 'border-orange-200' },
+  { key: 'inactive', label: 'Inactive',  icon: null,                                    color: '#6B7280', bg: 'bg-gray-50',        border: 'border-gray-200' },
+]
+
+const BADGE: Record<Segment, { label: string; className: string }> = {
+  loyalist: { label: 'Loyalist', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
+  regular:  { label: 'Regular',  className: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  'at-risk':{ label: 'At-Risk',  className: 'bg-orange-100 text-orange-700 border border-orange-200' },
+  inactive: { label: 'Inactive', className: 'bg-gray-100 text-gray-500 border border-gray-200' },
+}
+
+// ── Visit-window filter ───────────────────────────────────────────────────────
+type VisitWindow = 'all' | '7d' | '30d' | '3m' | '1y'
+
+const VISIT_WINDOWS: { key: VisitWindow; label: string; days: number | null }[] = [
+  { key: 'all', label: 'All time',  days: null },
+  { key: '7d',  label: '7 Days',    days: 7    },
+  { key: '30d', label: 'Month',     days: 30   },
+  { key: '3m',  label: '3 Months',  days: 90   },
+  { key: '1y',  label: 'Year',      days: 365  },
+]
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export function VendorCustomersPage() {
+  const [search,      setSearch]      = useState('')
+  const [segment,     setSegment]     = useState<Segment | 'all'>('all')
+  const [visitWindow, setVisitWindow] = useState<VisitWindow>('all')
+
+  const withSegments = customers.map(c => ({ ...c, segment: getSegment(c) }))
+
+  // Segment counts are always based on full data (not affected by visit window)
+  const counts: Record<Segment | 'all', number> = {
+    all:      withSegments.length,
+    loyalist: withSegments.filter(c => c.segment === 'loyalist').length,
+    regular:  withSegments.filter(c => c.segment === 'regular').length,
+    'at-risk':withSegments.filter(c => c.segment === 'at-risk').length,
+    inactive: withSegments.filter(c => c.segment === 'inactive').length,
+  }
+
+  const windowDays = VISIT_WINDOWS.find(w => w.key === visitWindow)?.days ?? null
+
+  const filtered = withSegments.filter(c => {
+    const matchSeg    = segment === 'all' || c.segment === segment
+    const q           = search.toLowerCase()
+    const matchSearch = !q || c.name.toLowerCase().includes(q) || c.phone.includes(q)
+    const matchVisit  = windowDays === null || daysSince(c.lastVisit) <= windowDays
+    return matchSeg && matchSearch && matchVisit
+  })
+
+  const isFiltered = segment !== 'all' || visitWindow !== 'all' || search.length > 0
+
+  const winRate = (c: Customer) =>
+    c.gamesPlayed > 0 ? Math.round((c.rewardsEarned / c.gamesPlayed) * 100) : 0
+
+  // ── Summary stats — scoped to the selected visit window ───────────────────────
+  const windowCohort = customers.filter(c =>
+    windowDays === null || daysSince(c.lastVisit) <= windowDays
+  )
+  const statTotalCustomers = windowCohort.length
+  const statCheckIns       = windowCohort.reduce((s, c) => s + c.totalVisits, 0)
+  const statGames          = windowCohort.reduce((s, c) => s + c.gamesPlayed, 0)
+  const statRewards        = windowCohort.reduce((s, c) => s + c.rewardsEarned, 0)
+  const statRedeemed       = windowCohort.reduce(
+    (s, c) => s + c.rewards.filter(r => r.status === 'redeemed').length, 0
+  )
+
+  const SUMMARY = [
+    { label: 'Total Customers',      value: statTotalCustomers, icon: <Users className="w-4 h-4" />,         color: 'text-v-purple',   bg: 'bg-purple-50',  border: 'border-purple-100' },
+    { label: 'Total Check-ins',      value: statCheckIns,       icon: <Activity className="w-4 h-4" />,      color: 'text-blue-600',   bg: 'bg-blue-50',    border: 'border-blue-100' },
+    { label: 'Games Played',         value: statGames,          icon: <Gamepad2 className="w-4 h-4" />,      color: 'text-indigo-600', bg: 'bg-indigo-50',  border: 'border-indigo-100' },
+    { label: 'Rewards Earned',       value: statRewards,        icon: <Gift className="w-4 h-4" />,          color: 'text-amber-600',  bg: 'bg-amber-50',   border: 'border-amber-100' },
+    { label: 'Redeemed',             value: statRedeemed,       icon: <CheckCircle2 className="w-4 h-4" />,  color: 'text-green-600',  bg: 'bg-green-50',   border: 'border-green-100' },
+  ]
+
   return (
-    <div className="p-6 lg:p-8 max-w-6xl space-y-6">
-      <div>
+    <div className="p-8 max-w-5xl">
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <h1 className="text-2xl font-extrabold text-v-text">Customers</h1>
-        <p className="text-v-text-2 text-sm mt-1">{customers.length} customers in your loyalty program</p>
-      </div>
+        <p className="text-v-text-2 text-sm mt-1">
+          {isFiltered ? `${filtered.length} of ${customers.length}` : customers.length} registered
+        </p>
+      </motion.div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-v-text-3" />
-        <Input placeholder="Search by name or phone..." className="pl-10" />
-      </div>
+      {/* Visit-window filter — drives stat cards + list */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.03 }}
+        className="flex items-center gap-1 bg-v-surface-2 border border-v-border rounded-xl p-1 w-fit mb-5">
+        {VISIT_WINDOWS.map(w => (
+          <button key={w.key} onClick={() => setVisitWindow(w.key)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${visitWindow === w.key ? 'bg-white text-v-text shadow-sm border border-v-border' : 'text-v-text-3 hover:text-v-text-2'}`}>
+            {w.label}
+          </button>
+        ))}
+      </motion.div>
 
-      <div className="vendor-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-v-border bg-v-surface-2">
-              <th className="text-left p-4 font-semibold text-v-text-2">Customer</th>
-              <th className="text-left p-4 font-semibold text-v-text-2 hidden sm:table-cell">Visits</th>
-              <th className="text-left p-4 font-semibold text-v-text-2 hidden md:table-cell">Last Visit</th>
-              <th className="text-left p-4 font-semibold text-v-text-2">Segment</th>
-            </tr>
-          </thead>
-          <tbody>
-            {customers.map((c) => (
-              <tr key={c.id} className="border-b border-v-border last:border-0 hover:bg-v-surface-2/50">
-                <td className="p-4">
-                  <Link to={`/vendor/customers/${c.id}`} className="no-underline">
-                    <p className="font-semibold text-v-text hover:text-v-purple">{c.name}</p>
-                    <p className="text-xs text-v-text-3">{c.phone}</p>
-                  </Link>
-                </td>
-                <td className="p-4 text-v-text hidden sm:table-cell">{c.totalVisits}</td>
-                <td className="p-4 text-v-text-2 text-xs hidden md:table-cell">{c.lastVisit}</td>
-                <td className="p-4"><SegmentBadge segment={getSegment(c)} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Summary stat cards */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.04 }}
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-7"
+      >
+        {SUMMARY.map((s, i) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 + i * 0.04 }}
+          >
+            <Card className={`p-4 border ${s.border} ${s.bg} flex flex-col gap-2`}>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center bg-white shadow-sm ${s.color}`}>
+                {s.icon}
+              </div>
+              <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
+              <div className="text-[11px] font-medium text-v-text-3 leading-tight">{s.label}</div>
+            </Card>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Segment filter tabs */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="flex flex-wrap gap-2 mb-6">
+        {SEGMENTS.map(seg => {
+          const active = segment === seg.key
+          return (
+            <button
+              key={seg.key}
+              onClick={() => setSegment(seg.key)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-xs font-semibold transition-all ${
+                active
+                  ? `${seg.bg} ${seg.border} border-2`
+                  : 'bg-white border-v-border text-v-text-3 hover:border-v-border-b hover:text-v-text-2'
+              }`}
+              style={active ? { color: seg.color } : {}}
+            >
+              {seg.icon}
+              {seg.label}
+              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${active ? '' : 'bg-v-surface-2 text-v-text-3'}`}
+                style={active ? { background: `${seg.color}18`, color: seg.color } : {}}>
+                {counts[seg.key]}
+              </span>
+            </button>
+          )
+        })}
+      </motion.div>
+
+      {/* Search row */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}
+        className="flex items-center gap-3 mb-5 flex-wrap">
+        <div className="relative flex-1 min-w-48 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-v-text-3" />
+          <input
+            type="text"
+            placeholder="Search by name or phone…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-v-surface border border-v-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple transition-all"
+          />
+        </div>
+
+        {/* Clear all filters */}
+        {isFiltered && (
+          <button onClick={() => { setSegment('all'); setVisitWindow('all'); setSearch('') }}
+            className="text-xs text-v-purple font-semibold hover:underline shrink-0">
+            Clear filters
+          </button>
+        )}
+      </motion.div>
+
+      {/* List */}
+      <div className="space-y-2">
+        {filtered.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-3">🔍</div>
+            <p className="text-sm font-semibold text-v-text-2">No customers match</p>
+            <p className="text-xs text-v-text-3 mt-1">Try a different segment or visit window</p>
+            {isFiltered && (
+              <button onClick={() => { setSegment('all'); setVisitWindow('all'); setSearch('') }}
+                className="mt-3 text-xs text-v-purple font-semibold hover:underline">
+                Clear all filters
+              </button>
+            )}
+          </div>
+        )}
+        {filtered.map((c, i) => {
+          const badge = BADGE[c.segment]
+          const days  = daysSince(c.lastVisit)
+          const rate  = winRate(c)
+          return (
+            <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+              <Link to={`/vendor/customers/${c.id}`}>
+                <Card hover className="px-5 py-4">
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-full bg-v-purple/20 border border-v-purple/30 flex items-center justify-center text-base font-extrabold text-v-purple shrink-0">
+                      {c.name[0]}
+                    </div>
+
+                    {/* Name + meta */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-v-text">{c.name}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-v-text-3 mt-0.5">{c.phone} · Joined {formatRelativeTime(c.joinedAt)}</p>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="hidden md:flex items-center gap-7 text-right shrink-0">
+                      <div>
+                        <div className="text-sm font-bold text-v-text">{c.totalVisits}</div>
+                        <div className="text-[10px] text-v-text-3">Visits</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-v-text">{c.gamesPlayed}</div>
+                        <div className="text-[10px] text-v-text-3">Games</div>
+                      </div>
+                      <div>
+                        <div className={`text-sm font-bold ${rate >= 50 ? 'text-v-success' : rate > 0 ? 'text-v-gold' : 'text-v-text-3'}`}>{rate}%</div>
+                        <div className="text-[10px] text-v-text-3">Win rate</div>
+                      </div>
+                      <div>
+                        <div className={`text-sm font-bold ${days > 45 ? 'text-gray-400' : days > 14 ? 'text-orange-500' : 'text-v-text'}`}>
+                          {days === 0 ? 'Today' : `${days}d ago`}
+                        </div>
+                        <div className="text-[10px] text-v-text-3">Last visit</div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            </motion.div>
+          )
+        })}
       </div>
     </div>
   )

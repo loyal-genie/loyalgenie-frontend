@@ -20,6 +20,9 @@ export interface AuthUser {
   token: string
   userId: string
   email: string
+  role?: 'business' | 'customer'
+  name?: string
+  phone?: string
   onboarded?: boolean
 }
 
@@ -35,6 +38,27 @@ export async function signUpBusiness(email: string, password: string) {
   const { data } = await api.post<{ success: boolean; data: AuthUser }>(
     '/auth/business/signup',
     { email, password },
+  )
+  return data.data
+}
+
+export async function signInCustomer(email: string, password: string) {
+  const { data } = await api.post<{ success: boolean; data: AuthUser }>(
+    '/auth/customer/signin',
+    { email, password },
+  )
+  return data.data
+}
+
+export async function signUpCustomer(payload: {
+  name: string
+  phone: string
+  email: string
+  password: string
+}) {
+  const { data } = await api.post<{ success: boolean; data: AuthUser }>(
+    '/auth/customer/signup',
+    payload,
   )
   return data.data
 }

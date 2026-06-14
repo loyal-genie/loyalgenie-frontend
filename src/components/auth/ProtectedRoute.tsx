@@ -1,10 +1,23 @@
 import { Navigate, useLocation } from 'react-router-dom'
-import { isAuthenticated } from '@/lib/auth'
+import { isAuthenticated, getUser, type UserRole } from '@/lib/auth'
 
-export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+interface ProtectedRouteProps {
+  children: React.ReactNode
+  role?: UserRole
+}
+
+export function ProtectedRoute({ children, role = 'business' }: ProtectedRouteProps) {
   const location = useLocation()
-  if (!isAuthenticated()) {
-    return <Navigate to="/signin" state={{ from: location }} replace />
+  const user = getUser()
+
+  if (!isAuthenticated() || !user) {
+    const signinPath = role === 'customer' ? '/signin?role=customer' : '/signin'
+    return <Navigate to={signinPath} state={{ from: location }} replace />
   }
+
+  if (user.role !== role) {
+    return <Navigate to={user.role === 'customer' ? '/customer' : '/vendor/dashboard'} replace />
+  }
+
   return <>{children}</>
 }

@@ -131,10 +131,11 @@ export function OnboardingPage() {
         setSession(data.token, {
           userId: user?.userId ?? '',
           email: form.email,
+          role: 'business',
           onboarded: true,
         })
       } else if (user && getToken()) {
-        setSession(getToken()!, { ...user, onboarded: true })
+        setSession(getToken()!, { ...user, role: 'business', onboarded: true })
       }
       setQrResult(data)
       setStep(formStepsTotal)
