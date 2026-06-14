@@ -1,7 +1,6 @@
 'use client'
 
 import { BUSINESS_BENEFITS, BUSINESS_TYPES, STANDEE_FLOW } from '@/content/for-businesses'
-import Image from 'next/image'
 
 export default function ForBusinesses() {
   return (
@@ -112,11 +111,10 @@ export default function ForBusinesses() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/standee.png"
               alt="LoyalGenie Standee"
-              width={220}
-              height={380}
               style={{
                 height: '380px',
                 width: 'auto',
