@@ -11,13 +11,13 @@ const modules: { Icon: LucideIcon; name: string; desc: string; color: string }[]
 export function AppPreview() {
   return (
     <section className="section-main bg-bg-card/20 border-t border-gold/5">
-      <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-        <div>
+      <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-10 sm:gap-12 lg:gap-20 items-center">
+        <div className="text-center lg:text-left">
           <SectionBadge>THE CUSTOMER APP</SectionBadge>
-          <h2 className="text-[clamp(28px,3.5vw,44px)] font-black text-white tracking-tight leading-tight mb-4">
+          <h2 className="text-[clamp(24px,5vw,44px)] font-black text-white tracking-tight leading-tight mb-3 sm:mb-4">
             Everything in one <span className="text-gold">magical app</span>
           </h2>
-          <p className="text-muted text-base leading-relaxed mb-10">
+          <p className="text-muted text-[15px] sm:text-base leading-relaxed mb-8 sm:mb-10 max-w-lg mx-auto lg:mx-0">
             Customers scan once, download the app, and enter a world of rewards across every LoyalGenie-powered business.
           </p>
           <div className="flex flex-col gap-4">

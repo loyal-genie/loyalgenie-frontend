@@ -34,13 +34,13 @@ export function InfoModal({ content, onClose }: InfoModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center p-6"
+      className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-4 sm:p-6"
       style={{ background: 'rgba(10,5,32,0.88)', backdropFilter: 'blur(10px)' }}
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="w-full max-w-[580px] rounded-3xl p-8 sm:p-9 relative max-h-[88vh] overflow-y-auto"
+        className="w-full max-w-[580px] rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 md:p-9 relative max-h-[90vh] sm:max-h-[88vh] overflow-y-auto"
         style={{
           background: 'rgba(18,8,50,0.98)',
           border: '1px solid rgba(240,192,64,0.28)',

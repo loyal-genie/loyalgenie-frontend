@@ -79,12 +79,12 @@ export function HowItWorks() {
   return (
     <section id="how-it-works" className="section-main">
       <div className="max-w-6xl mx-auto">
-        <header className="text-center mb-16">
+        <header className="text-center mb-10 sm:mb-16">
           <SectionBadge>HOW IT WORKS</SectionBadge>
-          <h2 className="text-[clamp(32px,4vw,50px)] font-black text-white tracking-tight leading-tight mb-4">
+          <h2 className="text-[clamp(26px,5.5vw,50px)] font-black text-white tracking-tight leading-tight mb-3 sm:mb-4">
             Up and running in <span className="text-gold">under 10 minutes</span>
           </h2>
-          <p className="text-muted text-lg max-w-lg mx-auto leading-relaxed">
+          <p className="text-muted text-base sm:text-lg max-w-lg mx-auto leading-relaxed px-1">
             No developers. No complex setup. Just a standee, a QR code, and delighted customers.
           </p>
         </header>
@@ -117,7 +117,7 @@ function StepCard({
   onLearnMore: () => void
 }) {
   return (
-    <div className="card-glass p-8 relative flex flex-col">
+    <div className="card-glass p-6 sm:p-8 relative flex flex-col">
       <div className="absolute -top-2 -right-2 text-[80px] font-black text-white/[0.03] leading-none select-none pointer-events-none">
         {step.step}
       </div>

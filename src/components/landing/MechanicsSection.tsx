@@ -10,12 +10,12 @@ export function MechanicsSection() {
   return (
     <section id="mechanics" className="section-main bg-bg-card/25 border-y border-gold/5">
       <div className="max-w-6xl mx-auto">
-        <header className="text-center mb-16">
+        <header className="text-center mb-10 sm:mb-16">
           <SectionBadge>8 ENGAGEMENT MECHANICS</SectionBadge>
-          <h2 className="text-[clamp(32px,4vw,50px)] font-black text-white tracking-tight leading-tight mb-4">
+          <h2 className="text-[clamp(26px,5.5vw,50px)] font-black text-white tracking-tight leading-tight mb-3 sm:mb-4">
             Every visit is a <span className="text-gold">new adventure</span>
           </h2>
-          <p className="text-muted text-lg max-w-lg mx-auto leading-relaxed">
+          <p className="text-muted text-base sm:text-lg max-w-lg mx-auto leading-relaxed px-1">
             Mix and match mechanics to keep your customers guessing, engaged, and always coming back for more.
           </p>
         </header>
@@ -30,7 +30,7 @@ export function MechanicsSection() {
                 tabIndex={0}
                 onClick={() => setActive(i)}
                 onKeyDown={(e) => e.key === 'Enter' && setActive(i)}
-                className="text-left rounded-[20px] p-7 relative overflow-hidden flex flex-col cursor-pointer transition-all duration-350 backdrop-blur-md"
+                className="text-left rounded-[20px] p-5 sm:p-7 relative overflow-hidden flex flex-col cursor-pointer transition-all duration-350 backdrop-blur-md"
                 style={{
                   background: isActive ? m.gradient : 'rgba(26,11,75,0.5)',
                   border: isActive ? '1px solid rgba(240,192,64,0.4)' : '1px solid rgba(240,192,64,0.1)',

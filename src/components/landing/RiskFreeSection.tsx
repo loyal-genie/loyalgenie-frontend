@@ -28,13 +28,13 @@ export function RiskFreeSection() {
   return (
     <section className="section-main border-t border-gold/5">
       <div className="max-w-6xl mx-auto">
-        <header className="text-center mb-14">
+        <header className="text-center mb-10 sm:mb-14">
           <SectionBadge>ZERO RISK. REAL UPSIDE.</SectionBadge>
-          <h2 className="text-[clamp(32px,4vw,52px)] font-black text-white tracking-tight leading-[1.15] mb-4">
+          <h2 className="text-[clamp(26px,5.5vw,52px)] font-black text-white tracking-tight leading-[1.15] mb-3 sm:mb-4">
             Try it free.{' '}
             <span className="text-gold">Pay only when<br className="hidden sm:block" /> you see it working.</span>
           </h2>
-          <p className="text-muted text-lg max-w-xl mx-auto leading-relaxed">
+          <p className="text-muted text-base sm:text-lg max-w-xl mx-auto leading-relaxed px-1">
             No commitment. No credit card. No leap of faith. Run LoyalGenie for 30 days, watch what happens to your regulars — and only then decide.
           </p>
         </header>
@@ -109,7 +109,7 @@ export function RiskFreeSection() {
         </div>
 
         <div
-          className="rounded-2xl px-6 py-6 flex flex-wrap justify-center gap-x-8 gap-y-3"
+          className="rounded-2xl px-4 sm:px-6 py-5 sm:py-6 flex flex-col sm:flex-row flex-wrap justify-center gap-x-6 sm:gap-x-8 gap-y-3"
           style={{ background: 'rgba(26,11,75,0.3)', border: '1px solid rgba(240,192,64,0.15)' }}
         >
           {guarantees.map((g) => (

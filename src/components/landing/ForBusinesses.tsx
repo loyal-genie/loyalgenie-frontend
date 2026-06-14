@@ -21,12 +21,12 @@ export function ForBusinesses() {
   return (
     <section id="for-business" className="section-main">
       <div className="max-w-6xl mx-auto">
-        <header className="text-center mb-16">
+        <header className="text-center mb-10 sm:mb-16">
           <SectionBadge>FOR YOUR BUSINESS</SectionBadge>
-          <h2 className="text-[clamp(32px,4vw,50px)] font-black text-white tracking-tight leading-tight mb-4">
+          <h2 className="text-[clamp(26px,5.5vw,50px)] font-black text-white tracking-tight leading-tight mb-3 sm:mb-4">
             What Starbucks has, <span className="text-gold">you can have too</span>
           </h2>
-          <p className="text-muted text-lg max-w-lg mx-auto leading-relaxed mb-9">
+          <p className="text-muted text-base sm:text-lg max-w-lg mx-auto leading-relaxed mb-7 sm:mb-9 px-1">
             Big brands know exactly who their regulars are, when they drift, and how to bring them back. LoyalGenie gives you the same power.
           </p>
           <div className="flex flex-wrap gap-2.5 justify-center">
@@ -40,7 +40,7 @@ export function ForBusinesses() {
 
         <div className="benefit-grid grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {benefits.map((b) => (
-            <div key={b.title} className="card-glass p-8">
+            <div key={b.title} className="card-glass p-6 sm:p-8">
               <div className="w-[52px] h-[52px] rounded-2xl border border-gold/20 bg-gold/10 flex items-center justify-center mb-5">
                 <b.Icon size={22} color="#f0c040" strokeWidth={1.75} />
               </div>
@@ -59,16 +59,18 @@ export function ForBusinesses() {
             <p className="text-muted text-base leading-relaxed mb-8">
               Place it on your counter. Customers see it. They scan. They play. You get their contact, their loyalty, and their return visit — automatically.
             </p>
-            <div className="flex items-start gap-2">
+            <div className="flex flex-wrap items-start justify-center sm:justify-start gap-3 sm:gap-2">
               {standeeFlow.map((f, i) => (
                 <div key={f.label} className="flex items-start">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-xl border border-gold/25 bg-gold/10 flex items-center justify-center">
-                      <f.Icon size={22} color="#f0c040" strokeWidth={1.75} />
+                  <div className="flex flex-col items-center gap-2 min-w-[72px]">
+                    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl border border-gold/25 bg-gold/10 flex items-center justify-center">
+                      <f.Icon size={20} color="#f0c040" strokeWidth={1.75} />
                     </div>
-                    <span className="text-gold text-xs font-semibold">{f.label}</span>
+                    <span className="text-gold text-[11px] sm:text-xs font-semibold text-center">{f.label}</span>
                   </div>
-                  {i < standeeFlow.length - 1 && <span className="text-gold/40 text-lg px-3 leading-[48px]">→</span>}
+                  {i < standeeFlow.length - 1 && (
+                    <span className="text-gold/40 text-base sm:text-lg px-1.5 sm:px-3 leading-[44px] sm:leading-[48px]">→</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -77,7 +79,7 @@ export function ForBusinesses() {
             <img
               src="/standee.png"
               alt="LoyalGenie Standee"
-              className="h-72 lg:h-96 object-contain animate-float drop-shadow-[0_20px_60px_rgba(107,63,212,0.5)]"
+              className="h-56 sm:h-72 lg:h-96 object-contain animate-float drop-shadow-[0_20px_60px_rgba(107,63,212,0.5)] max-w-full"
             />
           </div>
         </div>

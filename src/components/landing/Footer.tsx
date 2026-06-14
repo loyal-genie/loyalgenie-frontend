@@ -10,7 +10,7 @@ const footerLinks = [
 export function Footer() {
   return (
     <footer
-      className="footer-main px-5 md:px-12 lg:px-20 py-12 flex flex-col lg:flex-row justify-between items-center gap-6 text-center lg:text-left"
+      className="footer-main px-6 sm:px-8 md:px-12 lg:px-20 py-10 sm:py-12 flex flex-col lg:flex-row justify-between items-center gap-5 sm:gap-6 text-center lg:text-left"
       style={{ background: '#060318', borderTop: '1px solid rgba(240,192,64,0.08)' }}
     >
       <div className="flex items-center gap-3">
@@ -29,7 +29,7 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-8 justify-center">
+      <div className="flex flex-wrap gap-5 sm:gap-8 justify-center">
         {footerLinks.map((link) =>
           link.isRoute ? (
             <Link
