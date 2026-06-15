@@ -99,9 +99,9 @@ export function RewardPoolEditor({ rewards, setRewards, compact, shareMode, read
                 {!compact && <input className="w-full bg-v-surface-2 border border-v-border rounded-lg px-2.5 py-1.5 text-xs text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Description (optional)" value={r.description} onChange={e => update(r.id, 'description', e.target.value)} />}
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-v-text-3 shrink-0">{shareMode ? 'Share:' : 'Win %:'}</span>
-                  <input type="range" min={1} max={99} value={r.probability} onChange={e => update(r.id, 'probability', Number(e.target.value))} className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-v-purple [&::-webkit-slider-thumb]:cursor-pointer" style={{ accentColor: '#7C3AED' }} />
+                  <input type="range" min={1} max={100} value={r.probability} onChange={e => update(r.id, 'probability', Number(e.target.value))} className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-v-purple [&::-webkit-slider-thumb]:cursor-pointer" style={{ accentColor: '#7C3AED' }} />
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <input type="number" min={1} max={99} value={r.probability} onChange={e => update(r.id, 'probability', Math.min(99, Math.max(1, Number(e.target.value))))} className="w-11 bg-white border border-v-border rounded-lg px-1.5 py-1 text-xs text-v-text text-center focus:outline-none focus:border-v-purple" />
+                    <input type="number" min={1} max={100} value={r.probability} onChange={e => update(r.id, 'probability', Math.min(100, Math.max(1, Number(e.target.value))))} className="w-11 bg-white border border-v-border rounded-lg px-1.5 py-1 text-xs text-v-text text-center focus:outline-none focus:border-v-purple" />
                     <span className="text-xs text-v-text-2">%</span>
                   </div>
                 </div>

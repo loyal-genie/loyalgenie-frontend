@@ -46,12 +46,46 @@ export function isAuthenticated() {
   return Boolean(getToken())
 }
 
-export function isCustomerAuthenticated() {
+interface TokenClaims {
+  role: UserRole
+  exp: number
+  sub: string
+}
+
+/** Decode JWT payload (client-side only — server still verifies signature). */
+export function getTokenClaims(): TokenClaims | null {
+  const token = getToken()
+  if (!token) return null
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1] ?? '')) as {
+      sub?: string
+      type?: string
+      exp?: number
+    }
+    if (!payload.sub || !payload.exp) return null
+    return {
+      sub: payload.sub,
+      exp: payload.exp,
+      role: payload.type === 'customer' ? 'customer' : 'business',
+    }
+  } catch {
+    return null
+  }
+}
+
+/** True when token exists, is not expired, and matches the expected app role. */
+export function isSessionValidForRole(role: UserRole): boolean {
   const user = getUser()
-  return Boolean(getToken() && user?.role === 'customer')
+  const claims = getTokenClaims()
+  if (!user || !claims) return false
+  if (user.role !== role || claims.role !== role) return false
+  return Date.now() < claims.exp * 1000
+}
+
+export function isCustomerAuthenticated() {
+  return isSessionValidForRole('customer')
 }
 
 export function isBusinessAuthenticated() {
-  const user = getUser()
-  return Boolean(getToken() && user?.role === 'business')
+  return isSessionValidForRole('business')
 }

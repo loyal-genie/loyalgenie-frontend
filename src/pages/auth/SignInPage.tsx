@@ -26,8 +26,11 @@ export function SignInPage() {
   const [searchParams] = useSearchParams()
   const initialRole = (searchParams.get('role') === 'customer' ? 'customer' : 'business') as AuthAudience
   const [audience, setAudience] = useState<AuthAudience>(initialRole)
+  const sessionReason = searchParams.get('reason')
   const [error, setError] = useState('')
+  const fromQuery = searchParams.get('from')
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname
+    ?? (fromQuery && fromQuery.startsWith('/') ? fromQuery : null)
     ?? (audience === 'customer' ? '/customer' : '/vendor/dashboard')
 
   const businessForm = useForm<BusinessSignInForm>()
@@ -84,6 +87,16 @@ export function SignInPage() {
         setError('')
       }}
     >
+      {sessionReason === 'session_expired' && (
+        <p className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          Your session expired. Sign in again to continue playing.
+        </p>
+      )}
+      {sessionReason === 'wrong_role' && (
+        <p className="mb-4 text-sm text-purple-800 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
+          This area requires a {audience === 'customer' ? 'customer' : 'business'} account. Sign in with the correct account type.
+        </p>
+      )}
       {audience === 'customer' ? (
         <>
           <form

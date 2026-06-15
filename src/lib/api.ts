@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getToken } from './auth'
+import { clearSession, getToken } from './auth'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
 
@@ -8,13 +8,53 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-api.interceptors.request.use((config) => {
+function attachAuthHeader(config: import('axios').InternalAxiosRequestConfig) {
   const token = getToken()
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+    if (typeof config.headers.set === 'function') {
+      config.headers.set('Authorization', `Bearer ${token}`)
+    } else {
+      config.headers.Authorization = `Bearer ${token}`
+    }
   }
   return config
-})
+}
+
+api.interceptors.request.use(attachAuthHeader)
+
+let handling401 = false
+
+const AUTH_401_MESSAGES = new Set([
+  'Authentication required',
+  'Invalid or expired token',
+])
+
+function isAuthFailure401(error: unknown): boolean {
+  if (!axios.isAxiosError(error) || error.response?.status !== 401) return false
+  const body = error.response.data as { error?: string } | undefined
+  const message = body?.error?.trim()
+  if (!message) return true
+  return AUTH_401_MESSAGES.has(message)
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (isAuthFailure401(error) && !handling401) {
+      const path = window.location.pathname
+      const onAuthPage = path.startsWith('/signin') || path.startsWith('/signup') || path.startsWith('/forgot-password')
+      if (!onAuthPage) {
+        handling401 = true
+        const isCustomerRoute = path.startsWith('/customer')
+        clearSession()
+        const params = new URLSearchParams({ reason: 'session_expired' })
+        if (isCustomerRoute) params.set('role', 'customer')
+        window.location.assign(`/signin?${params.toString()}`)
+      }
+    }
+    return Promise.reject(error)
+  },
+)
 
 export interface AuthUser {
   token: string
@@ -60,6 +100,20 @@ export async function signUpCustomer(payload: {
     '/auth/customer/signup',
     payload,
   )
+  return data.data
+}
+
+export interface AuthSession {
+  userId: string
+  email: string
+  role: 'business' | 'customer'
+  name?: string
+  phone?: string
+}
+
+/** Validates JWT with the server (not just local decode). */
+export async function fetchAuthSession() {
+  const { data } = await api.get<{ success: boolean; data: AuthSession }>('/auth/session')
   return data.data
 }
 
@@ -129,6 +183,13 @@ export async function fetchBusinessBySlug(slug: string) {
 
 export function getApiErrorMessage(err: unknown, fallback: string) {
   if (axios.isAxiosError(err)) {
+    if (err.response?.status === 401) {
+      const body = err.response.data as { error?: string } | undefined
+      if (body?.error && !['Authentication required', 'Invalid or expired token'].includes(body.error)) {
+        return body.error
+      }
+      return 'Your session expired. Please sign in again.'
+    }
     if (err.response?.status === 404) {
       return '404: Service endpoint not found'
     }
@@ -360,9 +421,15 @@ export async function fetchPublicCampaign(id: string) {
 }
 
 export async function verifyCampaignPin(campaignId: string, pin: string) {
+  const token = getToken()
+  if (!token) {
+    const err = new Error('NOT_AUTHENTICATED')
+    throw err
+  }
   const { data } = await api.post<{ success: boolean; data: { valid: boolean; playSessionToken: string } }>(
     `/campaigns/${campaignId}/verify-pin`,
     { pin },
+    { headers: { Authorization: `Bearer ${token}` } },
   )
   return data.data
 }

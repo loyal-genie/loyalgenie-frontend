@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { LivePIN } from '@/components/vendor/live-pin'
 import { useCampaign } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, formatDate, capPercent } from '@/lib/utils'
+import { effectiveCampaignStatus } from '@/lib/campaign-dates'
 import type { CampaignStatus } from '@/lib/types'
 
 export function VendorCampaignDetailPage() {
@@ -37,7 +38,8 @@ export function VendorCampaignDetailPage() {
   const redRate = campaign.rewardsClaimed > 0
     ? Math.round((campaign.redeemedCount / campaign.rewardsClaimed) * 100) : 0
 
-  const isActive = campaign.status === 'active'
+  const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate)
+  const isActive = status === 'active'
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -53,7 +55,7 @@ export function VendorCampaignDetailPage() {
             <div>
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <h1 className="text-xl font-extrabold text-v-text">{campaign.name}</h1>
-                <StatusBadge status={campaign.status as CampaignStatus} />
+                <StatusBadge status={status} />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <MechanicBadge mechanic={campaign.mechanic as 'shake'} />

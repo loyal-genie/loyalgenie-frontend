@@ -7,33 +7,21 @@ const CONFETTI_COLORS = ['#7C3AED', '#F5C518', '#EC4899', '#06B6D4', '#22C55E', 
 type ConfettiShape = { w: number; h: number }
 
 function getShape(i: number): ConfettiShape {
-  if (i % 3 === 0) return { w: 6, h: 4 }   // small rectangle
-  if (i % 3 === 1) return { w: 5, h: 5 }   // tiny square
-  return { w: 10, h: 2 }                    // thin strip
+  if (i % 3 === 0) return { w: 6, h: 4 }
+  if (i % 3 === 1) return { w: 5, h: 5 }
+  return { w: 10, h: 2 }
 }
 
 function Confetti() {
-  const wave1 = Array.from({ length: 40 }, (_, i) => ({
+  const pieces = Array.from({ length: 60 }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-    delay: Math.random() * 0.4,
-    duration: 2 + Math.random() * 2,
+    delay: Math.random() * 0.6,
+    duration: 2.2 + Math.random() * 2,
     rotate: Math.random() * 360,
     shape: getShape(i),
   }))
-
-  const wave2 = Array.from({ length: 40 }, (_, i) => ({
-    id: i + 40,
-    x: Math.random() * 100,
-    color: CONFETTI_COLORS[(i + 3) % CONFETTI_COLORS.length],
-    delay: 0.5 + Math.random() * 0.4,
-    duration: 2 + Math.random() * 2,
-    rotate: Math.random() * 360,
-    shape: getShape(i + 1),
-  }))
-
-  const pieces = [...wave1, ...wave2]
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -51,6 +39,25 @@ function Confetti() {
   )
 }
 
+function WinBurst() {
+  return (
+    <motion.div
+      className="absolute inset-0 pointer-events-none flex items-center justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: [0, 1, 0] }}
+      transition={{ duration: 1.2 }}
+    >
+      <motion.div
+        className="w-[120vw] h-[120vw] max-w-[32rem] max-h-[32rem] rounded-full"
+        style={{ background: 'radial-gradient(circle, rgba(245,197,24,0.35) 0%, transparent 65%)' }}
+        initial={{ scale: 0.2 }}
+        animate={{ scale: 1.4 }}
+        transition={{ duration: 1, ease: 'easeOut' }}
+      />
+    </motion.div>
+  )
+}
+
 interface WinCelebrationProps {
   reward: string
   emoji?: string
@@ -64,16 +71,17 @@ export function WinCelebration({ reward, emoji = '🎁', code, onClose }: WinCel
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center min-h-dvh px-4 sm:px-6"
       style={{ background: 'linear-gradient(145deg, #1A0545 0%, #2D1B69 45%, #0D0B1E 100%)' }}
     >
       <Confetti />
-      <div className="relative z-10 text-center px-8 w-full max-w-sm mx-auto">
+      <WinBurst />
+      <div className="relative z-10 text-center w-full max-w-sm mx-auto pb-[env(safe-area-inset-bottom)]">
         <motion.div
           initial={{ scale: 0, rotate: -20 }}
-          animate={{ scale: [0, 1.2, 1], rotate: [-20, 0] }}
-          transition={{ type: 'spring', stiffness: 300, damping: 16, delay: 0.1 }}
-          className="text-8xl mb-4 select-none"
+          animate={{ scale: [0, 1.25, 1], rotate: [-20, 0] }}
+          transition={{ type: 'spring', stiffness: 280, damping: 14, delay: 0.1 }}
+          className="text-6xl sm:text-8xl mb-3 sm:mb-4 select-none inline-block"
         >
           {emoji}
         </motion.div>
@@ -81,36 +89,48 @@ export function WinCelebration({ reward, emoji = '🎁', code, onClose }: WinCel
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.35 }}
         >
-          <p className="text-xs font-bold tracking-widest uppercase mb-2" style={{ color: '#F5C518' }}>
+          <motion.p
+            className="text-[10px] sm:text-xs font-bold tracking-widest uppercase mb-2"
+            style={{ color: '#F5C518' }}
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 0.8, repeat: Infinity }}
+          >
             🎉 YOU WON!
-          </p>
-          <h2 className="text-3xl font-extrabold text-white mb-1 text-glow-gold leading-tight">{reward}</h2>
-          <p className="text-sm text-white/60 mb-5">Added to your wallet</p>
+          </motion.p>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-1 text-glow-gold leading-tight px-2">
+            {reward}
+          </h2>
+          <p className="text-xs sm:text-sm text-white/60 mb-4 sm:mb-5">Added to your wallet</p>
 
-          {/* Reward code pill */}
-          <div className="inline-block bg-white/10 border border-white/20 rounded-xl px-5 py-2.5 mb-6">
-            <p className="text-[10px] text-white/40 uppercase tracking-widest mb-0.5">Reward Code</p>
-            <p className="font-mono text-lg font-bold text-white tracking-wider">{displayCode}</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5, type: 'spring' }}
+            className="inline-block bg-white/10 border border-white/20 rounded-xl px-4 sm:px-5 py-2 sm:py-2.5 mb-5 sm:mb-6 w-full max-w-[16rem]"
+          >
+            <p className="text-[9px] sm:text-[10px] text-white/40 uppercase tracking-widest mb-0.5">Reward Code</p>
+            <p className="font-mono text-base sm:text-lg font-bold text-white tracking-wider break-all">{displayCode}</p>
+          </motion.div>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="space-y-3"
+          transition={{ delay: 0.55 }}
+          className="space-y-2.5 sm:space-y-3"
         >
           <Link
             to="/customer/wallet"
-            className="block w-full py-4 rounded-2xl font-bold text-base text-center"
+            className="block w-full py-3.5 sm:py-4 rounded-2xl font-bold text-sm sm:text-base text-center no-underline active:scale-[0.98] transition-transform"
             style={{ background: 'linear-gradient(135deg, #F5C518, #F59E0B)', color: '#08071A' }}
           >
             View in Wallet →
           </Link>
           <button
-            className="block w-full py-3 rounded-2xl glass text-white text-sm text-center"
+            type="button"
+            className="block w-full py-3 sm:py-3.5 rounded-2xl glass text-white text-sm text-center border-0 cursor-pointer active:scale-[0.98] transition-transform"
             onClick={onClose}
           >
             Play Again
@@ -130,31 +150,38 @@ export function NoWin({ onClose, playsLeft, attempts }: {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center min-h-dvh px-4 sm:px-6"
       style={{ background: 'linear-gradient(145deg, #1A0545 0%, #2D1B69 45%, #0D0B1E 100%)' }}
     >
-      <div className="text-center px-8 w-full max-w-sm mx-auto">
+      <motion.div
+        className="absolute inset-0 pointer-events-none"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.4 }}
+        style={{ background: 'radial-gradient(circle at center, rgba(30,20,60,0.8) 0%, transparent 70%)' }}
+      />
+      <div className="text-center w-full max-w-sm mx-auto relative z-10 pb-[env(safe-area-inset-bottom)]">
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: [0, 0.9, 1] }}
-          transition={{ type: 'spring', stiffness: 300, damping: 16 }}
-          className="text-6xl mb-5 select-none"
+          initial={{ scale: 0, rotate: -10 }}
+          animate={{ scale: [0, 0.95, 1], rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+          className="text-5xl sm:text-6xl mb-4 sm:mb-5 select-none"
         >
           😔
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <h2 className="text-2xl font-extrabold text-white mb-2">Not this time…</h2>
-          <p className="text-sm text-white/60 mb-2">Better luck on your next visit!</p>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-white mb-2">So close!</h2>
+          <p className="text-xs sm:text-sm text-white/60 mb-2">Not this time — your next visit could be the one.</p>
           {attempts && (
-            <p className="text-sm font-bold text-purple-300 mb-2">
+            <p className="text-xs sm:text-sm font-bold text-purple-300 mb-2">
               {attempts.used}/{attempts.total} attempts used today
             </p>
           )}
-          <p className="text-xs text-white/30 mb-8">Every visit gives you a new chance to win 🍀</p>
+          <p className="text-[10px] sm:text-xs text-white/30 mb-6 sm:mb-8">Every visit gives you a new chance to win 🍀</p>
 
           {playsLeft !== undefined && playsLeft > 0 ? (
             <button
-              className="block w-full py-4 rounded-2xl font-bold text-base text-center mb-3 border-0 cursor-pointer"
+              type="button"
+              className="block w-full py-3.5 sm:py-4 rounded-2xl font-bold text-sm sm:text-base text-center mb-3 border-0 cursor-pointer active:scale-[0.98] transition-transform"
               style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', color: 'white' }}
               onClick={onClose}
             >
@@ -162,7 +189,8 @@ export function NoWin({ onClose, playsLeft, attempts }: {
             </button>
           ) : (
             <button
-              className="block w-full py-4 rounded-2xl glass text-white font-bold text-base text-center mb-3 border-0 cursor-pointer"
+              type="button"
+              className="block w-full py-3.5 sm:py-4 rounded-2xl glass text-white font-bold text-sm sm:text-base text-center mb-3 border-0 cursor-pointer active:scale-[0.98] transition-transform"
               onClick={() => { onClose?.(); navigate(-1) }}
             >
               ← Back

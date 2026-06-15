@@ -3,10 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Delete, Loader2, Sparkles, Gift } from 'lucide-react'
-import { fetchPublicCampaign, verifyCampaignPin, fetchPlayState, getApiErrorMessage } from '@/lib/api'
+import {
+  fetchPublicCampaign,
+  verifyCampaignPin,
+  fetchPlayState,
+  fetchAuthSession,
+  getApiErrorMessage,
+} from '@/lib/api'
 import { setPlaySession } from '@/lib/customer-game'
 import { getMechanicEmoji, getMechanicLabel, getMechanicColor } from '@/lib/utils'
-import { getUser, isCustomerAuthenticated } from '@/lib/auth'
+import { getToken, isSessionValidForRole } from '@/lib/auth'
 
 function FloatingOrbs() {
   return (
@@ -36,27 +42,47 @@ export function CustomerCampaignPage() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
 
+  const localSessionOk = isSessionValidForRole('customer') && Boolean(getToken())
+
+  const { data: serverSession, isLoading: sessionLoading, isError: sessionError } = useQuery({
+    queryKey: ['auth-session', 'customer'],
+    queryFn: fetchAuthSession,
+    enabled: localSessionOk,
+    retry: false,
+    staleTime: 30_000,
+  })
+
+  const authReady = localSessionOk && !sessionLoading && !sessionError && serverSession?.role === 'customer'
+
   const { data: campaign, isLoading } = useQuery({
     queryKey: ['public-campaign', id],
     queryFn: () => fetchPublicCampaign(id!),
     enabled: Boolean(id),
   })
 
-  const customerId = getUser()?.userId
   const { data: playState } = useQuery({
-    queryKey: ['play-state', id, customerId],
+    queryKey: ['play-state', id, serverSession?.userId],
     queryFn: () => fetchPlayState(id!),
-    enabled: Boolean(id) && isCustomerAuthenticated(),
+    enabled: Boolean(id) && authReady,
     staleTime: 0,
   })
 
   const verifyMutation = useMutation({
-    mutationFn: (enteredPin: string) => verifyCampaignPin(id!, enteredPin),
+    mutationFn: (enteredPin: string) => {
+      if (!getToken()) {
+        return Promise.reject(new Error('NOT_AUTHENTICATED'))
+      }
+      return verifyCampaignPin(id!, enteredPin)
+    },
     onSuccess: (data) => {
       setPlaySession(id!, data.playSessionToken)
       navigate(`/customer/games/shake?campaign=${id}`)
     },
     onError: (err) => {
+      if (err instanceof Error && err.message === 'NOT_AUTHENTICATED') {
+        setError('Please sign in again to enter your PIN.')
+        return
+      }
       setError(getApiErrorMessage(err, 'Wrong PIN. Ask staff for the current PIN.'))
       setPin('')
     },
@@ -72,21 +98,39 @@ export function CustomerCampaignPage() {
   const handleDelete = () => setPin(p => p.slice(0, -1))
 
   const handleSubmit = () => {
-    if (pin.length < 3 || verifyMutation.isPending) return
+    if (pin.length < 3 || verifyMutation.isPending || !authReady) return
     verifyMutation.mutate(pin)
   }
 
-  // Auto-submit when 3 digits entered
   useEffect(() => {
-    if (pin.length === 3 && !verifyMutation.isPending) {
+    if (pin.length === 3 && !verifyMutation.isPending && authReady) {
       const t = setTimeout(() => verifyMutation.mutate(pin), 300)
       return () => clearTimeout(t)
     }
-  }, [pin]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pin, authReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (isLoading) {
+  if (!localSessionOk || sessionError || (serverSession && serverSession.role !== 'customer')) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #1A0545, #0D0B1E)' }}>
+      <div className="min-h-dvh flex flex-col items-center justify-center px-5 text-center customer-game-bg">
+        <p className="text-white font-semibold mb-2">Sign in required</p>
+        <p className="text-sm text-white/60 mb-6">
+          Sign in with your customer account to enter the staff PIN and play.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate(`/signin?role=customer&reason=session_expired&from=/customer/campaigns/${id}`)}
+          className="px-6 py-3 rounded-2xl font-bold text-sm border-0 cursor-pointer"
+          style={{ background: 'linear-gradient(135deg, #7C3AED, #F5C518)', color: '#1A0545' }}
+        >
+          Sign in as customer
+        </button>
+      </div>
+    )
+  }
+
+  if (sessionLoading || isLoading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center customer-game-bg">
         <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
       </div>
     )
@@ -94,29 +138,29 @@ export function CustomerCampaignPage() {
 
   if (!campaign) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-5 text-center" style={{ background: 'linear-gradient(160deg, #1A0545, #0D0B1E)' }}>
+      <div className="min-h-dvh flex flex-col items-center justify-center px-5 text-center customer-game-bg">
         <p className="text-white font-semibold mb-4">Campaign not available</p>
-        <button onClick={() => navigate('/customer')} className="text-purple-300 text-sm">← Back home</button>
+        <button type="button" onClick={() => navigate('/customer')} className="text-purple-300 text-sm border-0 bg-transparent cursor-pointer">← Back home</button>
       </div>
     )
   }
 
   return (
     <div
-      className="min-h-screen flex flex-col relative overflow-hidden"
+      className="min-h-dvh flex flex-col relative overflow-hidden customer-game-bg"
       style={{ background: 'linear-gradient(160deg, #1A0545 0%, #2D1B69 40%, #0D0B1E 100%)' }}
     >
       <FloatingOrbs />
 
-      <div className="relative z-10 flex flex-col min-h-screen px-4 pt-10 pb-8 max-w-md mx-auto w-full">
+      <div className="relative z-10 flex flex-col min-h-dvh px-4 sm:px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] max-w-md mx-auto w-full">
         <button
+          type="button"
           onClick={() => navigate(-1)}
           className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white mb-6 w-fit bg-transparent border-0 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
 
-        {/* Campaign hero */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -134,7 +178,7 @@ export function CustomerCampaignPage() {
           >
             {getMechanicEmoji(campaign.mechanic)}
           </motion.div>
-          <h1 className="text-2xl font-extrabold text-white mb-1">{campaign.name}</h1>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white mb-1 px-1">{campaign.name}</h1>
           <p className="text-sm font-semibold" style={{ color }}>{getMechanicLabel(campaign.mechanic as 'shake')}</p>
           <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -149,12 +193,11 @@ export function CustomerCampaignPage() {
           )}
         </motion.div>
 
-        {/* PIN card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="flex-1 flex flex-col rounded-3xl p-6 backdrop-blur-xl border border-white/10"
+          className="flex-1 flex flex-col rounded-3xl p-4 sm:p-6 backdrop-blur-xl border border-white/10 min-h-0"
           style={{ background: 'rgba(255,255,255,0.06)', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}
         >
           <div className="text-center mb-6">
@@ -165,8 +208,7 @@ export function CustomerCampaignPage() {
             <p className="text-sm text-white/50">Show this screen at the counter</p>
           </div>
 
-          {/* PIN dots */}
-          <div className="flex justify-center gap-5 mb-6">
+          <div className="flex justify-center gap-3 sm:gap-5 mb-5 sm:mb-6">
             {[0, 1, 2].map(i => (
               <motion.div
                 key={i}
@@ -174,7 +216,7 @@ export function CustomerCampaignPage() {
                 className="relative"
               >
                 <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center border-2 transition-all duration-300"
+                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center border-2 transition-all duration-300"
                   style={{
                     borderColor: pin[i] ? color : 'rgba(255,255,255,0.15)',
                     background: pin[i] ? `${color}25` : 'rgba(0,0,0,0.2)',
@@ -211,14 +253,15 @@ export function CustomerCampaignPage() {
             </motion.p>
           )}
 
-          {/* Numpad */}
-          <div className="grid grid-cols-3 gap-2.5 mt-auto">
+          <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mt-auto">
             {[1,2,3,4,5,6,7,8,9].map(n => (
               <motion.button
                 key={n}
-                whileTap={{ scale: 0.9 }}
+                type="button"
+                whileTap={{ scale: 0.88 }}
                 onClick={() => handleKey(String(n))}
-                className="h-14 rounded-2xl text-xl font-bold text-white cursor-pointer border-0 transition-colors"
+                disabled={!authReady || verifyMutation.isPending}
+                className="h-12 sm:h-14 rounded-2xl text-lg sm:text-xl font-bold text-white cursor-pointer border-0 transition-colors touch-manipulation active:bg-white/15 disabled:opacity-50"
                 style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.08)' }}
               >
                 {n}
@@ -226,17 +269,21 @@ export function CustomerCampaignPage() {
             ))}
             <div />
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              type="button"
+              whileTap={{ scale: 0.88 }}
               onClick={() => handleKey('0')}
-              className="h-14 rounded-2xl text-xl font-bold text-white cursor-pointer border-0"
+              disabled={!authReady || verifyMutation.isPending}
+              className="h-12 sm:h-14 rounded-2xl text-lg sm:text-xl font-bold text-white cursor-pointer border-0 touch-manipulation disabled:opacity-50"
               style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
               0
             </motion.button>
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              type="button"
+              whileTap={{ scale: 0.88 }}
               onClick={handleDelete}
-              className="h-14 rounded-2xl text-white/50 cursor-pointer border-0 flex items-center justify-center"
+              disabled={!authReady || verifyMutation.isPending}
+              className="h-12 sm:h-14 rounded-2xl text-white/50 cursor-pointer border-0 flex items-center justify-center touch-manipulation disabled:opacity-50"
               style={{ background: 'rgba(255,255,255,0.05)' }}
             >
               <Delete className="w-5 h-5" />
@@ -244,9 +291,10 @@ export function CustomerCampaignPage() {
           </div>
 
           <motion.button
+            type="button"
             whileTap={{ scale: 0.97 }}
             onClick={handleSubmit}
-            disabled={pin.length < 3 || verifyMutation.isPending}
+            disabled={pin.length < 3 || verifyMutation.isPending || !authReady}
             className="mt-5 w-full py-4 rounded-2xl text-base font-extrabold transition-all disabled:opacity-40 border-0 cursor-pointer"
             style={{
               background: pin.length === 3

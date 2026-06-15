@@ -1,3 +1,10 @@
+import {
+  addCampaignDays,
+  addCampaignMonths,
+  fmtCampaignDate,
+  todayInCampaignTz,
+} from '@/lib/campaign-dates'
+
 export type DurationMode = 'today' | '7d' | '14d' | '1m' | '2m' | '3m' | 'custom'
 
 export const DURATION_OPTIONS: { key: DurationMode; label: string; sub: string }[] = [
@@ -10,25 +17,19 @@ export const DURATION_OPTIONS: { key: DurationMode; label: string; sub: string }
   { key: 'custom', label: 'Custom', sub: 'Date range' },
 ]
 
+export { fmtCampaignDate }
+
 export function addDays(from: string, n: number) {
-  const d = new Date(from)
-  d.setDate(d.getDate() + n)
-  return d.toISOString().split('T')[0]
+  return addCampaignDays(from, n)
 }
 
 export function addMonths(from: string, n: number) {
-  const d = new Date(from)
-  d.setMonth(d.getMonth() + n)
-  return d.toISOString().split('T')[0]
+  return addCampaignMonths(from, n)
 }
 
-export function fmtCampaignDate(iso: string) {
-  return iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
-}
-
-/** Create flow: duration anchored to today. */
+/** Create flow: duration anchored to today (IST). */
 export function computeCreateDates(mode: DurationMode, customStart: string, customEnd: string) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayInCampaignTz()
   if (mode === 'custom') return { start: customStart, end: customEnd }
   if (mode === 'today') return { start: today, end: today }
   const start = today

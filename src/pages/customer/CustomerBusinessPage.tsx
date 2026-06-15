@@ -36,7 +36,7 @@ export function CustomerBusinessPage() {
   const color = biz.brandColor
 
   return (
-    <div className="min-h-screen bg-[#f8f6ff] pb-24">
+    <div className="min-h-dvh bg-[#f8f6ff] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       <div
         className="relative h-[220px] lg:h-[260px] overflow-hidden"
         style={{ background: `linear-gradient(160deg, ${color} 0%, ${color}aa 40%, #1e1b4b 100%)` }}

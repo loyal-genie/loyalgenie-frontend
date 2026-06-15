@@ -13,12 +13,14 @@ const nav = [
 ]
 
 import { useCampaigns } from '@/hooks/useCampaigns'
+import { effectiveCampaignStatus } from '@/lib/campaign-dates'
+import type { CampaignStatus } from '@/lib/types'
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation()
   const { data: profile } = useBusinessProfile()
   const { data: campaigns = [] } = useCampaigns()
-  const activeCount = campaigns.filter(c => c.status === 'active').length
+  const activeCount = campaigns.filter(c => effectiveCampaignStatus(c.status as CampaignStatus, c.endDate) === 'active').length
   const totalPlays = campaigns.reduce((s, c) => s + c.participations, 0)
 
   return (

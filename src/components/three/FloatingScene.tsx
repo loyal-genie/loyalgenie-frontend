@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState } from 'react'
+import { useRef, useMemo, useState, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Float, Stars, RoundedBox, MeshDistortMaterial, Torus, Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -315,12 +315,30 @@ function Particles() {
 
 // ─── Scene root ───────────────────────────────────────────────────────────────
 
-export default function FloatingScene() {
+function SceneCanvas() {
+  const [contextLost, setContextLost] = useState(false)
+
+  if (contextLost) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-purple-300/60 text-sm">
+        3D preview paused
+      </div>
+    )
+  }
+
   return (
     <Canvas
       camera={{ position: [0, 0, 7], fov: 50 }}
       style={{ background: 'transparent' }}
-      gl={{ alpha: true, antialias: true }}
+      dpr={[1, 1.5]}
+      gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
+      onCreated={({ gl }) => {
+        const canvas = gl.domElement
+        canvas.addEventListener('webglcontextlost', (e) => {
+          e.preventDefault()
+          setContextLost(true)
+        })
+      }}
     >
       <ambientLight intensity={0.4} />
       <pointLight position={[5, 5, 5]} intensity={1.5} color="#f0c040" />
@@ -347,5 +365,27 @@ export default function FloatingScene() {
 
       <GenieLamp />
     </Canvas>
+  )
+}
+
+export default function FloatingScene() {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { rootMargin: '100px', threshold: 0.1 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={rootRef} className="w-full h-full">
+      {visible ? <SceneCanvas /> : null}
+    </div>
   )
 }

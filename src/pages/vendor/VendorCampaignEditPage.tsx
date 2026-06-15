@@ -20,6 +20,7 @@ import {
   fmtCampaignDate,
   type DurationMode,
 } from '@/lib/campaign-duration'
+import { effectiveCampaignStatus, singleDayDurationLabel, todayInCampaignTz } from '@/lib/campaign-dates'
 import { getApiErrorMessage } from '@/lib/api'
 import type { CampaignStatus } from '@/lib/types'
 
@@ -50,7 +51,7 @@ const STATUS_ACTIONS: Record<string, { label: string; icon: typeof Pause; status
 }
 
 const EDIT_STEPS = ['Edit', 'Review']
-const TODAY = new Date().toISOString().split('T')[0]
+const TODAY = todayInCampaignTz()
 
 function toRewardEntries(rewards: { id: string; name: string; description: string; icon: string; sharePercent: number }[]): RewardEntry[] {
   return rewards.map(r => ({
@@ -119,8 +120,9 @@ export function VendorCampaignEditPage() {
     )
   }
 
-  const isEnded = campaign.status === 'ended'
-  const isLive = campaign.status === 'active' || campaign.status === 'paused'
+  const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
+  const isEnded = status === 'ended'
+  const isLive = status === 'active' || status === 'paused'
   const color = getMechanicColor(campaign.mechanic as 'shake')
   const isSingleDay = campaign.startDate === endDate
   const originalIsSingleDay = campaign.startDate === campaign.endDate
@@ -196,12 +198,12 @@ export function VendorCampaignEditPage() {
   }
 
   const durationLabel = isSingleDay
-    ? `Today · ${fmtCampaignDate(campaign.startDate)}`
+    ? singleDayDurationLabel(campaign.startDate, TODAY)
     : `${fmtCampaignDate(campaign.startDate)} → ${fmtCampaignDate(endDate)}`
 
   const reviewRows: { label: string; value: string; changed: boolean; previous?: string }[] = [
     { label: 'Campaign Name', value: name, changed: changedFields.name, previous: campaign.name },
-    { label: 'Duration', value: durationLabel, changed: changedFields.endDate, previous: originalIsSingleDay ? `Today · ${fmtCampaignDate(campaign.startDate)}` : `${fmtCampaignDate(campaign.startDate)} → ${fmtCampaignDate(campaign.endDate)}` },
+    { label: 'Duration', value: durationLabel, changed: changedFields.endDate, previous: originalIsSingleDay ? singleDayDurationLabel(campaign.startDate, TODAY) : `${fmtCampaignDate(campaign.startDate)} → ${fmtCampaignDate(campaign.endDate)}` },
     { label: 'Overall User Cap', value: `${userCap} users total`, changed: changedFields.userCap, previous: `${campaign.userCap} users total` },
     ...(!isSingleDay ? [{ label: 'Daily User Limit', value: `${perDayUserLimit} / day`, changed: changedFields.perDayUserLimit, previous: `${campaign.perDayUserLimit} / day` }] : []),
     { label: 'Plays Per User / Day', value: String(playsPerDay), changed: changedFields.playsPerDay, previous: String(campaign.playsPerDay) },
@@ -237,7 +239,7 @@ export function VendorCampaignEditPage() {
             <div>
               <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                 <h1 className="text-xl font-extrabold text-v-text">Edit Campaign</h1>
-                <StatusBadge status={campaign.status as CampaignStatus} />
+                <StatusBadge status={status} />
               </div>
               <MechanicBadge mechanic={campaign.mechanic as 'shake'} />
             </div>
@@ -366,9 +368,9 @@ export function VendorCampaignEditPage() {
                           label="Overall User Cap"
                           hint="users total"
                           value={userCap}
-                          min={Math.max(campaign.currentUsers, 10)}
+                          min={Math.max(campaign.currentUsers, 1)}
                           max={2000}
-                          step={10}
+                          step={1}
                           onChange={v => {
                             setUserCap(v)
                             setPerDayUserLimit(prev => Math.min(prev, v))
@@ -405,9 +407,9 @@ export function VendorCampaignEditPage() {
                             label="Overall Win Rate"
                             hint="% of customers win"
                             value={winRatePercent}
-                            min={5}
+                            min={1}
                             max={100}
-                            step={5}
+                            step={1}
                             onChange={setWinRatePercent}
                           />
                           <p className="text-xs text-v-text-3 mt-1.5">
@@ -442,11 +444,11 @@ export function VendorCampaignEditPage() {
                 )}
               </Card>
 
-              {!isEnded && STATUS_ACTIONS[campaign.status] && (
+              {!isEnded && STATUS_ACTIONS[status] && (
                 <Card className="p-6">
                   <h2 className="text-sm font-bold text-v-text mb-5">Campaign Status</h2>
                   <div className="space-y-3">
-                    {STATUS_ACTIONS[campaign.status]!.map(action => (
+                    {STATUS_ACTIONS[status]!.map(action => (
                       <div key={action.label} className="flex items-center justify-between gap-4 p-4 rounded-xl border border-v-border bg-v-surface-2">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-v-text">{action.label}</p>

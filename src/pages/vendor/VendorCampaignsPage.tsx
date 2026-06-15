@@ -13,6 +13,12 @@ import { useCampaigns } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, getMechanicColor, formatDate, capPercent } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/api'
 import type { CampaignDto } from '@/lib/api'
+import {
+  campaignDaysLeft,
+  campaignDaysLeftLabel,
+  effectiveCampaignStatus,
+  todayInCampaignTz,
+} from '@/lib/campaign-dates'
 
 function engagementRate(c: CampaignDto) {
   return c.userCap > 0 ? Math.round((c.currentUsers / c.userCap) * 100) : 0
@@ -23,18 +29,14 @@ function redemptionRate(c: CampaignDto) {
 import type { CampaignStatus } from '@/lib/types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const TODAY = new Date().toISOString().split('T')[0]
-const TODAY_DATE = new Date(TODAY)
+const TODAY = todayInCampaignTz()
+const TODAY_DATE = new Date(`${TODAY}T12:00:00`)
 
 function daysLeft(endDate: string) {
-  const end = new Date(`${endDate}T23:59:59`)
-  return Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86400000))
+  return campaignDaysLeft(endDate, TODAY)
 }
 function daysLeftLabel(endDate: string) {
-  const d = daysLeft(endDate)
-  if (d === 0) return 'Last day'
-  if (d === 1) return '1d left'
-  return `${d}d left`
+  return campaignDaysLeftLabel(endDate, TODAY)
 }
 function winRate(c: CampaignDto) {
   return c.participations > 0 ? Math.round((c.rewardsClaimed / c.participations) * 100) : 0
@@ -76,7 +78,8 @@ const SORTS = [
 type SortKey = 'newest' | 'ending' | 'popular'
 type ViewMode = 'list' | 'grid'
 
-const activeCampaignsCount = (list: CampaignDto[]) => list.filter(c => c.status === 'active').length
+const activeCampaignsCount = (list: CampaignDto[]) =>
+  list.filter(c => effectiveCampaignStatus(c.status as CampaignStatus, c.endDate, TODAY) === 'active').length
 
 // ── Campaign row actions (always visible — no clipped dropdown) ───────────────
 function CampaignCardActions({ id }: { id: string }) {
@@ -104,12 +107,13 @@ function CampaignCardActions({ id }: { id: string }) {
 
 // ── List card ─────────────────────────────────────────────────────────────────
 function ListCard({ c }: { c: CampaignDto }) {
+  const status = effectiveCampaignStatus(c.status as CampaignStatus, c.endDate, TODAY)
   const wr    = winRate(c)
   const er    = engagementRate(c)
   const rr    = redemptionRate(c)
-  const dl    = c.status === 'active' ? daysLeft(c.endDate) : null
-  const urgent = dl !== null && dl <= 3
-  const muted  = c.status === 'ended'
+  const dl    = status === 'active' ? daysLeft(c.endDate) : null
+  const urgent = dl !== null && dl >= 0 && dl <= 3
+  const muted  = status === 'ended'
   const color  = getMechanicColor(c.mechanic as 'shake')
 
   return (
@@ -117,7 +121,7 @@ function ListCard({ c }: { c: CampaignDto }) {
         <div className="flex items-stretch">
           {/* Status stripe */}
           <div className={`w-1 shrink-0`}
-            style={{ background: c.status === 'active' ? '#16A34A' : c.status === 'draft' ? '#F59E0B' : c.status === 'paused' ? '#F97316' : '#C4B8FF' }} />
+            style={{ background: status === 'active' ? '#16A34A' : status === 'draft' ? '#F59E0B' : status === 'paused' ? '#F97316' : '#C4B8FF' }} />
 
           <div className="flex-1 px-5 py-4">
             <div className="flex items-start gap-4">
@@ -134,7 +138,7 @@ function ListCard({ c }: { c: CampaignDto }) {
                   <Link to={`/vendor/campaigns/${c.id}`} className="text-sm font-bold text-v-text hover:text-v-purple transition-colors">
                     {c.name}
                   </Link>
-                  <StatusBadge status={c.status as CampaignStatus} />
+                  <StatusBadge status={status} />
                   <MechanicBadge mechanic={c.mechanic as 'shake'} />
                   {urgent && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-v-danger border border-red-200">
@@ -199,19 +203,20 @@ function ListCard({ c }: { c: CampaignDto }) {
 
 // ── Grid card ─────────────────────────────────────────────────────────────────
 function GridCard({ c }: { c: CampaignDto }) {
+  const status = effectiveCampaignStatus(c.status as CampaignStatus, c.endDate, TODAY)
   const wr    = winRate(c)
   const er    = engagementRate(c)
   const rr    = redemptionRate(c)
-  const dl    = c.status === 'active' ? daysLeft(c.endDate) : null
-  const urgent = dl !== null && dl <= 3
-  const muted  = c.status === 'ended'
+  const dl    = status === 'active' ? daysLeft(c.endDate) : null
+  const urgent = dl !== null && dl >= 0 && dl <= 3
+  const muted  = status === 'ended'
   const color  = getMechanicColor(c.mechanic as 'shake')
 
   return (
     <div className={`vendor-card vendor-card-hover rounded-2xl h-full flex flex-col overflow-visible ${muted ? 'opacity-60' : ''}`}>
         {/* Status stripe top */}
         <div className="h-1 w-full"
-          style={{ background: c.status === 'active' ? '#16A34A' : c.status === 'draft' ? '#F59E0B' : c.status === 'paused' ? '#F97316' : '#C4B8FF' }} />
+          style={{ background: status === 'active' ? '#16A34A' : status === 'draft' ? '#F59E0B' : status === 'paused' ? '#F97316' : '#C4B8FF' }} />
 
         <div className="p-4 flex-1 flex flex-col gap-3">
           {/* Header */}
@@ -221,7 +226,7 @@ function GridCard({ c }: { c: CampaignDto }) {
               {getMechanicEmoji(c.mechanic)}
             </div>
             <div className="flex items-center gap-1.5">
-              <StatusBadge status={c.status} />
+              <StatusBadge status={status} />
               <CampaignCardActions id={c.id} />
             </div>
           </div>
@@ -306,7 +311,10 @@ export function VendorCampaignsPage() {
   const wRedemptionPct = wRewards > 0 ? Math.round((wRedeemed / wRewards) * 100) : 0
 
   const filtered = campaigns
-    .filter(c => (filter === 'all' || c.status === filter) && c.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(c => {
+      const status = effectiveCampaignStatus(c.status as CampaignStatus, c.endDate, TODAY)
+      return (filter === 'all' || status === filter) && c.name.toLowerCase().includes(search.toLowerCase())
+    })
     .sort((a, b) => {
       if (sort === 'newest')  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       if (sort === 'ending')  return new Date(a.endDate).getTime() - new Date(b.endDate).getTime()

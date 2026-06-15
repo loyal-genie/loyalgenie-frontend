@@ -171,6 +171,27 @@
     min-height: 100vh;
   }
 
+  .customer-game-bg {
+    background: linear-gradient(165deg, #1a0545 0%, #2d1b69 38%, #0d0b1e 100%);
+    min-height: 100dvh;
+  }
+
+  .shake-title-shimmer {
+    background-size: 200% auto;
+    animation: shake-title-shimmer 4s linear infinite;
+  }
+
+  @keyframes shake-title-shimmer {
+    0%, 100% { background-position: 0% center; }
+    50% { background-position: 100% center; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .shake-title-shimmer {
+      animation: none;
+    }
+  }
+
   .glass {
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(16px);

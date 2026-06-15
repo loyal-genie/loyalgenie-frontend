@@ -85,7 +85,7 @@ export function CustomerPage() {
   )
 
   return (
-    <div className="min-h-screen bg-[#f8f6ff] pb-24">
+    <div className="min-h-dvh bg-[#f8f6ff] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       <div className="relative overflow-hidden">
         <div
           className="px-5 lg:px-8 pt-12 pb-8 relative z-10"

@@ -8,6 +8,8 @@ import { Card } from '@/components/ui/card'
 import { getMechanicLabel, getMechanicEmoji, getMechanicColor } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/api'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
+import { computeCreateDates, fmtCampaignDate, type DurationMode } from '@/lib/campaign-duration'
+import { todayInCampaignTz } from '@/lib/campaign-dates'
 import type { MechanicType } from '@/lib/types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -24,7 +26,6 @@ const SPIN_COLORS = ['#7C3AED', '#EC4899', '#F59E0B', '#06B6D4', '#22C55E', '#F4
 const ICONS = ['🎁', '☕', '🧁', '🥪', '🍰', '🏷️', '🎉', '🍳', '👑', '🎫', '🎟️', '💰']
 
 // ── Duration ──────────────────────────────────────────────────────────────────
-type DurationMode = 'today' | '7d' | '14d' | '1m' | '2m' | '3m' | 'custom'
 
 const DURATION_ALL: { key: DurationMode; label: string; sub: string }[] = [
   { key: 'today',  label: 'Today',    sub: 'Right now'  },
@@ -41,17 +42,11 @@ const DURATION_LOTTERY: { key: DurationMode; label: string; sub: string }[] = [
   { key: '1m',  label: '1 Month', sub: '~30 days' },
 ]
 
-const TODAY = new Date().toISOString().split('T')[0]
-function addDays(from: string, n: number)   { const d = new Date(from); d.setDate(d.getDate() + n);    return d.toISOString().split('T')[0] }
-function addMonths(from: string, n: number) { const d = new Date(from); d.setMonth(d.getMonth() + n);  return d.toISOString().split('T')[0] }
-function fmtDate(iso: string) { return iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '' }
+const TODAY = todayInCampaignTz()
+function fmtDate(iso: string) { return fmtCampaignDate(iso) }
 function fmtTime(t: string) { const [h, m] = t.split(':').map(Number); const ap = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ap}` }
 function computeDates(mode: DurationMode, cs: string, ce: string) {
-  if (mode === 'custom') return { start: cs, end: ce }
-  if (mode === 'today')  return { start: TODAY, end: TODAY }
-  const s = TODAY
-  const e = mode === '7d' ? addDays(s, 7) : mode === '14d' ? addDays(s, 14) : mode === '1m' ? addMonths(s, 1) : mode === '2m' ? addMonths(s, 2) : addMonths(s, 3)
-  return { start: s, end: e }
+  return computeCreateDates(mode, cs, ce)
 }
 
 // ── Shared reward pool types ───────────────────────────────────────────────────
@@ -123,9 +118,9 @@ function RewardPool({ rewards, setRewards, compact, shareMode }: { rewards: Rewa
                 {!compact && <input className="w-full bg-v-surface-2 border border-v-border rounded-lg px-2.5 py-1.5 text-xs text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Description (optional)" value={r.description} onChange={e => update(r.id, 'description', e.target.value)} />}
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-v-text-3 shrink-0">{shareMode ? 'Share:' : 'Win %:'}</span>
-                  <input type="range" min={1} max={99} value={r.probability} onChange={e => update(r.id, 'probability', Number(e.target.value))} className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-v-purple [&::-webkit-slider-thumb]:cursor-pointer" style={{ accentColor: '#7C3AED' }} />
+                  <input type="range" min={1} max={100} value={r.probability} onChange={e => update(r.id, 'probability', Number(e.target.value))} className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-v-purple [&::-webkit-slider-thumb]:cursor-pointer" style={{ accentColor: '#7C3AED' }} />
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <input type="number" min={1} max={99} value={r.probability} onChange={e => update(r.id, 'probability', Math.min(99, Math.max(1, Number(e.target.value))))} className="w-11 bg-white border border-v-border rounded-lg px-1.5 py-1 text-xs text-v-text text-center focus:outline-none focus:border-v-purple" />
+                    <input type="number" min={1} max={100} value={r.probability} onChange={e => update(r.id, 'probability', Math.min(100, Math.max(1, Number(e.target.value))))} className="w-11 bg-white border border-v-border rounded-lg px-1.5 py-1 text-xs text-v-text text-center focus:outline-none focus:border-v-purple" />
                     <span className="text-xs text-v-text-2">%</span>
                   </div>
                 </div>
@@ -471,7 +466,7 @@ export function VendorCampaignCreatePage() {
                   {/* Shake, Spin, Dice: overall + per-day */}
                   {isShakeSpinOrDice && (
                     <>
-                      <Stepper label="Overall User Cap" hint="users total" value={basics.userCap} min={10} max={2000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v, perDayUserLimit: Math.min(p.perDayUserLimit, v) }))} />
+                      <Stepper label="Overall User Cap" hint="users total" value={basics.userCap} min={1} max={2000} step={1} onChange={v => setBasics(p => ({ ...p, userCap: v, perDayUserLimit: Math.min(p.perDayUserLimit, v) }))} />
                       {!isToday && (
                         <div>
                           <Stepper label="Daily User Limit" hint="users / day" value={basics.perDayUserLimit} min={1} max={basics.userCap} onChange={v => setBasics(p => ({ ...p, perDayUserLimit: v }))} />
@@ -486,7 +481,7 @@ export function VendorCampaignCreatePage() {
 
                   {/* Stamp: single user cap */}
                   {isStamp && (
-                    <Stepper label="User Cap" hint="users" value={basics.userCap} min={10} max={2000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
+                    <Stepper label="User Cap" hint="users" value={basics.userCap} min={1} max={2000} step={1} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
                   )}
 
                   {/* Lottery: no caps */}
@@ -500,7 +495,7 @@ export function VendorCampaignCreatePage() {
                   {/* Win Rate — Shake only (explicit vendor input) */}
                   {mechanic === 'shake' && (
                     <div>
-                      <Stepper label="Overall Win Rate" hint="% of customers win" value={basics.overallWinRate} min={5} max={100} step={5} onChange={v => setBasics(p => ({ ...p, overallWinRate: v }))} />
+                      <Stepper label="Overall Win Rate" hint="% of customers win" value={basics.overallWinRate} min={1} max={100} step={1} onChange={v => setBasics(p => ({ ...p, overallWinRate: v }))} />
                       <p className="text-xs text-v-text-3 mt-1.5">
                         Daily win rate is the same — <span className="font-semibold text-v-text-2">{basics.overallWinRate}%</span> of each day&apos;s players will win. Configure what they win in the next step.
                       </p>
