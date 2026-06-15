@@ -2,7 +2,15 @@
 
 export const SHAKE_DURATION_MS = 2400
 export const CHARGE_MS = 450
-export const SHAKE_DELTA_THRESHOLD = 12
+/** Active-phase spike threshold (intensity + haptics). */
+export const SHAKE_DELTA_THRESHOLD = 6
+/** Minimum per-frame delta that contributes to start energy. */
+export const SHAKE_START_MIN_DELTA = 0.45
+/** At least one frame must reach this delta (filters steady drift). */
+export const SHAKE_START_PEAK_DELTA = 1.1
+/** Cumulative energy required to start — tuned for a light shake. */
+export const SHAKE_START_ENERGY = 3.2
+export const SHAKE_START_DEBOUNCE_MS = 500
 export const INTENSITY_DECAY = 0.04
 
 export function prefersReducedMotion(): boolean {
@@ -46,6 +54,16 @@ export function hasDeviceMotionApi(): boolean {
   return typeof window !== 'undefined' && typeof DeviceMotionEvent !== 'undefined'
 }
 
+export function isSecureMotionContext(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.isSecureContext === true
+}
+
+/** Motion sensors only work in secure contexts (HTTPS / localhost). */
+export function canUseMotionSensors(): boolean {
+  return hasDeviceMotionApi() && isSecureMotionContext()
+}
+
 /** iOS 13+ requires an explicit permission prompt before devicemotion events fire. */
 export function needsMotionPermissionPrompt(): boolean {
   if (!hasDeviceMotionApi()) return false
@@ -71,21 +89,120 @@ export async function requestMotionPermission(): Promise<MotionPermission> {
   }
 }
 
-/** Magnitude of change between consecutive motion samples (better shake feel than absolute accel). */
-export function computeShakeDelta(e: DeviceMotionEvent, prev: { x: number; y: number; z: number } | null) {
-  const acc = e.acceleration ?? e.accelerationIncludingGravity
-  if (!acc) return { delta: 0, sample: prev }
+function axisMagnitude(x: number, y: number, z: number): number {
+  return Math.abs(x) + Math.abs(y) + Math.abs(z)
+}
 
-  const x = acc.x ?? 0
-  const y = acc.y ?? 0
-  const z = acc.z ?? 0
-  const sample = { x, y, z }
+function hasUsableAxis(
+  v: { x: number | null; y: number | null; z: number | null } | null,
+): v is { x: number | null; y: number | null; z: number | null } {
+  if (!v) return false
+  return v.x != null || v.y != null || v.z != null
+}
+
+/**
+ * Read usable acceleration — Chrome Android often exposes acceleration as
+ * null axes OR all-zero values; gravity-inclusive data is the reliable source.
+ */
+export function readMotionSample(e: DeviceMotionEvent): { x: number; y: number; z: number } | null {
+  const linear = e.acceleration
+  if (hasUsableAxis(linear)) {
+    const sample = { x: linear.x ?? 0, y: linear.y ?? 0, z: linear.z ?? 0 }
+    if (axisMagnitude(sample.x, sample.y, sample.z) > 0.08) {
+      return sample
+    }
+  }
+
+  const incl = e.accelerationIncludingGravity
+  if (hasUsableAxis(incl)) {
+    return { x: incl.x ?? 0, y: incl.y ?? 0, z: incl.z ?? 0 }
+  }
+
+  const rot = e.rotationRate
+  if (rot && (rot.alpha != null || rot.beta != null || rot.gamma != null)) {
+    const scale = 0.35
+    return {
+      x: (rot.alpha ?? 0) * scale,
+      y: (rot.beta ?? 0) * scale,
+      z: (rot.gamma ?? 0) * scale,
+    }
+  }
+
+  return null
+}
+
+/** Magnitude of change between consecutive motion samples. */
+export function computeShakeDelta(e: DeviceMotionEvent, prev: { x: number; y: number; z: number } | null) {
+  const sample = readMotionSample(e)
+  if (!sample) return { delta: 0, sample: prev }
 
   if (!prev) return { delta: 0, sample }
 
-  const dx = x - prev.x
-  const dy = y - prev.y
-  const dz = z - prev.z
+  const dx = sample.x - prev.x
+  const dy = sample.y - prev.y
+  const dz = sample.z - prev.z
   const delta = Math.sqrt(dx * dx + dy * dy + dz * dz)
   return { delta, sample }
+}
+
+export interface ShakeStartState {
+  energy: number
+  lastMotionAt: number
+  lastTriggeredAt: number
+  sawPeak: boolean
+}
+
+export function createShakeStartState(): ShakeStartState {
+  return { energy: 0, lastMotionAt: 0, lastTriggeredAt: 0, sawPeak: false }
+}
+
+/**
+ * Energy-based shake start — accumulates light motion over ~200–400ms so a gentle
+ * shake triggers, while isolated sensor noise is unlikely to.
+ */
+export function evaluateShakeStart(
+  delta: number,
+  now: number,
+  state: ShakeStartState,
+): { triggered: boolean; state: ShakeStartState } {
+  const next: ShakeStartState = { ...state }
+
+  if (next.lastMotionAt > 0) {
+    const gap = now - next.lastMotionAt
+    if (gap > 35) {
+      next.energy *= Math.pow(0.6, gap / 35)
+      if (gap > 120) next.sawPeak = false
+    }
+  }
+
+  if (delta >= SHAKE_START_MIN_DELTA) {
+    next.energy += delta
+    next.lastMotionAt = now
+    if (delta >= SHAKE_START_PEAK_DELTA) next.sawPeak = true
+  }
+
+  const triggered =
+    next.sawPeak &&
+    next.energy >= SHAKE_START_ENERGY &&
+    now - next.lastTriggeredAt >= SHAKE_START_DEBOUNCE_MS
+
+  if (triggered) {
+    return {
+      triggered: true,
+      state: { ...createShakeStartState(), lastTriggeredAt: now },
+    }
+  }
+
+  return { triggered: false, state: next }
+}
+
+/** Build a mock DeviceMotionEvent for tests. */
+export function mockMotionEvent(
+  partial: Partial<{
+    acceleration: { x: number | null; y: number | null; z: number | null } | null
+    accelerationIncludingGravity: { x: number; y: number; z: number } | null
+    rotationRate: { alpha: number; beta: number; gamma: number } | null
+  }>,
+): DeviceMotionEvent {
+  return partial as DeviceMotionEvent
 }

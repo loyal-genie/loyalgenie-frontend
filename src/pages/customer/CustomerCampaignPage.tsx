@@ -10,7 +10,8 @@ import {
   fetchAuthSession,
   getApiErrorMessage,
 } from '@/lib/api'
-import { setPlaySession } from '@/lib/customer-game'
+import { setPlaySession, markMotionGesture } from '@/lib/customer-game'
+import { primeMotionSensors } from '@/lib/shake-motion-sensors'
 import { getMechanicEmoji, getMechanicLabel, getMechanicColor } from '@/lib/utils'
 import { getToken, isSessionValidForRole } from '@/lib/auth'
 
@@ -91,13 +92,21 @@ export function CustomerCampaignPage() {
   const color = campaign ? getMechanicColor(campaign.mechanic as 'shake') : '#7C3AED'
 
   const handleKey = (k: string) => {
+    markMotionGesture()
+    primeMotionSensors()
     if (pin.length < 3) setPin(p => p + k)
     setError('')
   }
 
-  const handleDelete = () => setPin(p => p.slice(0, -1))
+  const handleDelete = () => {
+    markMotionGesture()
+    primeMotionSensors()
+    setPin(p => p.slice(0, -1))
+  }
 
   const handleSubmit = () => {
+    markMotionGesture()
+    primeMotionSensors()
     if (pin.length < 3 || verifyMutation.isPending || !authReady) return
     verifyMutation.mutate(pin)
   }
