@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, LayoutList, LayoutGrid, ArrowUpDown,
   CalendarDays, Users, Trophy, TrendingUp, MoreVertical,
-  Pause, Copy, StopCircle, Eye, Loader2, RefreshCw,
+  Pause, StopCircle, Eye, Loader2, RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, ProgressBar } from '@/components/ui/card'
@@ -78,43 +79,81 @@ type ViewMode = 'list' | 'grid'
 
 const activeCampaignsCount = (list: CampaignDto[]) => list.filter(c => c.status === 'active').length
 
-// ── Quick actions menu ────────────────────────────────────────────────────────
+// ── Quick actions menu (portal so dropdown isn't clipped by card overflow) ───
 function QuickMenu({ id }: { id: string }) {
   const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
+
+  useEffect(() => {
+    if (!open || !buttonRef.current) return
+    const rect = buttonRef.current.getBoundingClientRect()
+    const menuWidth = 176
+    setMenuPos({
+      top: rect.bottom + 6,
+      left: Math.max(8, rect.right - menuWidth),
+    })
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [open])
+
+  const items = [
+    { icon: Eye,        label: 'View details', href: `/vendor/campaigns/${id}`,      color: 'text-v-text' },
+    { icon: Pause,      label: 'Edit & Pause', href: `/vendor/campaigns/${id}/edit`, color: 'text-v-text' },
+    { icon: StopCircle, label: 'End campaign', href: `/vendor/campaigns/${id}/edit`, color: 'text-v-danger' },
+  ]
+
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
-        onClick={e => { e.preventDefault(); setOpen(p => !p) }}
-        className="w-7 h-7 rounded-lg flex items-center justify-center text-v-text-3 hover:text-v-text hover:bg-v-surface-2 transition-colors"
+        ref={buttonRef}
+        type="button"
+        onClick={e => { e.preventDefault(); e.stopPropagation(); setOpen(p => !p) }}
+        className="w-8 h-8 rounded-lg flex items-center justify-center text-v-text-3 hover:text-v-text hover:bg-v-surface-2 transition-colors"
+        aria-expanded={open}
+        aria-haspopup="menu"
       >
         <MoreVertical className="w-4 h-4" />
       </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -4 }}
-            transition={{ duration: 0.12 }}
-            className="absolute right-0 top-8 z-20 w-40 bg-white border border-v-border rounded-xl shadow-lg py-1 overflow-hidden"
-            onMouseLeave={() => setOpen(false)}
-          >
-            {[
-              { icon: Eye,         label: 'View details', href: `/vendor/campaigns/${id}`,       color: 'text-v-text' },
-              { icon: Pause,       label: 'Edit & Pause', href: `/vendor/campaigns/${id}/edit`,  color: 'text-v-text' },
-              { icon: Copy,        label: 'Duplicate',    href: '#',                             color: 'text-v-text' },
-              { icon: StopCircle,  label: 'End campaign', href: `/vendor/campaigns/${id}/edit`,  color: 'text-v-danger' },
-            ].map(({ icon: Icon, label, href, color }) => (
-              <Link key={label} to={href}
-                onClick={e => { if (href === '#') e.preventDefault(); setOpen(false) }}
-                className={`flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium hover:bg-v-surface-2 transition-colors ${color}`}>
-                <Icon className="w-3.5 h-3.5" />
-                {label}
-              </Link>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {open && createPortal(
+        <>
+          <div className="fixed inset-0 z-[100]" onClick={() => setOpen(false)} aria-hidden />
+          <AnimatePresence>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              transition={{ duration: 0.12 }}
+              style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+              className="z-[101] w-44 bg-white border border-v-border rounded-xl shadow-xl py-1"
+              role="menu"
+            >
+              {items.map(({ icon: Icon, label, href, color }) => (
+                <Link
+                  key={label}
+                  to={href}
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className={`flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-medium hover:bg-v-surface-2 transition-colors ${color}`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </Link>
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        </>,
+        document.body,
+      )}
     </div>
   )
 }
@@ -131,7 +170,7 @@ function ListCard({ c }: { c: CampaignDto }) {
 
   return (
     <motion.div whileHover={{ x: 2 }} transition={{ duration: 0.15 }}>
-      <div className={`vendor-card vendor-card-hover overflow-hidden ${muted ? 'opacity-60' : ''}`}>
+      <div className={`vendor-card vendor-card-hover rounded-2xl ${muted ? 'opacity-60' : ''}`}>
         <div className="flex items-stretch">
           {/* Status stripe */}
           <div className={`w-1 shrink-0`}
@@ -228,7 +267,7 @@ function GridCard({ c }: { c: CampaignDto }) {
 
   return (
     <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
-      <div className={`vendor-card vendor-card-hover overflow-hidden h-full flex flex-col ${muted ? 'opacity-60' : ''}`}>
+      <div className={`vendor-card vendor-card-hover rounded-2xl h-full flex flex-col ${muted ? 'opacity-60' : ''}`}>
         {/* Status stripe top */}
         <div className="h-1 w-full"
           style={{ background: c.status === 'active' ? '#16A34A' : c.status === 'draft' ? '#F59E0B' : c.status === 'paused' ? '#F97316' : '#C4B8FF' }} />

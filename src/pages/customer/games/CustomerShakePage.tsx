@@ -248,14 +248,27 @@ export function CustomerShakePage() {
 
   return (
     <motion.div
-      className="min-h-screen flex flex-col items-center justify-between px-5 pt-12 pb-10 overflow-hidden relative"
-      style={{ background: 'linear-gradient(145deg, #1A0545 0%, #2D1B69 45%, #0D0B1E 100%)' }}
+      className="min-h-screen flex flex-col items-center justify-between px-5 pt-10 pb-10 overflow-hidden relative"
+      style={{ background: 'linear-gradient(160deg, #1A0545 0%, #2D1B69 35%, #0D0B1E 100%)' }}
       animate={isShaking ? {
         x: [0, -3, 4, -4, 3, -2, 2, 0],
         y: [0, 2, -2, 3, -2, 1, -1, 0],
       } : {}}
       transition={isShaking ? { duration: 0.12, repeat: Infinity } : {}}
     >
+      {/* Floating prize emojis in idle */}
+      {phase === 'idle' && ['🎁', '☕', '🏆', '✨'].map((emoji, i) => (
+        <motion.span
+          key={emoji}
+          className="absolute text-2xl pointer-events-none select-none opacity-20"
+          style={{ left: `${15 + i * 22}%`, top: `${20 + (i % 2) * 40}%` }}
+          animate={{ y: [0, -15, 0], rotate: [0, 10, -10, 0] }}
+          transition={{ duration: 3 + i * 0.5, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          {emoji}
+        </motion.span>
+      ))}
+
       {/* Ambient glow */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
@@ -285,11 +298,18 @@ export function CustomerShakePage() {
         </div>
       </div>
 
-      <div className="text-center relative z-10">
+      <div className="text-center relative z-10 px-2">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/25 mb-3"
+        >
+          <span className="text-[10px] font-bold text-amber-200 uppercase tracking-wider">🎯 {winRate}% win chance</span>
+        </motion.div>
         <motion.h1
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-2xl font-extrabold text-white mb-1"
+          className="text-3xl font-extrabold mb-1 bg-gradient-to-r from-white via-purple-100 to-amber-200 bg-clip-text text-transparent"
         >
           Shake &amp; Win!
         </motion.h1>
@@ -326,7 +346,19 @@ export function CustomerShakePage() {
       )}
 
       <div className="relative flex items-center justify-center my-4 z-10">
-        {/* Ripple rings */}
+        {/* Idle pulse rings */}
+        {phase === 'idle' && [0, 0.5, 1].map((delay, i) => (
+          <motion.div
+            key={`idle-ring-${i}`}
+            className="absolute rounded-[2.5rem] border border-purple-400/20 pointer-events-none"
+            style={{ width: '11rem', height: '18rem' }}
+            initial={{ scale: 1, opacity: 0.5 }}
+            animate={{ scale: 1.6 + i * 0.2, opacity: 0 }}
+            transition={{ duration: 2, delay, repeat: Infinity, ease: 'easeOut' }}
+          />
+        ))}
+
+        {/* Ripple rings when shaking */}
         {isShaking && [0, 0.3, 0.6, 0.9].map((delay, i) => (
           <motion.div
             key={i}
@@ -446,10 +478,16 @@ export function CustomerShakePage() {
                 exit={{ opacity: 0 }}
                 className="flex flex-col items-center gap-3"
               >
-                <span className="text-5xl select-none">🤳</span>
+                <motion.span
+                  className="text-5xl select-none"
+                  animate={{ rotate: [0, -15, 15, -10, 10, 0] }}
+                  transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 0.8 }}
+                >
+                  📱
+                </motion.span>
                 <div className="text-center">
-                  <p className="text-xs font-semibold text-white/80">Tap to Shake</p>
-                  <p className="text-[10px] text-white/40 mt-0.5">Hold tight!</p>
+                  <p className="text-sm font-bold text-white">Tap to Shake!</p>
+                  <p className="text-[10px] text-white/40 mt-1">or shake your phone</p>
                 </div>
               </motion.div>
             )}

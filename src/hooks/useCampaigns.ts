@@ -34,9 +34,13 @@ export function useCampaignPin(id: string | undefined, enabled = true) {
     queryKey: ['campaigns', id, 'pin'],
     queryFn: () => fetchCampaignPin(id!),
     enabled: Boolean(id) && enabled && isBusinessAuthenticated(),
+    staleTime: 0,
     refetchInterval: (query) => {
       const remaining = query.state.data?.secondsRemaining ?? 0
-      return remaining <= 5 ? 2000 : 10000
+      if (remaining <= 0) return 1500
+      if (remaining <= 5) return 2000
+      if (remaining <= 20) return 5000
+      return 10000
     },
   })
 }
