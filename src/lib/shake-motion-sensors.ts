@@ -1,6 +1,6 @@
 /**
- * Persistent motion sensor bridge — attaches during a user gesture (PIN tap)
- * and stays alive across SPA navigation so Chrome Android actually delivers events.
+ * Persistent motion sensor bridge for Chrome Android.
+ * Listeners must be attached inside a user gesture (touch/click).
  */
 import {
   computeShakeDelta,
@@ -11,30 +11,26 @@ import {
 
 export type MotionListener = (e: DeviceMotionEvent) => void
 export type OrientationListener = (e: DeviceOrientationEvent) => void
+export type SensorPulseListener = () => void
 
 let motionAttached = false
 let orientAttached = false
 let motionHandler: MotionListener | null = null
 let orientHandler: OrientationListener | null = null
-let orientPrev: { beta: number; gamma: number; alpha: number } | null = null
+let pulseHandler: SensorPulseListener | null = null
 
 function dispatchMotion(e: DeviceMotionEvent) {
+  pulseHandler?.()
   motionHandler?.(e)
 }
 
 function dispatchOrientation(e: DeviceOrientationEvent) {
   if (!orientHandler) return
-  const beta = e.beta
-  const gamma = e.gamma
-  const alpha = e.alpha
-  if (beta == null && gamma == null && alpha == null) return
-
-  const sample = { beta: beta ?? 0, gamma: gamma ?? 0, alpha: alpha ?? 0 }
-  orientPrev = sample
+  pulseHandler?.()
   orientHandler(e)
 }
 
-/** Call synchronously inside click/touch (e.g. PIN submit) before navigation. */
+/** Call synchronously inside touchstart/click — required for Chrome Android. */
 export function primeMotionSensors(): boolean {
   if (!hasDeviceMotionApi()) return false
 
@@ -51,55 +47,47 @@ export function primeMotionSensors(): boolean {
   return true
 }
 
+/** Synchronous arm from user gesture — call on every touchstart on shake screen. */
+export function armFromUserGesture(): void {
+  primeMotionSensors()
+}
+
 export function setMotionSensorHandlers(
   onMotion: MotionListener | null,
   onOrientation: OrientationListener | null = null,
+  onPulse: SensorPulseListener | null = null,
 ) {
   motionHandler = onMotion
   orientHandler = onOrientation
-  if (!onOrientation) orientPrev = null
+  pulseHandler = onPulse
 }
 
 export function isMotionSensorAttached(): boolean {
   return motionAttached
 }
 
-/** Synthetic motion event from orientation delta — Chrome Android fallback. */
-export function orientationToMotionDelta(e: DeviceOrientationEvent): number {
-  const beta = e.beta ?? 0
-  const gamma = e.gamma ?? 0
-  const alpha = e.alpha ?? 0
-
-  if (!orientPrev) {
-    orientPrev = { beta, gamma, alpha }
-    return 0
-  }
-
-  const db = beta - orientPrev.beta
-  const dg = gamma - orientPrev.gamma
-  const da = alpha - orientPrev.alpha
-  orientPrev = { beta, gamma, alpha }
-
-  // deg → rough m/s² equivalent for threshold comparison
-  return Math.sqrt(db * db + dg * dg + da * da) * 0.12
-}
-
-export function resetOrientationBaseline() {
-  orientPrev = null
-}
-
 export function motionPermissionOk(permission: MotionPermission): boolean {
   return permission === 'granted' || permission === 'unsupported'
 }
 
-/** Quick sanity check that an event actually carries sensor data (Chrome quirk). */
-export function motionEventHasData(e: DeviceMotionEvent): boolean {
-  return readMotionSample(e) !== null
+/** Orientation delta — do NOT pre-update baseline here (handler owns it). */
+export function orientationToMotionDelta(
+  e: DeviceOrientationEvent,
+  prev: { beta: number; gamma: number; alpha: number } | null,
+): { delta: number; sample: { beta: number; gamma: number; alpha: number } } {
+  const beta = e.beta ?? 0
+  const gamma = e.gamma ?? 0
+  const alpha = e.alpha ?? 0
+  const sample = { beta, gamma, alpha }
+
+  if (!prev) return { delta: 0, sample }
+
+  const db = beta - prev.beta
+  const dg = gamma - prev.gamma
+  const da = alpha - prev.alpha
+  const delta = Math.sqrt(db * db + dg * dg + da * da) * 0.14
+
+  return { delta, sample }
 }
 
-export function computeCombinedShakeDelta(
-  e: DeviceMotionEvent,
-  prev: { x: number; y: number; z: number } | null,
-): { delta: number; sample: { x: number; y: number; z: number } | null } {
-  return computeShakeDelta(e, prev)
-}
+export { computeShakeDelta, readMotionSample }

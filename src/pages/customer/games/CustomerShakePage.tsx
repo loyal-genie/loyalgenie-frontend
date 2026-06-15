@@ -14,7 +14,7 @@ import {
   StarField,
   SHAKE_PARTICLE_COLORS,
 } from '@/components/customer/shake-effects'
-import { getCampaignIdFromSearch, getPlaySession, hasRecentMotionGesture } from '@/lib/customer-game'
+import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage, type PlayState } from '@/lib/api'
 import { getUser } from '@/lib/auth'
 import { useDeviceShake } from '@/hooks/useDeviceShake'
@@ -32,9 +32,9 @@ import {
   SHAKE_DURATION_MS,
   vibrate,
 } from '@/lib/shake-engine'
-import { primeMotionSensors } from '@/lib/shake-motion-sensors'
 
 type Phase = 'idle' | 'charging' | 'shaking' | 'suspending' | 'revealing' | 'result'
+type MotionHint = 'tap' | 'needed' | 'ready' | 'live'
 
 const GAME_BG = 'linear-gradient(165deg, #1A0545 0%, #2D1B69 38%, #0D0B1E 100%)'
 
@@ -50,7 +50,7 @@ export function CustomerShakePage() {
   const [intensity, setIntensity] = useState(0)
   const [shakeProgress, setShakeProgress] = useState(0)
   const [burstKey, setBurstKey] = useState(0)
-  const [motionHint, setMotionHint] = useState<'unknown' | 'needed' | 'ready'>('unknown')
+  const [motionHint, setMotionHint] = useState<MotionHint>('tap')
   const [won, setWon] = useState(false)
   const [rewardText, setRewardText] = useState('')
   const [rewardEmoji, setRewardEmoji] = useState('🎁')
@@ -66,6 +66,8 @@ export function CustomerShakePage() {
   const resolvedRef = useRef(false)
   const intensityRef = useRef(0)
   const progressRafRef = useRef<number | null>(null)
+  const startingRef = useRef(false)
+  const sensorPulseRef = useRef(false)
 
   const customerId = getUser()?.userId
   const playSession = campaignId ? getPlaySession(campaignId) : null
@@ -104,7 +106,6 @@ export function CustomerShakePage() {
     setError(playState.canPlay ? '' : playState.message)
   }, [playState])
 
-  // Intensity decay when not actively shaking
   useEffect(() => {
     if (phase !== 'shaking') return
     const tick = setInterval(() => {
@@ -117,7 +118,6 @@ export function CustomerShakePage() {
     return () => clearInterval(tick)
   }, [phase])
 
-  // Progress ring tracks elapsed shake time
   useEffect(() => {
     if (phase !== 'shaking' || !shakeStartRef.current) return
 
@@ -181,7 +181,12 @@ export function CustomerShakePage() {
 
   const startShakeRef = useRef<(() => void) | null>(null)
 
-  const { ensurePermission, permission, motionArmed, armMotion } = useDeviceShake({
+  const onSensorPulse = useCallback(() => {
+    sensorPulseRef.current = true
+    setMotionHint('live')
+  }, [])
+
+  const { ensurePermission, permission, sensorsPrimed, primeFromGesture } = useDeviceShake({
     listenIdle:
       motionPlay &&
       phase === 'idle' &&
@@ -193,47 +198,9 @@ export function CustomerShakePage() {
     onShakeStart: () => startShakeRef.current?.(),
     onIntensity: val => bumpIntensity(val * 0.14),
     onShakeSpike: () => bumpIntensity(0.08),
+    onSensorPulse,
     reducedMotion,
   })
-
-  useEffect(() => {
-    if (!motionPlay) return
-    if (needsMotionPermissionPrompt() && permission === 'unknown') {
-      setMotionHint('needed')
-    } else if (motionArmed && (permission === 'granted' || permission === 'unsupported')) {
-      setMotionHint('ready')
-    }
-  }, [motionPlay, permission, motionArmed])
-
-  // PIN entry counts as a user gesture — prime sensors immediately on Android Chrome.
-  useEffect(() => {
-    if (!motionPlay || motionArmed) return
-    if (hasRecentMotionGesture()) {
-      armMotion()
-      setMotionHint('ready')
-    }
-  }, [motionPlay, motionArmed, armMotion])
-
-  // Fallback: first touch anywhere primes sensors inside the gesture.
-  useEffect(() => {
-    if (!motionPlay || motionArmed) return
-
-    const arm = () => {
-      primeMotionSensors()
-      armMotion()
-      setMotionHint('ready')
-    }
-
-    window.addEventListener('touchstart', arm, { once: true, passive: true })
-    window.addEventListener('click', arm, { once: true })
-
-    return () => {
-      window.removeEventListener('touchstart', arm)
-      window.removeEventListener('click', arm)
-    }
-  }, [motionPlay, motionArmed, armMotion])
-
-  const startingRef = useRef(false)
 
   const startShakeSequence = useCallback(async () => {
     if (
@@ -260,7 +227,6 @@ export function CustomerShakePage() {
       setMotionHint('needed')
       return
     }
-    setMotionHint('ready')
 
     setTimeout(() => {
       setPhase('shaking')
@@ -275,7 +241,31 @@ export function CustomerShakePage() {
 
   startShakeRef.current = startShakeSequence
 
-  // Tap fallback — finish after shake duration
+  // Chrome Android: prime sensors synchronously on every touch (user activation).
+  const handleGestureArm = useCallback(() => {
+    if (!motionPlay || phase !== 'idle') return
+
+    primeFromGesture()
+
+    if (needsMotionPermissionPrompt() && permission === 'unknown') {
+      setMotionHint('needed')
+      void ensurePermission().then(perm => {
+        if (perm === 'granted') setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
+        else if (perm === 'denied') setMotionHint('needed')
+      })
+      return
+    }
+
+    setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
+  }, [motionPlay, phase, primeFromGesture, permission, ensurePermission])
+
+  useEffect(() => {
+    if (!motionPlay) return
+    if (needsMotionPermissionPrompt() && permission === 'unknown') {
+      setMotionHint('needed')
+    }
+  }, [motionPlay, permission])
+
   useEffect(() => {
     if (phase !== 'shaking' || !shakeStartRef.current) return
     const remaining = SHAKE_DURATION_MS - (Date.now() - shakeStartRef.current)
@@ -283,7 +273,6 @@ export function CustomerShakePage() {
     return () => clearTimeout(timer)
   }, [phase, finishShake, reducedMotion])
 
-  // Desktop: spacebar to start / boost intensity
   useEffect(() => {
     if (motionPlay) return
     const onKey = (e: KeyboardEvent) => {
@@ -299,18 +288,9 @@ export function CustomerShakePage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [motionPlay, phase, startShakeSequence, bumpIntensity])
 
-  const handleTap = async () => {
+  const handleTap = () => {
     if (motionPlay) {
-      if (phase === 'idle') {
-        primeMotionSensors()
-        const perm = await ensurePermission()
-        if (perm === 'denied') {
-          setMotionHint('needed')
-          return
-        }
-        armMotion()
-        setMotionHint('ready')
-      }
+      handleGestureArm()
       return
     }
 
@@ -332,6 +312,8 @@ export function CustomerShakePage() {
     setShakeProgress(0)
     setPhase('idle')
     setWon(false)
+    sensorPulseRef.current = false
+    setMotionHint('tap')
   }
 
   if (campaignLoading || stateLoading) {
@@ -365,13 +347,17 @@ export function CustomerShakePage() {
   const phaseCopy: Record<Phase, string> = {
     idle: playStateReady
       ? canPlay && playsLeft && playsLeft > 0
-        ? motionPlay
-          ? motionHint === 'needed'
-            ? 'Tap the phone once, then shake to start!'
-            : motionHint === 'ready'
-              ? 'Shake your phone to start!'
-              : 'Touch the screen, then shake to start!'
-          : 'Tap or press spacebar to start!'
+        ? needsHttpsForShake
+          ? 'Shake requires HTTPS — use the secure site link'
+          : motionPlay
+            ? motionHint === 'tap'
+              ? 'Tap anywhere, then shake your phone!'
+              : motionHint === 'needed'
+                ? 'Allow motion access, then shake!'
+                : motionHint === 'live' || sensorsPrimed
+                  ? 'Shake your phone now!'
+                  : 'Tap the screen, then shake!'
+            : 'Tap or press spacebar to start!'
         : blockReason === 'daily_participant_limit' || blockReason === 'user_cap'
           ? 'Campaign is full — no new players today'
           : 'No plays left today'
@@ -392,17 +378,17 @@ export function CustomerShakePage() {
 
   return (
     <motion.div
-      className="min-h-dvh flex flex-col items-center justify-between px-4 sm:px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] overflow-hidden relative max-w-md mx-auto w-full touch-none"
+      className="min-h-dvh flex flex-col items-center justify-between px-4 sm:px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] overflow-hidden relative max-w-md mx-auto w-full"
       style={{ background: GAME_BG }}
       animate={screenShake}
       transition={isShaking ? { duration: 0.1, repeat: Infinity } : {}}
+      onTouchStart={handleGestureArm}
     >
       <StarField />
       <FloatingPrizes visible={phase === 'idle'} />
       <ShakeVignette intensity={intensity} active={isShaking} />
       <RevealFlash active={phase === 'revealing'} />
 
-      {/* Ambient glow */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
         animate={{ opacity: isShaking ? [0.35, 0.65, 0.35] : 0.12 }}
@@ -412,7 +398,6 @@ export function CustomerShakePage() {
         }}
       />
 
-      {/* Header */}
       <div className="w-full flex items-center justify-between mb-1 sm:mb-2 relative z-10 shrink-0">
         <button
           type="button"
@@ -439,7 +424,6 @@ export function CustomerShakePage() {
         </div>
       </div>
 
-      {/* Title block */}
       <div className="text-center relative z-10 px-1 shrink-0">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -449,6 +433,9 @@ export function CustomerShakePage() {
           <span className="text-[9px] sm:text-[10px] font-bold text-amber-200 uppercase tracking-wider">
             🎯 {winRate}% win chance
           </span>
+          {motionPlay && motionHint === 'live' && (
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" title="Sensors active" />
+          )}
         </motion.div>
         <motion.h1
           initial={{ opacity: 0, y: -12 }}
@@ -477,7 +464,7 @@ export function CustomerShakePage() {
             animate={{ opacity: 1 }}
             className="text-[10px] text-red-300/90 mt-2 px-3"
           >
-            Shake needs HTTPS — open the secure link (not plain http://)
+            Sensors blocked on HTTP — open via https://
           </motion.p>
         )}
         {motionHint === 'needed' && phase === 'idle' && !needsHttpsForShake && (
@@ -486,12 +473,11 @@ export function CustomerShakePage() {
             animate={{ opacity: 1 }}
             className="text-[10px] text-amber-300/80 mt-2 flex items-center justify-center gap-1"
           >
-            <Smartphone className="w-3 h-3" /> iPhone needs a tap to enable motion — then shake
+            <Smartphone className="w-3 h-3" /> Tap the phone to allow motion sensors
           </motion.p>
         )}
       </div>
 
-      {/* Intensity + progress */}
       <div className="relative z-10 w-full max-w-[13rem] shrink-0">
         {isShaking && (
           <motion.div
@@ -515,12 +501,8 @@ export function CustomerShakePage() {
         )}
       </div>
 
-      {/* Phone + effects */}
       <div className="relative flex-1 flex items-center justify-center my-2 sm:my-4 z-10 min-h-[14rem] w-full">
-        {isShaking && (
-          <ProgressRing progress={shakeProgress} size={210} />
-        )}
-
+        {isShaking && <ProgressRing progress={shakeProgress} size={210} />}
         {isShaking && intensity > 0.25 && <SplashBurst intensity={intensity} burstKey={burstKey} />}
 
         {isShaking &&
@@ -552,13 +534,12 @@ export function CustomerShakePage() {
           intensity={intensity}
           onTap={handleTap}
           shakeToStart={motionPlay}
-          motionHint={motionHint}
+          motionHint={motionHint === 'tap' ? 'unknown' : motionHint === 'live' ? 'ready' : motionHint}
           disabled={isSuspense || !playStateReady || !canPlay || playsLeft === null || playsLeft <= 0}
           reducedMotion={reducedMotion}
         />
       </div>
 
-      {/* Footer hint */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -567,10 +548,10 @@ export function CustomerShakePage() {
       >
         <p className="text-[9px] sm:text-xs text-white/30 leading-relaxed">
           {motionPlay
-            ? 'A light shake is enough · Outcome decided fairly on server'
+            ? 'Tap once → shake to play · Fair server outcome'
             : reducedMotion
-              ? 'Tap rapidly to play · Outcome decided fairly on server'
-              : 'Tap or press spacebar · Outcome decided fairly on server'}
+              ? 'Tap rapidly to play · Fair server outcome'
+              : 'Tap or press spacebar · Fair server outcome'}
         </p>
       </motion.div>
     </motion.div>

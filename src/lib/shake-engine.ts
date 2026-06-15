@@ -9,8 +9,10 @@ export const SHAKE_START_MIN_DELTA = 0.45
 /** At least one frame must reach this delta (filters steady drift). */
 export const SHAKE_START_PEAK_DELTA = 1.1
 /** Cumulative energy required to start — tuned for a light shake. */
-export const SHAKE_START_ENERGY = 3.2
-export const SHAKE_START_DEBOUNCE_MS = 500
+export const SHAKE_START_ENERGY = 2.8
+export const SHAKE_START_DEBOUNCE_MS = 450
+/** shake.js-style speed threshold (lower = more sensitive). */
+export const SHAKE_SPEED_THRESHOLD = 3
 export const INTENSITY_DECAY = 0.04
 
 export function prefersReducedMotion(): boolean {
@@ -145,6 +147,42 @@ export function computeShakeDelta(e: DeviceMotionEvent, prev: { x: number; y: nu
   return { delta, sample }
 }
 
+export interface ShakeSpeedState {
+  x: number
+  y: number
+  z: number
+  time: number
+}
+
+export function createShakeSpeedState(): ShakeSpeedState {
+  return { x: 0, y: 0, z: 0, time: 0 }
+}
+
+/** Classic shake.js speed metric — reliable on Chrome Android gravity-inclusive data. */
+export function computeShakeSpeed(
+  sample: { x: number; y: number; z: number },
+  now: number,
+  state: ShakeSpeedState,
+): { speed: number; state: ShakeSpeedState } {
+  if (state.time === 0) {
+    return { speed: 0, state: { x: sample.x, y: sample.y, z: sample.z, time: now } }
+  }
+
+  const dt = now - state.time
+  if (dt < 25) {
+    return { speed: 0, state }
+  }
+
+  const delta =
+    Math.abs(sample.x + sample.y + sample.z - (state.x + state.y + state.z))
+  const speed = (delta / dt) * 1000
+
+  return {
+    speed,
+    state: { x: sample.x, y: sample.y, z: sample.z, time: now },
+  }
+}
+
 export interface ShakeStartState {
   energy: number
   lastMotionAt: number
@@ -182,8 +220,7 @@ export function evaluateShakeStart(
   }
 
   const triggered =
-    next.sawPeak &&
-    next.energy >= SHAKE_START_ENERGY &&
+    (next.sawPeak && next.energy >= SHAKE_START_ENERGY) &&
     now - next.lastTriggeredAt >= SHAKE_START_DEBOUNCE_MS
 
   if (triggered) {

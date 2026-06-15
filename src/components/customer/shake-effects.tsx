@@ -335,16 +335,16 @@ export function PhoneMockup({
                   <p className="text-xs sm:text-sm font-bold text-white">
                     {motionHint === 'needed'
                       ? 'Tap to enable motion'
-                      : motionHint === 'ready'
-                        ? 'Shake your phone!'
-                        : 'Touch screen to begin'}
+                      : motionHint === 'unknown'
+                        ? 'Tap anywhere first'
+                        : 'Shake your phone!'}
                   </p>
                   <p className="text-[9px] sm:text-[10px] text-white/45 mt-0.5">
-                    {motionHint === 'needed'
-                      ? 'then shake hard to play'
-                      : motionHint === 'ready'
-                        ? 'hold it firmly and shake'
-                        : 'then shake hard to play'}
+                    {motionHint === 'unknown'
+                      ? 'then shake to play'
+                      : motionHint === 'needed'
+                        ? 'then shake hard to play'
+                        : 'hold firmly and shake'}
                   </p>
                 </>
               ) : (
