@@ -23,7 +23,9 @@ import {
   hapticCharge,
   hapticReveal,
   hapticStart,
+  hasDeviceMotionApi,
   INTENSITY_DECAY,
+  needsMotionPermissionPrompt,
   prefersReducedMotion,
   SHAKE_DURATION_MS,
   vibrate,
@@ -38,6 +40,7 @@ export function CustomerShakePage() {
   const { search } = useLocation()
   const campaignId = getCampaignIdFromSearch(search)
   const reducedMotion = prefersReducedMotion()
+  const motionPlay = !reducedMotion && hasDeviceMotionApi()
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [intensity, setIntensity] = useState(0)
@@ -172,12 +175,31 @@ export function CustomerShakePage() {
     })
   }, [])
 
-  const { ensurePermission } = useDeviceShake({
-    active: phase === 'shaking' || phase === 'charging',
-    reducedMotion,
+  const startShakeRef = useRef<(() => void) | null>(null)
+
+  const { ensurePermission, permission } = useDeviceShake({
+    listenIdle:
+      motionPlay &&
+      phase === 'idle' &&
+      playStateReady &&
+      canPlay &&
+      playsLeft !== null &&
+      playsLeft > 0,
+    listenActive: phase === 'shaking' || phase === 'charging',
+    onShakeStart: () => startShakeRef.current?.(),
     onIntensity: val => bumpIntensity(val * 0.14),
     onShakeSpike: () => bumpIntensity(0.08),
+    reducedMotion,
   })
+
+  useEffect(() => {
+    if (!motionPlay) return
+    if (needsMotionPermissionPrompt() && permission === 'unknown') {
+      setMotionHint('needed')
+    } else if (permission === 'granted' || permission === 'unsupported') {
+      setMotionHint('ready')
+    }
+  }, [motionPlay, permission])
 
   const startShakeSequence = useCallback(async () => {
     if (
@@ -193,8 +215,11 @@ export function CustomerShakePage() {
     }
 
     const perm = await ensurePermission()
-    if (perm === 'denied') setMotionHint('needed')
-    else setMotionHint('ready')
+    if (perm === 'denied') {
+      setMotionHint('needed')
+      return
+    }
+    setMotionHint('ready')
 
     setPhase('charging')
     hapticStart()
@@ -208,6 +233,8 @@ export function CustomerShakePage() {
     }, reducedMotion ? 200 : CHARGE_MS)
   }, [phase, canPlay, playsLeft, playSession, playStateReady, ensurePermission, finishShake, reducedMotion])
 
+  startShakeRef.current = startShakeSequence
+
   // Tap fallback — finish after shake duration
   useEffect(() => {
     if (phase !== 'shaking' || !shakeStartRef.current) return
@@ -216,8 +243,9 @@ export function CustomerShakePage() {
     return () => clearTimeout(timer)
   }, [phase, finishShake, reducedMotion])
 
-  // Desktop: spacebar to shake
+  // Desktop: spacebar to start / boost intensity
   useEffect(() => {
+    if (motionPlay) return
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== 'Space' || e.repeat) return
       e.preventDefault()
@@ -229,9 +257,18 @@ export function CustomerShakePage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase, startShakeSequence, bumpIntensity])
+  }, [motionPlay, phase, startShakeSequence, bumpIntensity])
 
-  const handleTap = () => {
+  const handleTap = async () => {
+    if (motionPlay) {
+      if (phase === 'idle') {
+        const perm = await ensurePermission()
+        if (perm === 'denied') setMotionHint('needed')
+        else setMotionHint('ready')
+      }
+      return
+    }
+
     if (phase === 'idle') startShakeSequence()
     else if (phase === 'shaking') {
       bumpIntensity(reducedMotion ? 0.25 : 0.16)
@@ -283,7 +320,11 @@ export function CustomerShakePage() {
   const phaseCopy: Record<Phase, string> = {
     idle: playStateReady
       ? canPlay && playsLeft && playsLeft > 0
-        ? 'Shake your phone or tap to start!'
+        ? motionPlay
+          ? motionHint === 'needed'
+            ? 'Tap the phone once, then shake to start!'
+            : 'Shake your phone to start!'
+          : 'Tap or press spacebar to start!'
         : blockReason === 'daily_participant_limit' || blockReason === 'user_cap'
           ? 'Campaign is full — no new players today'
           : 'No plays left today'
@@ -389,7 +430,7 @@ export function CustomerShakePage() {
             animate={{ opacity: 1 }}
             className="text-[10px] text-amber-300/80 mt-2 flex items-center justify-center gap-1"
           >
-            <Smartphone className="w-3 h-3" /> Tap &amp; shake — motion access helps on iPhone
+            <Smartphone className="w-3 h-3" /> iPhone needs a tap to enable motion — then shake
           </motion.p>
         )}
       </div>
@@ -454,6 +495,8 @@ export function CustomerShakePage() {
           phase={phonePhase}
           intensity={intensity}
           onTap={handleTap}
+          shakeToStart={motionPlay}
+          motionHint={motionHint}
           disabled={isSuspense || !playStateReady || !canPlay || playsLeft === null || playsLeft <= 0}
           reducedMotion={reducedMotion}
         />
@@ -467,9 +510,11 @@ export function CustomerShakePage() {
         className="text-center relative z-10 shrink-0 px-2"
       >
         <p className="text-[9px] sm:text-xs text-white/30 leading-relaxed">
-          {reducedMotion
-            ? 'Tap rapidly to play · Outcome decided fairly on server'
-            : 'Shake hard for ~2s · Spacebar works on desktop · Fair server outcome'}
+          {motionPlay
+            ? 'Shake hard for ~2s · Outcome decided fairly on server'
+            : reducedMotion
+              ? 'Tap rapidly to play · Outcome decided fairly on server'
+              : 'Tap or press spacebar · Outcome decided fairly on server'}
         </p>
       </motion.div>
     </motion.div>

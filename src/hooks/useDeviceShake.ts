@@ -1,55 +1,60 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import {
   computeShakeDelta,
   hapticShakePulse,
+  initialMotionPermission,
   requestMotionPermission,
   SHAKE_DELTA_THRESHOLD,
   type MotionPermission,
 } from '@/lib/shake-engine'
 
+const START_DEBOUNCE_MS = 700
+
 interface UseDeviceShakeOptions {
-  active: boolean
-  onIntensity: (value: number) => void
+  listenIdle: boolean
+  listenActive: boolean
+  onShakeStart?: () => void
+  onIntensity?: (value: number) => void
   onShakeSpike?: (delta: number) => void
   reducedMotion?: boolean
 }
 
 export function useDeviceShake({
-  active,
+  listenIdle,
+  listenActive,
+  onShakeStart,
   onIntensity,
   onShakeSpike,
   reducedMotion = false,
 }: UseDeviceShakeOptions) {
-  const permissionRef = useRef<MotionPermission>('unknown')
+  const [permission, setPermission] = useState<MotionPermission>(initialMotionPermission)
   const prevSampleRef = useRef<{ x: number; y: number; z: number } | null>(null)
-  const listenerAttachedRef = useRef(false)
+  const lastStartAtRef = useRef(0)
+  const onShakeStartRef = useRef(onShakeStart)
+  const onIntensityRef = useRef(onIntensity)
+  const onShakeSpikeRef = useRef(onShakeSpike)
 
-  const attachListener = useCallback(
-    (handler: (e: DeviceMotionEvent) => void) => {
-      if (listenerAttachedRef.current) return
-      window.addEventListener('devicemotion', handler, { passive: true })
-      listenerAttachedRef.current = true
-    },
-    [],
-  )
-
-  const detachListener = useCallback((handler: (e: DeviceMotionEvent) => void) => {
-    window.removeEventListener('devicemotion', handler)
-    listenerAttachedRef.current = false
-  }, [])
+  onShakeStartRef.current = onShakeStart
+  onIntensityRef.current = onIntensity
+  onShakeSpikeRef.current = onShakeSpike
 
   const ensurePermission = useCallback(async (): Promise<MotionPermission> => {
-    if (permissionRef.current === 'granted' || permissionRef.current === 'unsupported') {
-      return permissionRef.current
+    if (permission === 'granted' || permission === 'unsupported') {
+      return permission
     }
     const perm = await requestMotionPermission()
-    permissionRef.current = perm
+    setPermission(perm)
     return perm
-  }, [])
+  }, [permission])
 
   useEffect(() => {
-    if (!active || reducedMotion) {
+    const listening = !reducedMotion && (listenIdle || listenActive)
+    if (!listening) {
       prevSampleRef.current = null
+      return
+    }
+
+    if (permission !== 'granted' && permission !== 'unsupported') {
       return
     }
 
@@ -57,22 +62,30 @@ export function useDeviceShake({
       const { delta, sample } = computeShakeDelta(e, prevSampleRef.current)
       prevSampleRef.current = sample
 
+      if (listenIdle && delta > SHAKE_DELTA_THRESHOLD) {
+        const now = Date.now()
+        if (now - lastStartAtRef.current >= START_DEBOUNCE_MS) {
+          lastStartAtRef.current = now
+          onShakeStartRef.current?.()
+        }
+        return
+      }
+
+      if (!listenActive) return
+
       if (delta > SHAKE_DELTA_THRESHOLD * 0.5) {
-        onIntensity(Math.min(1, delta / (SHAKE_DELTA_THRESHOLD * 2.5)))
+        onIntensityRef.current?.(Math.min(1, delta / (SHAKE_DELTA_THRESHOLD * 2.5)))
       }
 
       if (delta > SHAKE_DELTA_THRESHOLD) {
-        onShakeSpike?.(delta)
+        onShakeSpikeRef.current?.(delta)
         hapticShakePulse(Math.min(1, delta / 30))
       }
     }
 
-    if (permissionRef.current === 'granted' || permissionRef.current === 'unsupported') {
-      attachListener(handler)
-    }
+    window.addEventListener('devicemotion', handler, { passive: true })
+    return () => window.removeEventListener('devicemotion', handler)
+  }, [listenIdle, listenActive, permission, reducedMotion])
 
-    return () => detachListener(handler)
-  }, [active, reducedMotion, onIntensity, onShakeSpike, attachListener, detachListener])
-
-  return { ensurePermission, permission: permissionRef }
+  return { ensurePermission, permission }
 }

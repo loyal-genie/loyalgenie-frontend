@@ -176,11 +176,21 @@ interface PhoneMockupProps {
   phase: 'idle' | 'charging' | 'shaking' | 'suspense'
   intensity: number
   onTap: () => void
+  shakeToStart?: boolean
+  motionHint?: 'unknown' | 'needed' | 'ready'
   disabled: boolean
   reducedMotion: boolean
 }
 
-export function PhoneMockup({ phase, intensity, onTap, disabled, reducedMotion }: PhoneMockupProps) {
+export function PhoneMockup({
+  phase,
+  intensity,
+  onTap,
+  shakeToStart = false,
+  motionHint = 'unknown',
+  disabled,
+  reducedMotion,
+}: PhoneMockupProps) {
   const isShaking = phase === 'shaking' || phase === 'charging'
   const isSuspense = phase === 'suspense'
   const phoneW = 'clamp(9rem, 42vw, 13rem)'
@@ -243,7 +253,15 @@ export function PhoneMockup({ phase, intensity, onTap, disabled, reducedMotion }
             ? `0 0 ${50 + intensity * 100}px rgba(139,92,246,${0.45 + intensity * 0.4}), 0 24px 48px rgba(0,0,0,0.75), inset 0 0 ${30 + intensity * 40}px rgba(245,197,24,${intensity * 0.15})`
             : '0 0 40px rgba(139,92,246,0.35), 0 20px 40px rgba(0,0,0,0.55)',
         }}
-        aria-label={phase === 'idle' ? 'Tap to start shaking' : 'Keep shaking'}
+        aria-label={
+          phase === 'idle'
+            ? shakeToStart
+              ? motionHint === 'needed'
+                ? 'Tap to enable motion, then shake to start'
+                : 'Shake your phone to start'
+              : 'Tap to start shaking'
+            : 'Keep shaking your phone'
+        }
       >
         {/* Phone notch / home indicator */}
         <div className="absolute top-3 sm:top-4 w-[35%] h-1 sm:h-1.5 rounded-full bg-black/45" />
@@ -312,8 +330,21 @@ export function PhoneMockup({ phase, intensity, onTap, disabled, reducedMotion }
               📱
             </motion.span>
             <div className="text-center">
-              <p className="text-xs sm:text-sm font-bold text-white">Tap to Shake!</p>
-              <p className="text-[9px] sm:text-[10px] text-white/45 mt-0.5">or shake your phone hard</p>
+              {shakeToStart ? (
+                <>
+                  <p className="text-xs sm:text-sm font-bold text-white">
+                    {motionHint === 'needed' ? 'Tap to enable motion' : 'Shake your phone!'}
+                  </p>
+                  <p className="text-[9px] sm:text-[10px] text-white/45 mt-0.5">
+                    {motionHint === 'needed' ? 'then shake hard to play' : 'hold it firmly and shake'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs sm:text-sm font-bold text-white">Tap to Shake!</p>
+                  <p className="text-[9px] sm:text-[10px] text-white/45 mt-0.5">or press spacebar on desktop</p>
+                </>
+              )}
             </div>
           </motion.div>
         )}

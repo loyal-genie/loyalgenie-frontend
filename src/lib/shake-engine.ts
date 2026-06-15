@@ -42,6 +42,22 @@ export function hapticReveal(won: boolean) {
 
 export type MotionPermission = 'unknown' | 'granted' | 'denied' | 'unsupported'
 
+export function hasDeviceMotionApi(): boolean {
+  return typeof window !== 'undefined' && typeof DeviceMotionEvent !== 'undefined'
+}
+
+/** iOS 13+ requires an explicit permission prompt before devicemotion events fire. */
+export function needsMotionPermissionPrompt(): boolean {
+  if (!hasDeviceMotionApi()) return false
+  const dm = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }
+  return typeof dm.requestPermission === 'function'
+}
+
+export function initialMotionPermission(): MotionPermission {
+  if (!hasDeviceMotionApi()) return 'unsupported'
+  return needsMotionPermissionPrompt() ? 'unknown' : 'granted'
+}
+
 export async function requestMotionPermission(): Promise<MotionPermission> {
   const dm = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }
   if (typeof dm.requestPermission !== 'function') {
