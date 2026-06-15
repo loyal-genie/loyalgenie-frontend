@@ -1,11 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, LayoutList, LayoutGrid, ArrowUpDown,
-  CalendarDays, Users, Trophy, TrendingUp, MoreVertical,
-  Pause, StopCircle, Eye, Loader2, RefreshCw,
+  CalendarDays, Users, Trophy, TrendingUp,
+  Eye, Loader2, RefreshCw, Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, ProgressBar } from '@/components/ui/card'
@@ -79,81 +78,26 @@ type ViewMode = 'list' | 'grid'
 
 const activeCampaignsCount = (list: CampaignDto[]) => list.filter(c => c.status === 'active').length
 
-// ── Quick actions menu (portal so dropdown isn't clipped by card overflow) ───
-function QuickMenu({ id }: { id: string }) {
-  const [open, setOpen] = useState(false)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
-
-  useEffect(() => {
-    if (!open || !buttonRef.current) return
-    const rect = buttonRef.current.getBoundingClientRect()
-    const menuWidth = 176
-    setMenuPos({
-      top: rect.bottom + 6,
-      left: Math.max(8, rect.right - menuWidth),
-    })
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const close = () => setOpen(false)
-    window.addEventListener('scroll', close, true)
-    window.addEventListener('resize', close)
-    return () => {
-      window.removeEventListener('scroll', close, true)
-      window.removeEventListener('resize', close)
-    }
-  }, [open])
-
-  const items = [
-    { icon: Eye,        label: 'View details', href: `/vendor/campaigns/${id}`,      color: 'text-v-text' },
-    { icon: Pause,      label: 'Edit & Pause', href: `/vendor/campaigns/${id}/edit`, color: 'text-v-text' },
-    { icon: StopCircle, label: 'End campaign', href: `/vendor/campaigns/${id}/edit`, color: 'text-v-danger' },
-  ]
-
+// ── Campaign row actions (always visible — no clipped dropdown) ───────────────
+function CampaignCardActions({ id }: { id: string }) {
   return (
-    <div className="relative shrink-0">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={e => { e.preventDefault(); e.stopPropagation(); setOpen(p => !p) }}
-        className="w-8 h-8 rounded-lg flex items-center justify-center text-v-text-3 hover:text-v-text hover:bg-v-surface-2 transition-colors"
-        aria-expanded={open}
-        aria-haspopup="menu"
+    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 shrink-0 self-start">
+      <Link
+        to={`/vendor/campaigns/${id}`}
+        title="View details"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-v-text-2 hover:text-v-purple hover:bg-v-purple/8 transition-colors no-underline"
       >
-        <MoreVertical className="w-4 h-4" />
-      </button>
-      {open && createPortal(
-        <>
-          <div className="fixed inset-0 z-[100]" onClick={() => setOpen(false)} aria-hidden />
-          <AnimatePresence>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              transition={{ duration: 0.12 }}
-              style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-              className="z-[101] w-44 bg-white border border-v-border rounded-xl shadow-xl py-1"
-              role="menu"
-            >
-              {items.map(({ icon: Icon, label, href, color }) => (
-                <Link
-                  key={label}
-                  to={href}
-                  role="menuitem"
-                  onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-medium hover:bg-v-surface-2 transition-colors ${color}`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                </Link>
-              ))}
-            </motion.div>
-          </AnimatePresence>
-        </>,
-        document.body,
-      )}
+        <Eye className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">View</span>
+      </Link>
+      <Link
+        to={`/vendor/campaigns/${id}/edit`}
+        title="Edit & Pause"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-v-purple bg-v-purple/10 hover:bg-v-purple/15 border border-v-purple/20 transition-colors no-underline"
+      >
+        <Pencil className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">Edit</span>
+      </Link>
     </div>
   )
 }
@@ -169,8 +113,7 @@ function ListCard({ c }: { c: CampaignDto }) {
   const color  = getMechanicColor(c.mechanic as 'shake')
 
   return (
-    <motion.div whileHover={{ x: 2 }} transition={{ duration: 0.15 }}>
-      <div className={`vendor-card vendor-card-hover rounded-2xl ${muted ? 'opacity-60' : ''}`}>
+    <div className={`vendor-card vendor-card-hover rounded-2xl overflow-visible ${muted ? 'opacity-60' : ''}`}>
         <div className="flex items-stretch">
           {/* Status stripe */}
           <div className={`w-1 shrink-0`}
@@ -246,12 +189,11 @@ function ListCard({ c }: { c: CampaignDto }) {
               </div>
 
               {/* Actions */}
-              <QuickMenu id={c.id} />
+              <CampaignCardActions id={c.id} />
             </div>
-          </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -266,8 +208,7 @@ function GridCard({ c }: { c: CampaignDto }) {
   const color  = getMechanicColor(c.mechanic as 'shake')
 
   return (
-    <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
-      <div className={`vendor-card vendor-card-hover rounded-2xl h-full flex flex-col ${muted ? 'opacity-60' : ''}`}>
+    <div className={`vendor-card vendor-card-hover rounded-2xl h-full flex flex-col overflow-visible ${muted ? 'opacity-60' : ''}`}>
         {/* Status stripe top */}
         <div className="h-1 w-full"
           style={{ background: c.status === 'active' ? '#16A34A' : c.status === 'draft' ? '#F59E0B' : c.status === 'paused' ? '#F97316' : '#C4B8FF' }} />
@@ -281,7 +222,7 @@ function GridCard({ c }: { c: CampaignDto }) {
             </div>
             <div className="flex items-center gap-1.5">
               <StatusBadge status={c.status} />
-              <QuickMenu id={c.id} />
+              <CampaignCardActions id={c.id} />
             </div>
           </div>
 
@@ -335,7 +276,6 @@ function GridCard({ c }: { c: CampaignDto }) {
           </div>
         </div>
       </div>
-    </motion.div>
   )
 }
 
@@ -542,7 +482,7 @@ export function VendorCampaignsPage() {
               )}
             </div>
           ) : view === 'list' ? (
-            <div className="space-y-2">
+            <div className="space-y-3 overflow-visible">
               {filtered.map((c, i) => (
                 <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
                   <ListCard c={c} />
