@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check, Zap, Plus, Trash2, AlertCircle, CalendarDays, TrendingUp, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { FieldInput as Input, Slider } from '@/components/ui/input'
+import { FieldInput as Input, Slider, Stepper } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { getMechanicLabel, getMechanicEmoji, getMechanicColor } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/api'
@@ -60,28 +60,6 @@ function newReward(): RewardEntry { return { id: Math.random().toString(36).slic
 type RewardMode = 'single' | 'pool'
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-function Stepper({ label, hint, value, min = 1, max = 20, onChange }: { label: string; hint?: string; value: number; min?: number; max?: number; onChange: (v: number) => void }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <label className="text-xs font-semibold text-v-text-2 uppercase tracking-wider">{label}</label>
-      <div className="flex items-center gap-2">
-        <button onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min}
-          className="w-9 h-9 rounded-xl border border-v-border bg-white text-v-text flex items-center justify-center text-lg font-bold hover:border-v-border-b disabled:opacity-30 disabled:cursor-not-allowed transition-all select-none">
-          −
-        </button>
-        <input type="number" value={value} min={min} max={max}
-          onChange={e => { const v = Math.max(min, Math.min(max, Number(e.target.value))); if (!isNaN(v)) onChange(v) }}
-          className="w-16 text-center bg-white border border-v-border rounded-xl py-2 text-sm font-bold text-v-text focus:outline-none focus:border-v-purple" />
-        <button onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max}
-          className="w-9 h-9 rounded-xl border border-v-border bg-white text-v-text flex items-center justify-center text-lg font-bold hover:border-v-border-b disabled:opacity-30 disabled:cursor-not-allowed transition-all select-none">
-          +
-        </button>
-        {hint && <span className="text-xs text-v-text-3 ml-1">{hint}</span>}
-      </div>
-    </div>
-  )
-}
 
 function ProbabilityBar({ entries, shareMode }: { entries: { name: string; probability: number; id: string }[]; shareMode?: boolean }) {
   const total = entries.reduce((s, r) => s + r.probability, 0)
@@ -493,21 +471,22 @@ export function VendorCampaignCreatePage() {
                   {/* Shake, Spin, Dice: overall + per-day */}
                   {isShakeSpinOrDice && (
                     <>
-                      <Slider label="Overall User Cap" displayValue={`${basics.userCap} users total`} min={10} max={2000} step={10} value={basics.userCap} onChange={e => setBasics(p => ({ ...p, userCap: Number(e.target.value) }))} />
+                      <Stepper label="Overall User Cap" hint="users total" value={basics.userCap} min={10} max={2000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v, perDayUserLimit: Math.min(p.perDayUserLimit, v) }))} />
                       {!isToday && (
                         <div>
-                          <Slider label="Daily User Limit" displayValue={`${basics.perDayUserLimit} users / day`} min={1} max={basics.userCap} step={1} value={basics.perDayUserLimit} onChange={e => setBasics(p => ({ ...p, perDayUserLimit: Number(e.target.value) }))} />
+                          <Stepper label="Daily User Limit" hint="users / day" value={basics.perDayUserLimit} min={1} max={basics.userCap} onChange={v => setBasics(p => ({ ...p, perDayUserLimit: v }))} />
                           <p className="text-xs text-v-text-3 mt-1.5">
                             Suggested: <span className="font-semibold text-v-text-2">{suggestedDailyLimit} / day</span> — even distribution over {campaignDays} days. Override if needed.
                           </p>
                         </div>
                       )}
+                      <Stepper label="Plays Per User Per Day" hint="plays / day" value={basics.playsPerDay} min={1} max={10} onChange={v => setBasics(p => ({ ...p, playsPerDay: v }))} />
                     </>
                   )}
 
                   {/* Stamp: single user cap */}
                   {isStamp && (
-                    <Slider label="User Cap" displayValue={`${basics.userCap} users`} min={10} max={2000} step={10} value={basics.userCap} onChange={e => setBasics(p => ({ ...p, userCap: Number(e.target.value) }))} />
+                    <Stepper label="User Cap" hint="users" value={basics.userCap} min={10} max={2000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
                   )}
 
                   {/* Lottery: no caps */}
@@ -517,24 +496,17 @@ export function VendorCampaignCreatePage() {
                       <p>Lottery has no user cap — open to all customers. Prize odds are built into the ticket mechanics.</p>
                     </div>
                   )}
-                </div>
 
-                {/* ── Plays per day — shake, spin, dice */}
-                {isShakeSpinOrDice && (
-                  <Stepper label="Plays Per User Per Day" hint="plays / day" value={basics.playsPerDay} min={1} max={10} onChange={v => setBasics(p => ({ ...p, playsPerDay: v }))} />
-                )}
-
-                {/* ── Win Rate — Shake only (explicit vendor input) */}
-                {mechanic === 'shake' && (
-                  <div className="pt-2 border-t border-v-border space-y-2">
+                  {/* Win Rate — Shake only (explicit vendor input) */}
+                  {mechanic === 'shake' && (
                     <div>
-                      <Slider label="Overall Win Rate" displayValue={`${basics.overallWinRate}% of customers win`} min={5} max={100} step={5} value={basics.overallWinRate} onChange={e => setBasics(p => ({ ...p, overallWinRate: Number(e.target.value) }))} />
+                      <Stepper label="Overall Win Rate" hint="% of customers win" value={basics.overallWinRate} min={5} max={100} step={5} onChange={v => setBasics(p => ({ ...p, overallWinRate: v }))} />
                       <p className="text-xs text-v-text-3 mt-1.5">
                         Daily win rate is the same — <span className="font-semibold text-v-text-2">{basics.overallWinRate}%</span> of each day&apos;s players will win. Configure what they win in the next step.
                       </p>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* Stamp info note */}
                 {isStamp && (

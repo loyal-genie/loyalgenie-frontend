@@ -104,6 +104,58 @@ interface SliderProps extends ComponentPropsWithoutRef<'input'> {
   displayValue?: string
 }
 
+interface StepperProps {
+  label: string
+  hint?: string
+  value: number
+  min?: number
+  max?: number
+  step?: number
+  onChange: (v: number) => void
+  disabled?: boolean
+}
+
+export function Stepper({ label, hint, value, min = 1, max = 20, step = 1, onChange, disabled }: StepperProps) {
+  const clamp = (v: number) => Math.max(min, Math.min(max, v))
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-xs font-semibold text-v-text-2 uppercase tracking-wider">{label}</label>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onChange(clamp(value - step))}
+          disabled={disabled || value <= min}
+          className="w-9 h-9 rounded-xl border border-v-border bg-white text-v-text flex items-center justify-center text-lg font-bold hover:border-v-border-b disabled:opacity-30 disabled:cursor-not-allowed transition-all select-none"
+        >
+          −
+        </button>
+        <input
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+          onChange={e => {
+            const v = clamp(Number(e.target.value))
+            if (!isNaN(v)) onChange(v)
+          }}
+          className="w-16 text-center bg-white border border-v-border rounded-xl py-2 text-sm font-bold text-v-text focus:outline-none focus:border-v-purple disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={() => onChange(clamp(value + step))}
+          disabled={disabled || value >= max}
+          className="w-9 h-9 rounded-xl border border-v-border bg-white text-v-text flex items-center justify-center text-lg font-bold hover:border-v-border-b disabled:opacity-30 disabled:cursor-not-allowed transition-all select-none"
+        >
+          +
+        </button>
+        {hint && <span className="text-xs text-v-text-3 ml-1">{hint}</span>}
+      </div>
+    </div>
+  )
+}
+
 export function Slider({ label, displayValue, className, ...props }: SliderProps) {
   return (
     <div className="flex flex-col gap-2">

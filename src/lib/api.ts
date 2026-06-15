@@ -336,6 +336,7 @@ export interface UpdateCampaignPayload {
   playsPerDay?: number
   winRatePercent?: number
   status?: 'active' | 'paused' | 'ended'
+  rewards?: { id?: string; name: string; description?: string; icon: string; sharePercent: number }[]
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {
