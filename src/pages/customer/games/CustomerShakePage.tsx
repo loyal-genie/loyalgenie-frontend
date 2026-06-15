@@ -15,7 +15,7 @@ import {
   SHAKE_PARTICLE_COLORS,
 } from '@/components/customer/shake-effects'
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
-import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage } from '@/lib/api'
+import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage, type PlayState } from '@/lib/api'
 import { getUser } from '@/lib/auth'
 import { useDeviceShake } from '@/hooks/useDeviceShake'
 import {
@@ -49,6 +49,8 @@ export function CustomerShakePage() {
   const [rewardEmoji, setRewardEmoji] = useState('🎁')
   const [rewardCode, setRewardCode] = useState<string | undefined>()
   const [playsLeft, setPlaysLeft] = useState<number | null>(null)
+  const [canPlay, setCanPlay] = useState(false)
+  const [blockReason, setBlockReason] = useState<PlayState['blockReason']>(null)
   const [attempts, setAttempts] = useState<{ used: number; total: number } | null>(null)
   const [error, setError] = useState('')
   const [playStateReady, setPlayStateReady] = useState(false)
@@ -88,6 +90,8 @@ export function CustomerShakePage() {
   useEffect(() => {
     if (!playState) return
     setPlayStateReady(true)
+    setCanPlay(playState.canPlay)
+    setBlockReason(playState.blockReason ?? null)
     setPlaysLeft(playState.playsRemaining)
     setAttempts({ used: playState.playsUsedToday, total: playState.playsPerDay })
     setError(playState.canPlay ? '' : playState.message)
@@ -129,6 +133,8 @@ export function CustomerShakePage() {
       queryClient.invalidateQueries({ queryKey: ['play-state', campaignId] })
       setWon(result.won)
       setPlaysLeft(result.playsRemaining)
+      setCanPlay(result.playsRemaining > 0)
+      setBlockReason(result.playsRemaining > 0 ? null : 'no_plays_remaining')
       setAttempts({ used: result.playsUsedToday, total: result.playsPerDay })
       if (result.won && result.reward) {
         setRewardText(result.reward.name)
@@ -174,7 +180,15 @@ export function CustomerShakePage() {
   })
 
   const startShakeSequence = useCallback(async () => {
-    if (phase !== 'idle' || !playStateReady || playsLeft === null || playsLeft <= 0 || !playSession || resolvedRef.current) {
+    if (
+      phase !== 'idle' ||
+      !playStateReady ||
+      !canPlay ||
+      playsLeft === null ||
+      playsLeft <= 0 ||
+      !playSession ||
+      resolvedRef.current
+    ) {
       return
     }
 
@@ -192,7 +206,7 @@ export function CustomerShakePage() {
         setTimeout(finishShake, 1200)
       }
     }, reducedMotion ? 200 : CHARGE_MS)
-  }, [phase, playsLeft, playSession, playStateReady, ensurePermission, finishShake, reducedMotion])
+  }, [phase, canPlay, playsLeft, playSession, playStateReady, ensurePermission, finishShake, reducedMotion])
 
   // Tap fallback — finish after shake duration
   useEffect(() => {
@@ -268,9 +282,11 @@ export function CustomerShakePage() {
 
   const phaseCopy: Record<Phase, string> = {
     idle: playStateReady
-      ? playsLeft && playsLeft > 0
+      ? canPlay && playsLeft && playsLeft > 0
         ? 'Shake your phone or tap to start!'
-        : 'No plays left today'
+        : blockReason === 'daily_participant_limit' || blockReason === 'user_cap'
+          ? 'Campaign is full — no new players today'
+          : 'No plays left today'
       : 'Loading your play status…',
     charging: 'Get ready… feel the buzz!',
     shaking: intensity > 0.65 ? 'Almost there… don\'t stop!' : 'Shake harder!',
@@ -321,6 +337,8 @@ export function CustomerShakePage() {
         <div className="glass rounded-full px-3 py-1.5 min-w-[7.5rem] text-center">
           {!playStateReady ? (
             <p className="text-[10px] sm:text-xs text-white/50 font-medium">Checking…</p>
+          ) : !canPlay && (blockReason === 'daily_participant_limit' || blockReason === 'user_cap') ? (
+            <p className="text-[10px] sm:text-xs text-amber-200/90 font-bold">Full today</p>
           ) : attempts ? (
             <p className="text-[10px] sm:text-xs text-white/90 font-bold">
               {attempts.used}/{attempts.total} attempts
@@ -436,7 +454,7 @@ export function CustomerShakePage() {
           phase={phonePhase}
           intensity={intensity}
           onTap={handleTap}
-          disabled={isSuspense || !playStateReady || playsLeft === null || playsLeft <= 0}
+          disabled={isSuspense || !playStateReady || !canPlay || playsLeft === null || playsLeft <= 0}
           reducedMotion={reducedMotion}
         />
       </div>

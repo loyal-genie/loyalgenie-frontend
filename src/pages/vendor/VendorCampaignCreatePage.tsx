@@ -309,7 +309,7 @@ export function VendorCampaignCreatePage() {
         startDate: dates.start,
         endDate: dates.end,
         userCap: basics.userCap,
-        perDayUserLimit: basics.perDayUserLimit,
+        perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
         playsPerDay: basics.playsPerDay,
         winRatePercent: basics.overallWinRate,
         rewards: shakeRewards

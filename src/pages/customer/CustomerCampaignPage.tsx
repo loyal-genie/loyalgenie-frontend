@@ -187,9 +187,14 @@ export function CustomerCampaignPage() {
           {playState && (
             <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">
               <span className="text-xs font-bold text-white/80">
-                {playState.playsUsedToday}/{playState.playsPerDay} attempts today
+                {!playState.canPlay && (playState.blockReason === 'daily_participant_limit' || playState.blockReason === 'user_cap')
+                  ? 'Campaign full today'
+                  : `${playState.playsUsedToday}/${playState.playsPerDay} attempts today`}
               </span>
             </div>
+          )}
+          {playState && !playState.canPlay && (
+            <p className="text-xs text-amber-200/80 mt-2 px-2">{playState.message}</p>
           )}
         </motion.div>
 

@@ -341,6 +341,7 @@ export interface PlayState {
   playsPerDay: number
   canPlay: boolean
   message: string
+  blockReason?: 'campaign_inactive' | 'user_cap' | 'daily_participant_limit' | 'no_plays_remaining' | null
   winRatePercent: number
 }
 
