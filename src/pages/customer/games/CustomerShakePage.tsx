@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage } from '@/lib/api'
+import { getUser } from '@/lib/auth'
 
 type Phase = 'idle' | 'charging' | 'shaking' | 'suspending' | 'revealing' | 'result'
 
@@ -58,13 +59,15 @@ export function CustomerShakePage() {
   const [rewardText, setRewardText] = useState('')
   const [rewardEmoji, setRewardEmoji] = useState('🎁')
   const [rewardCode, setRewardCode] = useState<string | undefined>()
-  const [playsLeft, setPlaysLeft] = useState(0)
+  const [playsLeft, setPlaysLeft] = useState<number | null>(null)
   const [error, setError] = useState('')
+  const [playStateReady, setPlayStateReady] = useState(false)
 
   const shakeStartRef = useRef<number | null>(null)
   const motionHandlerRef = useRef<((e: DeviceMotionEvent) => void) | null>(null)
   const resolvedRef = useRef(false)
 
+  const customerId = getUser()?.userId
   const playSession = campaignId ? getPlaySession(campaignId) : null
   const queryClient = useQueryClient()
 
@@ -75,9 +78,10 @@ export function CustomerShakePage() {
   })
 
   const { data: playState, isLoading: stateLoading } = useQuery({
-    queryKey: ['play-state', campaignId],
+    queryKey: ['play-state', campaignId, customerId],
     queryFn: () => fetchPlayState(campaignId!),
-    enabled: Boolean(campaignId) && Boolean(playSession),
+    enabled: Boolean(campaignId) && Boolean(playSession) && Boolean(customerId),
+    staleTime: 0,
   })
 
   useEffect(() => {
@@ -91,10 +95,10 @@ export function CustomerShakePage() {
   }, [campaignId, playSession, navigate])
 
   useEffect(() => {
-    if (playState) {
-      setPlaysLeft(playState.playsRemaining)
-      if (!playState.canPlay) setError(playState.message)
-    }
+    if (!playState) return
+    setPlayStateReady(true)
+    setPlaysLeft(playState.playsRemaining)
+    setError(playState.canPlay ? '' : playState.message)
   }, [playState])
 
   const shakeMutation = useMutation({
@@ -129,7 +133,7 @@ export function CustomerShakePage() {
   }, [shakeMutation])
 
   const startShakeSequence = useCallback(() => {
-    if (phase !== 'idle' || playsLeft <= 0 || !playSession || resolvedRef.current) return
+    if (phase !== 'idle' || !playStateReady || playsLeft === null || playsLeft <= 0 || !playSession || resolvedRef.current) return
     setPhase('charging')
     vibrate(30)
     setTimeout(() => {
@@ -137,7 +141,7 @@ export function CustomerShakePage() {
       shakeStartRef.current = Date.now()
       vibrate([40, 20, 40, 20, 40])
     }, CHARGE_MS)
-  }, [phase, playsLeft, playSession])
+  }, [phase, playsLeft, playSession, playStateReady])
 
   // Accelerometer
   useEffect(() => {
@@ -193,7 +197,7 @@ export function CustomerShakePage() {
   }
 
   const handlePlayAgain = () => {
-    if (playsLeft <= 0) {
+    if (playsLeft === null || playsLeft <= 0) {
       navigate('/customer/wallet')
       return
     }
@@ -224,7 +228,7 @@ export function CustomerShakePage() {
   }
 
   if (phase === 'result' && !won) {
-    return <NoWin onClose={handlePlayAgain} playsLeft={playsLeft} />
+    return <NoWin onClose={handlePlayAgain} playsLeft={playsLeft ?? undefined} />
   }
 
   const isShaking = phase === 'shaking' || phase === 'charging'
@@ -232,7 +236,9 @@ export function CustomerShakePage() {
   const winRate = campaign?.winRatePercent ?? 30
 
   const phaseCopy: Record<Phase, string> = {
-    idle: 'Shake your phone or tap to start!',
+    idle: playStateReady
+      ? (playsLeft && playsLeft > 0 ? 'Shake your phone or tap to start!' : 'No plays left today')
+      : 'Loading your play status…',
     charging: 'Get ready…',
     shaking: intensity > 0.6 ? 'Almost there…' : 'Keep shaking!',
     suspending: 'Revealing your reward…',
@@ -268,8 +274,14 @@ export function CustomerShakePage() {
           <ArrowLeft size={16} />
           Back
         </button>
-        <div className="glass rounded-full px-3 py-1.5">
-          <p className="text-xs text-white/70 font-medium">{playsLeft} play{playsLeft !== 1 ? 's' : ''} left today</p>
+        <div className="glass rounded-full px-3 py-1.5 min-w-[120px] text-center">
+          {!playStateReady ? (
+            <p className="text-xs text-white/50 font-medium">Checking plays…</p>
+          ) : (
+            <p className="text-xs text-white/70 font-medium">
+              {playsLeft} play{playsLeft !== 1 ? 's' : ''} left today
+            </p>
+          )}
         </div>
       </div>
 
@@ -353,7 +365,7 @@ export function CustomerShakePage() {
 
         <motion.button
           onClick={handleTap}
-          disabled={isSuspense || playsLeft <= 0}
+          disabled={isSuspense || !playStateReady || playsLeft === null || playsLeft <= 0}
           animate={
             isShaking
               ? {

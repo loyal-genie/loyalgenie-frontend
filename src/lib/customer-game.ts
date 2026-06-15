@@ -3,6 +3,15 @@ import type { MechanicType } from '@/lib/types'
 
 const PLAY_SESSION_PREFIX = 'lg_play_session_'
 
+export function clearAllPlaySessions() {
+  const keys: string[] = []
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i)
+    if (key?.startsWith(PLAY_SESSION_PREFIX)) keys.push(key)
+  }
+  keys.forEach(k => sessionStorage.removeItem(k))
+}
+
 export function setPlaySession(campaignId: string, token: string) {
   sessionStorage.setItem(`${PLAY_SESSION_PREFIX}${campaignId}`, token)
 }

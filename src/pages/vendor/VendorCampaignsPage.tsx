@@ -4,13 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, LayoutList, LayoutGrid, ArrowUpDown,
   CalendarDays, Users, Trophy, TrendingUp, MoreVertical,
-  Pause, Copy, StopCircle, Eye,
+  Pause, Copy, StopCircle, Eye, Loader2, RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, ProgressBar } from '@/components/ui/card'
 import { MechanicBadge, StatusBadge } from '@/components/ui/badge'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, getMechanicColor, formatDate, capPercent } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/api'
 import type { CampaignDto } from '@/lib/api'
 
 function engagementRate(c: CampaignDto) {
@@ -26,7 +27,14 @@ const TODAY = new Date().toISOString().split('T')[0]
 const TODAY_DATE = new Date(TODAY)
 
 function daysLeft(endDate: string) {
-  return Math.ceil((new Date(endDate).getTime() - TODAY_DATE.getTime()) / 86400000)
+  const end = new Date(`${endDate}T23:59:59`)
+  return Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86400000))
+}
+function daysLeftLabel(endDate: string) {
+  const d = daysLeft(endDate)
+  if (d === 0) return 'Last day'
+  if (d === 1) return '1d left'
+  return `${d}d left`
 }
 function winRate(c: CampaignDto) {
   return c.participations > 0 ? Math.round((c.rewardsClaimed / c.participations) * 100) : 0
@@ -148,7 +156,7 @@ function ListCard({ c }: { c: CampaignDto }) {
                   <MechanicBadge mechanic={c.mechanic as 'shake'} />
                   {urgent && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-v-danger border border-red-200">
-                      ⚠ {dl}d left
+                      ⚠ {daysLeftLabel(c.endDate)}
                     </span>
                   )}
                 </div>
@@ -158,7 +166,7 @@ function ListCard({ c }: { c: CampaignDto }) {
                   <CalendarDays className="w-3 h-3" />
                   <span>{formatDate(c.startDate)} → {formatDate(c.endDate)}</span>
                   {dl !== null && dl > 3 && (
-                    <span className="text-v-text-2 font-medium">· {dl} days left</span>
+                    <span className="text-v-text-2 font-medium">· {daysLeftLabel(c.endDate)}</span>
                   )}
                 </div>
 
@@ -256,7 +264,7 @@ function GridCard({ c }: { c: CampaignDto }) {
 
           {dl !== null && (
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold self-start ${urgent ? 'bg-red-50 text-v-danger border border-red-200' : 'bg-v-surface-3 text-v-text-2 border border-v-border'}`}>
-              {urgent ? '⚠' : '⏱'} {dl} days left
+              {urgent ? '⚠' : '⏱'} {daysLeftLabel(c.endDate)}
             </span>
           )}
 
@@ -294,7 +302,7 @@ function GridCard({ c }: { c: CampaignDto }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export function VendorCampaignsPage() {
-  const { data: campaigns = [], isLoading } = useCampaigns()
+  const { data: campaigns = [], isLoading, isError, error, refetch, isFetching } = useCampaigns()
   const [filter,      setFilter]      = useState<CampaignStatus | 'all'>('all')
   const [search,      setSearch]      = useState('')
   const [sort,        setSort]        = useState<SortKey>('newest')
@@ -469,7 +477,21 @@ export function VendorCampaignsPage() {
       {/* ── Campaign list / grid ── */}
       <AnimatePresence mode="wait">
         <motion.div key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <Loader2 className="w-8 h-8 text-v-purple animate-spin" />
+              <p className="text-sm text-v-text-3">Loading campaigns…</p>
+            </div>
+          ) : isError ? (
+            <div className="text-center py-20">
+              <div className="text-5xl mb-4">⚠️</div>
+              <p className="text-sm font-semibold text-v-text-2">Could not load campaigns</p>
+              <p className="text-xs text-v-text-3 mt-1 mb-4">{getApiErrorMessage(error, 'Please try again')}</p>
+              <Button variant="secondary" onClick={() => refetch()} disabled={isFetching}>
+                <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Retry
+              </Button>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-20">
               <div className="text-5xl mb-4">🔍</div>
               <p className="text-sm font-semibold text-v-text-2">No campaigns match</p>

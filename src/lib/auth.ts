@@ -1,3 +1,5 @@
+import { clearAllPlaySessions } from '@/lib/customer-game'
+
 const TOKEN_KEY = 'lg_token'
 const USER_KEY = 'lg_user'
 
@@ -29,11 +31,13 @@ export function getUser(): StoredUser | null {
 }
 
 export function setSession(token: string, user: StoredUser) {
+  clearAllPlaySessions()
   localStorage.setItem(TOKEN_KEY, token)
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
 export function clearSession() {
+  clearAllPlaySessions()
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
 }

@@ -325,6 +325,20 @@ export async function fetchCampaign(id: string) {
   return data.data
 }
 
+export interface UpdateCampaignPayload {
+  name?: string
+  endDate?: string
+  userCap?: number
+  playsPerDay?: number
+  winRatePercent?: number
+  status?: 'active' | 'paused' | 'ended'
+}
+
+export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {
+  const { data } = await api.patch<{ success: boolean; data: CampaignDto }>(`/campaigns/${id}`, payload)
+  return data.data
+}
+
 export async function fetchCampaignPin(id: string) {
   const { data } = await api.get<{ success: boolean; data: CampaignPin }>(`/campaigns/${id}/pin`)
   return data.data

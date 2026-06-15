@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Bell, Search, Loader2, Store } from 'lucide-react'
+import { Bell, Search, Loader2, Store, Sparkles, Gift } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
 import { MECHANIC_META } from '@/lib/utils'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
@@ -12,33 +12,36 @@ const CATEGORY_EMOJI: Record<string, string> = {
   Cafe: '☕', Restaurant: '🍝', Salon: '✂️', Gym: '🏋️', Jewellery: '💎',
 }
 
-function BusinessCard({ biz }: { biz: BusinessWithCampaigns }) {
+function BusinessCard({ biz, index }: { biz: BusinessWithCampaigns; index: number }) {
   const emoji = CATEGORY_EMOJI[biz.businessType] ?? '🏪'
   const shakeCampaigns = biz.campaigns.filter(c => c.mechanic === 'shake')
+  const topWinRate = Math.max(...shakeCampaigns.map(c => c.winRatePercent), 0)
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 22, delay: index * 0.06 }}
     >
-      <Link to={`/customer/business/${biz.id}`} className="no-underline">
-        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow active:scale-[0.98]">
+      <Link to={`/customer/business/${biz.id}`} className="no-underline block group">
+        <div className="relative bg-white rounded-3xl overflow-hidden border border-white/80 shadow-[0_8px_30px_rgba(76,29,149,0.08)] hover:shadow-[0_16px_40px_rgba(76,29,149,0.14)] transition-all duration-300 active:scale-[0.98]">
           <div
-            className="relative h-[160px] lg:h-[180px] flex items-end p-3"
-            style={{ background: `linear-gradient(135deg, ${biz.brandColor}, ${biz.brandColor}99)` }}
+            className="relative h-[170px] lg:h-[190px] flex items-end p-4 overflow-hidden"
+            style={{ background: `linear-gradient(135deg, ${biz.brandColor} 0%, ${biz.brandColor}cc 50%, #1e1b4b 100%)` }}
           >
-            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-6xl opacity-30 select-none">
+            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/30 to-transparent" />
+            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-7xl opacity-25 select-none group-hover:scale-110 transition-transform duration-500">
               {emoji}
             </span>
-            <div className="flex flex-wrap gap-1 z-10">
-              {shakeCampaigns.map(c => {
+            <div className="flex flex-wrap gap-1.5 z-10">
+              {shakeCampaigns.slice(0, 2).map(c => {
                 const meta = MECHANIC_META.shake
                 return (
                   <span
                     key={c.id}
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                    style={{ background: meta.badgeBg, color: meta.badgeText }}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm"
+                    style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}
                   >
                     {meta.label}
                   </span>
@@ -46,17 +49,23 @@ function BusinessCard({ biz }: { biz: BusinessWithCampaigns }) {
               })}
             </div>
           </div>
-          <div className="p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900">{biz.name}</h3>
-                <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{biz.tagline || biz.businessType}</p>
+          <div className="p-4 lg:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base font-extrabold text-gray-900 truncate">{biz.name}</h3>
+                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{biz.tagline || biz.businessType}</p>
               </div>
+              {topWinRate > 0 && (
+                <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                  Up to {topWinRate}% win
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-              <span>{biz.city}</span>
-              <span>·</span>
-              <span>{biz.campaigns.length} active campaign{biz.campaigns.length !== 1 ? 's' : ''}</span>
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+              <span className="text-xs text-gray-400">{biz.city} · {biz.campaigns.length} live</span>
+              <span className="text-xs font-bold text-purple-600 group-hover:text-purple-800 transition-colors">
+                Play now →
+              </span>
             </div>
           </div>
         </div>
@@ -76,55 +85,77 @@ export function CustomerPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div
-        className="px-5 lg:px-8 pt-12 pb-6"
-        style={{ background: 'linear-gradient(135deg, #4C1D95, #5B21B6)' }}
-      >
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <p className="text-purple-300 text-xs">Welcome back</p>
-              <h1 className="text-white text-xl lg:text-2xl font-extrabold">{firstName} 👋</h1>
-            </div>
-            <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border-0 cursor-pointer">
-              <Bell className="w-5 h-5 text-white" />
-            </button>
-          </div>
+    <div className="min-h-screen bg-[#f8f6ff] pb-24">
+      <div className="relative overflow-hidden">
+        <div
+          className="px-5 lg:px-8 pt-12 pb-8 relative z-10"
+          style={{ background: 'linear-gradient(145deg, #4C1D95 0%, #6D28D9 45%, #5B21B6 100%)' }}
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-300/15 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search vendors…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl text-sm border-0 focus:outline-none focus:ring-2 focus:ring-purple-300"
-            />
+          <div className="max-w-4xl mx-auto relative">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="text-purple-200 text-xs font-medium flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Welcome back
+                </p>
+                <h1 className="text-white text-2xl lg:text-3xl font-extrabold mt-1">{firstName} 👋</h1>
+                <p className="text-purple-200/80 text-sm mt-1">Shake, win rewards & save at your favourite spots</p>
+              </div>
+              <button className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/15 cursor-pointer hover:bg-white/15 transition-colors">
+                <Bell className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search cafes, restaurants…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm border-0 shadow-lg shadow-purple-900/20 focus:outline-none focus:ring-2 focus:ring-purple-300/50 bg-white"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="px-5 lg:px-8 pt-6 max-w-4xl mx-auto">
+      <div className="px-5 lg:px-8 -mt-4 relative z-20 max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl p-4 shadow-sm border border-purple-100/80 mb-6 flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
+            <Gift className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-gray-900">How to play</p>
+            <p className="text-xs text-gray-500">Pick a vendor → enter staff PIN → shake to win!</p>
+          </div>
+        </motion.div>
+
         <h2 className="text-base font-extrabold text-gray-900 mb-4 flex items-center gap-2">
           <Store className="w-4 h-4 text-purple-600" />
-          Vendors near you
+          Vendors with live games
         </h2>
 
         {isLoading ? (
-          <div className="flex justify-center py-16">
+          <div className="flex justify-center py-20">
             <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-gray-400 text-sm">
-            <p className="text-4xl mb-3">🏪</p>
-            <p className="font-semibold text-gray-600">No vendors with active campaigns yet</p>
-            <p className="text-xs mt-1">Check back soon — new campaigns launch daily!</p>
+          <div className="text-center py-16 px-6 bg-white rounded-3xl border border-gray-100">
+            <p className="text-5xl mb-4">🏪</p>
+            <p className="font-bold text-gray-700">No vendors with active campaigns</p>
+            <p className="text-xs text-gray-400 mt-2">New shake & win games appear here when vendors launch them</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-            {filtered.map(biz => (
-              <BusinessCard key={biz.id} biz={biz} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {filtered.map((biz, i) => (
+              <BusinessCard key={biz.id} biz={biz} index={i} />
             ))}
           </div>
         )}
