@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Check, Zap, Plus, Trash2, AlertCircle, CalendarDays, TrendingUp } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Zap, Plus, Trash2, AlertCircle, CalendarDays, TrendingUp, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldInput as Input, Slider } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { getMechanicLabel, getMechanicEmoji, getMechanicColor } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/api'
+import { useCreateCampaign } from '@/hooks/useCampaigns'
 import type { MechanicType } from '@/lib/types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -39,7 +41,7 @@ const DURATION_LOTTERY: { key: DurationMode; label: string; sub: string }[] = [
   { key: '1m',  label: '1 Month', sub: '~30 days' },
 ]
 
-const TODAY = '2026-06-13'
+const TODAY = new Date().toISOString().split('T')[0]
 function addDays(from: string, n: number)   { const d = new Date(from); d.setDate(d.getDate() + n);    return d.toISOString().split('T')[0] }
 function addMonths(from: string, n: number) { const d = new Date(from); d.setMonth(d.getMonth() + n);  return d.toISOString().split('T')[0] }
 function fmtDate(iso: string) { return iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '' }
@@ -255,6 +257,8 @@ export function VendorCampaignCreatePage() {
   })
 
   const [launched, setLaunched] = useState(false)
+  const [launchError, setLaunchError] = useState('')
+  const createMutation = useCreateCampaign()
 
   const isLottery        = mechanic === 'lottery'
   const isStamp          = mechanic === 'stamp'
@@ -300,7 +304,7 @@ export function VendorCampaignCreatePage() {
 
   const step2Valid = () => {
     if (!mechanic) return false
-    if (mechanic === 'shake') return shakeRewards.some(r => r.name) && shakePoolTotal <= 100
+    if (mechanic === 'shake') return shakeRewards.some(r => r.name) && shakePoolTotal === 100
     if (mechanic === 'spin')  return spinSegments.some(s => s.isWin && s.reward.trim())
     if (mechanic === 'dice')  return diceOutcomes.some(o => o.isWin && o.reward.trim())
     if (mechanic === 'lottery') return lotteryConfig.jackpotReward.trim().length > 0
@@ -319,9 +323,36 @@ export function VendorCampaignCreatePage() {
     return true
   }
 
-  const handleLaunch = () => {
-    setLaunched(true)
-    setTimeout(() => navigate('/vendor/campaigns'), 2500)
+  const handleLaunch = async () => {
+    if (mechanic !== 'shake') {
+      setLaunchError('Only Shake & Win is wired to the API in this release.')
+      return
+    }
+    setLaunchError('')
+    try {
+      const campaign = await createMutation.mutateAsync({
+        name: basics.name.trim(),
+        mechanic: 'shake',
+        startDate: dates.start,
+        endDate: dates.end,
+        userCap: basics.userCap,
+        perDayUserLimit: basics.perDayUserLimit,
+        playsPerDay: basics.playsPerDay,
+        winRatePercent: basics.overallWinRate,
+        rewards: shakeRewards
+          .filter(r => r.name.trim())
+          .map(r => ({
+            name: r.name.trim(),
+            description: r.description,
+            icon: r.icon,
+            sharePercent: r.probability,
+          })),
+      })
+      setLaunched(true)
+      setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+    } catch (err) {
+      setLaunchError(getApiErrorMessage(err, 'Failed to launch campaign'))
+    }
   }
 
   if (launched) {
@@ -424,8 +455,8 @@ export function VendorCampaignCreatePage() {
                     )}
                   </AnimatePresence>
 
-                  {/* Active hours — not for lottery */}
-                  {!isLottery && (
+                  {/* Active hours — deferred (not enforced in v1) */}
+                  {false && !isLottery && (
                     <div className="mt-4 pt-4 border-t border-v-border">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -867,9 +898,13 @@ export function VendorCampaignCreatePage() {
                 <p className="text-xs text-v-text-3 mt-2">Rotates every 60 seconds · Campaign-level</p>
               </Card>
 
-              <Button variant="gold" size="lg" className="w-full" onClick={handleLaunch}>
-                <Zap className="w-5 h-5" /> Launch Campaign
+              <Button variant="gold" size="lg" className="w-full" onClick={handleLaunch} disabled={createMutation.isPending}>
+                {createMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+                {createMutation.isPending ? 'Launching…' : 'Launch Campaign'}
               </Button>
+              {launchError && (
+                <p className="text-xs text-v-danger text-center mt-2">{launchError}</p>
+              )}
             </div>
           )}
 

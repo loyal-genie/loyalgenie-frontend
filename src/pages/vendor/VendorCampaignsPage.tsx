@@ -9,25 +9,26 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, ProgressBar } from '@/components/ui/card'
 import { MechanicBadge, StatusBadge } from '@/components/ui/badge'
-import { campaigns } from '@/lib/mock-data'
+import { useCampaigns } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, getMechanicColor, formatDate, capPercent } from '@/lib/utils'
+import type { CampaignDto } from '@/lib/api'
 
-function engagementRate(c: typeof campaigns[0]) {
+function engagementRate(c: CampaignDto) {
   return c.userCap > 0 ? Math.round((c.currentUsers / c.userCap) * 100) : 0
 }
-function redemptionRate(c: typeof campaigns[0]) {
+function redemptionRate(c: CampaignDto) {
   return c.rewardsClaimed > 0 ? Math.round((c.redeemedCount / c.rewardsClaimed) * 100) : 0
 }
 import type { CampaignStatus } from '@/lib/types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const TODAY = '2026-06-14'
+const TODAY = new Date().toISOString().split('T')[0]
 const TODAY_DATE = new Date(TODAY)
 
 function daysLeft(endDate: string) {
   return Math.ceil((new Date(endDate).getTime() - TODAY_DATE.getTime()) / 86400000)
 }
-function winRate(c: typeof campaigns[0]) {
+function winRate(c: CampaignDto) {
   return c.participations > 0 ? Math.round((c.rewardsClaimed / c.participations) * 100) : 0
 }
 
@@ -41,7 +42,7 @@ const DATE_WINDOWS: { key: DateWindow; label: string; days: number | null }[] = 
   { key: '1y',  label: 'Year',      days: 365  },
 ]
 
-function campaignsInWindow(days: number | null) {
+function campaignsInWindow(campaigns: CampaignDto[], days: number | null) {
   if (days === null) return campaigns
   const windowStart = new Date(TODAY_DATE.getTime() - days * 86400000)
   return campaigns.filter(c =>
@@ -67,14 +68,7 @@ const SORTS = [
 type SortKey = 'newest' | 'ending' | 'popular'
 type ViewMode = 'list' | 'grid'
 
-const STATUS_BORDER: Record<CampaignStatus, string> = {
-  active: 'border-l-[3px] border-l-emerald-500',
-  draft:  'border-l-[3px] border-l-amber-400',
-  ended:  'border-l-[3px] border-l-v-border',
-  paused: 'border-l-[3px] border-l-orange-400',
-}
-
-const activeCampaigns = campaigns.filter(c => c.status === 'active').length
+const activeCampaignsCount = (list: CampaignDto[]) => list.filter(c => c.status === 'active').length
 
 // ── Quick actions menu ────────────────────────────────────────────────────────
 function QuickMenu({ id }: { id: string }) {
@@ -118,21 +112,21 @@ function QuickMenu({ id }: { id: string }) {
 }
 
 // ── List card ─────────────────────────────────────────────────────────────────
-function ListCard({ c }: { c: typeof campaigns[0] }) {
+function ListCard({ c }: { c: CampaignDto }) {
   const wr    = winRate(c)
   const er    = engagementRate(c)
   const rr    = redemptionRate(c)
   const dl    = c.status === 'active' ? daysLeft(c.endDate) : null
   const urgent = dl !== null && dl <= 3
   const muted  = c.status === 'ended'
-  const color  = getMechanicColor(c.mechanic)
+  const color  = getMechanicColor(c.mechanic as 'shake')
 
   return (
     <motion.div whileHover={{ x: 2 }} transition={{ duration: 0.15 }}>
       <div className={`vendor-card vendor-card-hover overflow-hidden ${muted ? 'opacity-60' : ''}`}>
         <div className="flex items-stretch">
           {/* Status stripe */}
-          <div className={`w-1 shrink-0 ${STATUS_BORDER[c.status].replace('border-l-[3px] border-l-', 'bg-')}`}
+          <div className={`w-1 shrink-0`}
             style={{ background: c.status === 'active' ? '#16A34A' : c.status === 'draft' ? '#F59E0B' : c.status === 'paused' ? '#F97316' : '#C4B8FF' }} />
 
           <div className="flex-1 px-5 py-4">
@@ -140,7 +134,7 @@ function ListCard({ c }: { c: typeof campaigns[0] }) {
               {/* Mechanic icon */}
               <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shrink-0 mt-0.5"
                 style={{ background: `${color}12`, border: `1px solid ${color}25` }}>
-                {getMechanicEmoji(c.mechanic)}
+                {getMechanicEmoji(c.mechanic as 'shake')}
               </div>
 
               {/* Main info */}
@@ -150,8 +144,8 @@ function ListCard({ c }: { c: typeof campaigns[0] }) {
                   <Link to={`/vendor/campaigns/${c.id}`} className="text-sm font-bold text-v-text hover:text-v-purple transition-colors">
                     {c.name}
                   </Link>
-                  <StatusBadge status={c.status} />
-                  <MechanicBadge mechanic={c.mechanic} />
+                  <StatusBadge status={c.status as CampaignStatus} />
+                  <MechanicBadge mechanic={c.mechanic as 'shake'} />
                   {urgent && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-v-danger border border-red-200">
                       ⚠ {dl}d left
@@ -215,14 +209,14 @@ function ListCard({ c }: { c: typeof campaigns[0] }) {
 }
 
 // ── Grid card ─────────────────────────────────────────────────────────────────
-function GridCard({ c }: { c: typeof campaigns[0] }) {
+function GridCard({ c }: { c: CampaignDto }) {
   const wr    = winRate(c)
   const er    = engagementRate(c)
   const rr    = redemptionRate(c)
   const dl    = c.status === 'active' ? daysLeft(c.endDate) : null
   const urgent = dl !== null && dl <= 3
   const muted  = c.status === 'ended'
-  const color  = getMechanicColor(c.mechanic)
+  const color  = getMechanicColor(c.mechanic as 'shake')
 
   return (
     <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
@@ -300,15 +294,18 @@ function GridCard({ c }: { c: typeof campaigns[0] }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export function VendorCampaignsPage() {
+  const { data: campaigns = [], isLoading } = useCampaigns()
   const [filter,      setFilter]      = useState<CampaignStatus | 'all'>('all')
   const [search,      setSearch]      = useState('')
   const [sort,        setSort]        = useState<SortKey>('newest')
   const [view,        setView]        = useState<ViewMode>('list')
   const [dateWindow,  setDateWindow]  = useState<DateWindow>('all')
 
+  const activeCampaigns = activeCampaignsCount(campaigns)
+
   // ── Window-scoped metrics ───────────────────────────────────────────────────
   const windowDays = DATE_WINDOWS.find(w => w.key === dateWindow)!.days
-  const wCampaigns = campaignsInWindow(windowDays)
+  const wCampaigns = campaignsInWindow(campaigns, windowDays)
 
   const wPlayers       = wCampaigns.reduce((s, c) => s + c.currentUsers, 0)
   const wCap           = wCampaigns.reduce((s, c) => s + c.userCap, 0)
@@ -331,13 +328,15 @@ export function VendorCampaignsPage() {
     })
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
 
       {/* ── Header ── */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-6">
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-extrabold text-v-text">Campaigns</h1>
-          <p className="text-v-text-2 text-sm mt-0.5">{campaigns.length} total · {activeCampaigns} running now</p>
+          <p className="text-v-text-2 text-sm mt-0.5">
+            {isLoading ? 'Loading…' : `${campaigns.length} total · ${activeCampaigns} running now`}
+          </p>
         </div>
         <Link to="/vendor/campaigns/create">
           <Button variant="primary"><Plus className="w-4 h-4" /> New Campaign</Button>

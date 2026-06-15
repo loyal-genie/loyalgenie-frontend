@@ -198,3 +198,274 @@ export async function fetchBusinessQr() {
   const { data } = await api.get<{ success: boolean; data: BusinessQr }>('/business/me/qr')
   return data.data
 }
+
+// ── Campaigns ─────────────────────────────────────────────────────────────────
+
+export interface CampaignRewardDto {
+  id: string
+  name: string
+  description: string
+  icon: string
+  sharePercent: number
+}
+
+export interface CampaignDto {
+  id: string
+  businessId: string
+  name: string
+  mechanic: string
+  status: string
+  startDate: string
+  endDate: string
+  userCap: number
+  perDayUserLimit: number
+  playsPerDay: number
+  winRatePercent: number
+  pin: string | null
+  pinExpiresAt: string | null
+  createdAt: string
+  rewards: CampaignRewardDto[]
+  currentUsers: number
+  participations: number
+  rewardsClaimed: number
+  redeemedCount: number
+}
+
+export interface CreateCampaignPayload {
+  name: string
+  mechanic: 'shake'
+  startDate: string
+  endDate: string
+  userCap: number
+  perDayUserLimit: number
+  playsPerDay: number
+  winRatePercent: number
+  rewards: { name: string; description?: string; icon: string; sharePercent: number }[]
+}
+
+export interface BusinessWithCampaigns {
+  id: string
+  name: string
+  tagline: string
+  businessType: string
+  city: string
+  brandColor: string
+  campaigns: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    winRatePercent: number
+    playsPerDay: number
+  }[]
+}
+
+export interface PublicCampaign {
+  id: string
+  businessId: string
+  name: string
+  mechanic: string
+  startDate: string
+  endDate: string
+  playsPerDay: number
+  winRatePercent: number
+  rewards: { id: string; name: string; description: string; icon: string }[]
+}
+
+export interface PlayState {
+  campaignId: string
+  playsRemaining: number
+  canPlay: boolean
+  message: string
+  winRatePercent: number
+  playsPerDay: number
+}
+
+export interface ShakeResult {
+  won: boolean
+  reward: { id: string; name: string; description: string; icon: string } | null
+  code: string | null
+  playsRemaining: number
+  playId: string
+}
+
+export interface CustomerRewardDto {
+  id: string
+  campaignId: string
+  campaignName: string
+  mechanic: string
+  reward: string
+  icon: string
+  earnedAt: string
+  status: string
+  redeemedAt?: string
+  code: string
+}
+
+export interface CampaignPin {
+  pin: string
+  expiresAt: string
+  secondsRemaining: number
+  cycleSeconds: number
+}
+
+export async function fetchCampaigns() {
+  const { data } = await api.get<{ success: boolean; data: CampaignDto[] }>('/campaigns')
+  return data.data
+}
+
+export async function createCampaign(payload: CreateCampaignPayload) {
+  const { data } = await api.post<{ success: boolean; data: CampaignDto }>('/campaigns', payload)
+  return data.data
+}
+
+export async function fetchCampaign(id: string) {
+  const { data } = await api.get<{ success: boolean; data: CampaignDto }>(`/campaigns/${id}`)
+  return data.data
+}
+
+export async function fetchCampaignPin(id: string) {
+  const { data } = await api.get<{ success: boolean; data: CampaignPin }>(`/campaigns/${id}/pin`)
+  return data.data
+}
+
+export async function fetchBusinessesWithCampaigns() {
+  const { data } = await api.get<{ success: boolean; data: BusinessWithCampaigns[] }>('/campaigns/public/businesses')
+  return data.data
+}
+
+export async function fetchPublicCampaign(id: string) {
+  const { data } = await api.get<{ success: boolean; data: PublicCampaign }>(`/campaigns/public/${id}`)
+  return data.data
+}
+
+export async function verifyCampaignPin(campaignId: string, pin: string) {
+  const { data } = await api.post<{ success: boolean; data: { valid: boolean; playSessionToken: string } }>(
+    `/campaigns/${campaignId}/verify-pin`,
+    { pin },
+  )
+  return data.data
+}
+
+export async function fetchPlayState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: PlayState }>(`/campaigns/${campaignId}/play-state`)
+  return data.data
+}
+
+export async function executeShake(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{ success: boolean; data: ShakeResult }>(
+    `/campaigns/${campaignId}/shake`,
+    { playSessionToken },
+  )
+  return data.data
+}
+
+export async function fetchCustomerRewards() {
+  const { data } = await api.get<{ success: boolean; data: CustomerRewardDto[] }>('/campaigns/customer/rewards')
+  return data.data
+}
+
+// ── Vendor analytics ──────────────────────────────────────────────────────────
+
+export interface VendorCustomerSummary {
+  id: string
+  name: string
+  phone: string
+  email: string
+  joinedAt: string
+  lastVisit: string | null
+  totalVisits: number
+  gamesPlayed: number
+  rewardsEarned: number
+  redeemedCount: number
+  status: 'active' | 'inactive'
+}
+
+export interface VendorCustomerDetail extends VendorCustomerSummary {
+  rewards: {
+    id: string
+    campaignId: string
+    campaignName: string
+    mechanic: string
+    reward: string
+    icon: string
+    earnedAt: string
+    status: 'pending' | 'redeemed'
+    redeemedAt?: string
+    code: string
+  }[]
+  gameHistory: {
+    id: string
+    campaignId: string
+    campaignName: string
+    mechanic: string
+    playedAt: string
+    won: boolean
+    reward?: string
+  }[]
+  campaignActivity: {
+    id: string
+    name: string
+    mechanic: string
+    status: string
+    plays: number
+    wins: number
+  }[]
+}
+
+export interface VendorDashboardStats {
+  totalCustomers: number
+  activeCustomers30d: number
+  repeatVisitRate: number
+  retentionRate: number
+  segmentCounts: {
+    loyalist: number
+    regular: number
+    atRisk: number
+    inactive: number
+  }
+  atRiskCustomers: VendorCustomerSummary[]
+  pendingRedemptions: number
+  totalPlays: number
+  totalWins: number
+  totalRedeemed: number
+  playsLast30d: number
+  returningCustomers30d: number
+}
+
+export interface VendorRedemptionItem {
+  id: string
+  customerId: string
+  customerName: string
+  phone: string
+  reward: string
+  campaignName: string
+  mechanic: string
+  earnedAt: string
+  code: string
+}
+
+export async function fetchVendorDashboardStats() {
+  const { data } = await api.get<{ success: boolean; data: VendorDashboardStats }>('/business/dashboard/stats')
+  return data.data
+}
+
+export async function fetchVendorCustomers() {
+  const { data } = await api.get<{ success: boolean; data: VendorCustomerSummary[] }>('/business/customers')
+  return data.data
+}
+
+export async function fetchVendorCustomer(id: string) {
+  const { data } = await api.get<{ success: boolean; data: VendorCustomerDetail }>(`/business/customers/${id}`)
+  return data.data
+}
+
+export async function fetchPendingRedemptions() {
+  const { data } = await api.get<{ success: boolean; data: VendorRedemptionItem[] }>('/business/redemptions/pending')
+  return data.data
+}
+
+export async function markRedemptionRedeemed(rewardId: string) {
+  await api.patch(`/business/redemptions/${rewardId}/redeem`)
+}

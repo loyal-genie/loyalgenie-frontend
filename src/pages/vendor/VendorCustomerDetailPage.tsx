@@ -3,31 +3,18 @@ import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Calendar, Phone, Mail, TrendingUp, Gift,
-  CheckCircle2, Clock, Trophy, Crown, AlertTriangle, Zap,
+  CheckCircle2, Clock, Trophy, Crown, AlertTriangle, Zap, Loader2,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { MechanicBadge } from '@/components/ui/badge'
-import { customers, campaigns } from '@/lib/mock-data'
 import { getMechanicEmoji, getMechanicLabel, formatDate, formatRelativeTime } from '@/lib/utils'
+import { useVendorCustomer } from '@/hooks/useVendorAnalytics'
+import { daysSince, getCustomerSegment, estimateLifetimeValue } from '@/lib/vendor-customers'
+import type { VendorCustomerDetail } from '@/lib/api'
 import type { MechanicType } from '@/lib/types'
 
-// ── Segment logic (same as customers list) ────────────────────────────────────
-const TODAY_STR = '2026-06-13'
-const TODAY_DATE = new Date(TODAY_STR)
-
-function daysSince(iso: string) {
-  return Math.floor((TODAY_DATE.getTime() - new Date(iso).getTime()) / 86400000)
-}
-
+// ── Segment logic ─────────────────────────────────────────────────────────────
 type Segment = 'loyalist' | 'regular' | 'at-risk' | 'inactive'
-
-function getSegment(c: typeof customers[0]): Segment {
-  const days = daysSince(c.lastVisit)
-  if (days > 45)        return 'inactive'
-  if (days > 14)        return 'at-risk'
-  if (c.totalVisits >= 15) return 'loyalist'
-  return 'regular'
-}
 
 const SEGMENT_META: Record<Segment, {
   label: string; icon: string; color: string
@@ -68,7 +55,7 @@ type VisitEvent = {
   date: string; icon: string
 }
 
-function buildVisitHistory(customer: typeof customers[0]): VisitEvent[] {
+function buildVisitHistory(customer: VendorCustomerDetail): VisitEvent[] {
   const events: VisitEvent[] = []
 
   customer.gameHistory.forEach(g => {
@@ -77,7 +64,7 @@ function buildVisitHistory(customer: typeof customers[0]): VisitEvent[] {
       type: g.won ? 'game_win' : 'game_loss',
       label: g.won ? `Won ${g.reward ?? 'a reward'}` : 'Played — no win this time',
       sub: g.campaignName,
-      mechanic: g.mechanic,
+      mechanic: g.mechanic as MechanicType,
       date: g.playedAt,
       icon: g.won ? '🎁' : getMechanicEmoji(g.mechanic),
     })
@@ -89,58 +76,35 @@ function buildVisitHistory(customer: typeof customers[0]): VisitEvent[] {
       type: 'reward_redeemed',
       label: `Redeemed "${r.reward}"`,
       sub: r.campaignName,
-      mechanic: r.mechanic,
+      mechanic: r.mechanic as MechanicType,
       date: r.redeemedAt!,
       icon: '✅',
     })
   })
 
-  const existingCount = events.filter(e => e.type !== 'reward_redeemed').length
-  const extra = Math.max(0, Math.min(customer.totalVisits - existingCount, 8))
-  const base = new Date(customer.joinedAt).getTime()
-  const now  = new Date(customer.lastVisit).getTime()
-  for (let i = 0; i < extra; i++) {
-    const t = new Date(base + (now - base) * ((i + 1) / (extra + 1)))
-    events.push({ id: `v-${i}`, type: 'visit', label: 'Visited the café', date: t.toISOString(), icon: '☕' })
-  }
-
   return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 }
 
-// ── Campaign activity builder ─────────────────────────────────────────────────
-function buildCampaignActivity(customer: typeof customers[0]) {
-  const seen = new Map<string, {
-    id: string; name: string; mechanic: MechanicType
-    plays: number; wins: number; status: string
-  }>()
-  customer.gameHistory.forEach(g => {
-    const camp = campaigns.find(c => c.id === g.campaignId)
-    if (!camp) return
-    if (!seen.has(g.campaignId))
-      seen.set(g.campaignId, { id: g.campaignId, name: g.campaignName, mechanic: g.mechanic, plays: 0, wins: 0, status: camp.status })
-    const entry = seen.get(g.campaignId)!
-    entry.plays++
-    if (g.won) entry.wins++
-  })
-  const all = Array.from(seen.values())
+function buildCampaignActivity(customer: VendorCustomerDetail) {
+  const all = customer.campaignActivity.map(c => ({
+    id: c.id,
+    name: c.name,
+    mechanic: c.mechanic as MechanicType,
+    plays: c.plays,
+    wins: c.wins,
+    status: c.status,
+  }))
   return { active: all.filter(c => c.status === 'active'), previous: all.filter(c => c.status !== 'active') }
 }
 
-// ── Redemption summary ────────────────────────────────────────────────────────
-const VALUE_MAP: Record<string, number> = {
-  'Free Coffee': 120, '₹30 Off': 30, 'Free Breakfast': 450, 'Free Sandwich': 180,
-  '₹50 Off': 50, 'Free Muffin': 80, '20% Off': 60, 'Surprise Drop': 80, 'Free Dessert': 150,
-}
-function buildRedemption(customer: typeof customers[0]) {
-  const pending  = customer.rewards.filter(r => r.status === 'pending')
+function buildRedemption(customer: VendorCustomerDetail) {
+  const pending = customer.rewards.filter(r => r.status === 'pending')
   const redeemed = customer.rewards.filter(r => r.status === 'redeemed')
-  const totalValue = customer.rewards.reduce((s, r) => s + (VALUE_MAP[r.reward] ?? 50), 0)
-  return { pending, redeemed, total: customer.rewards.length, totalValue }
+  return { pending, redeemed, total: customer.rewards.length, totalValue: customer.rewardsEarned * 50 }
 }
 
-// ── Derived metrics ───────────────────────────────────────────────────────────
 function monthsSince(iso: string) {
-  return Math.max(1, (TODAY_DATE.getTime() - new Date(iso).getTime()) / (30 * 86400000))
+  return Math.max(1, (Date.now() - new Date(iso).getTime()) / (30 * 86400000))
 }
 
 const EVENT_STYLE: Record<VisitEvent['type'], string> = {
@@ -163,11 +127,28 @@ type Tab = 'overview' | 'visits' | 'campaigns' | 'rewards'
 // ── Page ──────────────────────────────────────────────────────────────────────
 export function VendorCustomerDetailPage() {
   const { id } = useParams()
-  const customer = customers.find(c => c.id === id) ?? customers[0]
+  const { data: customer, isLoading, isError } = useVendorCustomer(id)
   const [tab, setTab] = useState<Tab>('overview')
   const [visitFilter, setVisitFilter] = useState<VisitFilter>('all')
 
-  const segment        = getSegment(customer)
+  if (isLoading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 flex justify-center py-20">
+        <Loader2 className="w-8 h-8 text-v-purple animate-spin" />
+      </div>
+    )
+  }
+
+  if (isError || !customer) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 text-center py-20">
+        <p className="text-v-text-2">Customer not found</p>
+        <Link to="/vendor/customers" className="text-v-purple text-sm mt-4 inline-block">← Back to customers</Link>
+      </div>
+    )
+  }
+
+  const segment        = getCustomerSegment(customer)
   const segMeta        = SEGMENT_META[segment]
   const visitHistory   = buildVisitHistory(customer)
   const campaignAct    = buildCampaignActivity(customer)
@@ -176,7 +157,7 @@ export function VendorCustomerDetailPage() {
   const visitsPerMonth = Math.round((customer.totalVisits / monthsSince(customer.joinedAt)) * 10) / 10
   const winRatePct     = customer.gamesPlayed > 0
     ? Math.round((customer.rewardsEarned / customer.gamesPlayed) * 100) : 0
-  const lifetimeValue  = Math.round(customer.totalVisits * 300)
+  const lifetimeValue  = estimateLifetimeValue(customer.totalVisits)
 
   const filteredHistory = visitHistory.filter(e => {
     if (visitFilter === 'all') return true
@@ -193,7 +174,7 @@ export function VendorCustomerDetailPage() {
   ]
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-5">
         <Link to="/vendor/customers" className="inline-flex items-center gap-1.5 text-sm text-v-text-2 hover:text-v-text mb-4 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Customers
@@ -222,11 +203,11 @@ export function VendorCustomerDetailPage() {
             <div className="flex items-center gap-5 flex-wrap text-xs text-v-text-3">
               <span className="flex items-center gap-1.5"><Phone className="w-3 h-3" />{customer.phone}</span>
               <span className="flex items-center gap-1.5"><Mail className="w-3 h-3" />{customer.email}</span>
-              <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3" />DOB: {formatDate(customer.dob)}</span>
+              <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3" />Joined {formatDate(customer.joinedAt.slice(0, 10))}</span>
               <span className="flex items-center gap-1.5">
                 <Clock className="w-3 h-3" />
                 <span className={daysAgo > 14 ? 'text-orange-500 font-semibold' : ''}>
-                  Last visit {daysAgo === 0 ? 'today' : `${daysAgo}d ago`}
+                  Last visit {customer.lastVisit ? (daysAgo === 0 ? 'today' : `${daysAgo}d ago`) : 'never'}
                 </span>
               </span>
             </div>
@@ -526,7 +507,6 @@ export function VendorCustomerDetailPage() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {campaignAct.active.map(c => {
-                    const camp = campaigns.find(x => x.id === c.id)
                     const wr = c.plays > 0 ? Math.round((c.wins / c.plays) * 100) : 0
                     return (
                       <Card key={c.id} className="p-4">
@@ -552,11 +532,6 @@ export function VendorCustomerDetailPage() {
                             </div>
                           ))}
                         </div>
-                        {camp && (
-                          <p className="text-[10px] text-v-text-3 mt-2.5 flex items-center gap-1">
-                            <Calendar className="w-2.5 h-2.5" /> Ends {formatDate(camp.endDate)}
-                          </p>
-                        )}
                       </Card>
                     )
                   })}

@@ -1,35 +1,31 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, Clock, Plus } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { getMechanicEmoji, formatRelativeTime } from '@/lib/utils'
-import { redemptionQueue as initial } from '@/lib/mock-data'
-import type { RedemptionQueueItem } from '@/lib/types'
-
-const SIMULATE: RedemptionQueueItem[] = [
-  { id: 'rq-sim-1', customerId: 'cust-4', customerName: 'Rohit Nair', phone: '+91 98765 44444', reward: 'Free Coffee', campaignName: 'Weekend Spin Fiesta', mechanic: 'spin', earnedAt: new Date().toISOString(), code: 'ROHIT-SF-005' },
-  { id: 'rq-sim-2', customerId: 'cust-1', customerName: 'Priya Sharma', phone: '+91 98765 11111', reward: '₹30 Off', campaignName: 'Monsoon Shake & Win', mechanic: 'shake', earnedAt: new Date().toISOString(), code: 'PRIYA-SW-006' },
-]
+import { usePendingRedemptions, useMarkRedeemed } from '@/hooks/useVendorAnalytics'
 
 export function RedemptionQueue() {
-  const [queue, setQueue] = useState<RedemptionQueueItem[]>(initial)
+  const { data: queue = [], isLoading } = usePendingRedemptions()
+  const markRedeemed = useMarkRedeemed()
   const [redeemed, setRedeemed] = useState<string[]>([])
-  const [simIdx, setSimIdx] = useState(0)
 
-  const markRedeemed = (id: string) => {
-    setRedeemed((prev) => [...prev, id])
-    setTimeout(() => {
-      setQueue((prev) => prev.filter((item) => item.id !== id))
-      setRedeemed((prev) => prev.filter((r) => r !== id))
-    }, 1200)
+  const handleRedeem = (id: string) => {
+    setRedeemed(prev => [...prev, id])
+    markRedeemed.mutate(id, {
+      onSettled: () => {
+        setTimeout(() => setRedeemed(prev => prev.filter(r => r !== id)), 1200)
+      },
+    })
   }
 
-  const simulate = () => {
-    if (simIdx < SIMULATE.length) {
-      setQueue((prev) => [{ ...SIMULATE[simIdx], earnedAt: new Date().toISOString() }, ...prev])
-      setSimIdx((prev) => prev + 1)
-    }
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="w-6 h-6 text-v-purple animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -43,9 +39,6 @@ export function RedemptionQueue() {
             </span>
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={simulate} className="text-[11px] gap-1">
-          <Plus className="w-3 h-3" /> Simulate
-        </Button>
       </div>
 
       <div className="space-y-2.5">
@@ -99,7 +92,13 @@ export function RedemptionQueue() {
                       </motion.div>
                     ) : (
                       <motion.div key="btn" initial={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <Button variant="primary" size="sm" className="w-full" onClick={() => markRedeemed(item.id)}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="w-full"
+                          disabled={markRedeemed.isPending}
+                          onClick={() => handleRedeem(item.id)}
+                        >
                           <CheckCircle2 className="w-3.5 h-3.5" /> Mark Redeemed
                         </Button>
                       </motion.div>

@@ -12,9 +12,14 @@ const nav = [
   { label: 'Settings', href: '/vendor/settings', icon: Settings },
 ]
 
+import { useCampaigns } from '@/hooks/useCampaigns'
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation()
   const { data: profile } = useBusinessProfile()
+  const { data: campaigns = [] } = useCampaigns()
+  const activeCount = campaigns.filter(c => c.status === 'active').length
+  const totalPlays = campaigns.reduce((s, c) => s + c.participations, 0)
 
   return (
     <>
@@ -55,8 +60,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <div className="rounded-xl p-3 flex items-start gap-3 bg-v-purple/10 border border-v-purple/20">
           <Zap className="w-4 h-4 mt-0.5 shrink-0 text-[#F5C518]" />
           <div>
-            <div className="text-xs font-bold text-vs-text">3 Active Campaigns</div>
-            <div className="text-[10px] mt-0.5 text-vs-text-3">312 players today</div>
+            <div className="text-xs font-bold text-vs-text">{activeCount} Active Campaign{activeCount !== 1 ? 's' : ''}</div>
+            <div className="text-[10px] mt-0.5 text-vs-text-3">{totalPlays} total plays</div>
           </div>
         </div>
       </div>

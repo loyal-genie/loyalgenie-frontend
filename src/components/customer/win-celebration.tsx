@@ -121,7 +121,7 @@ export function WinCelebration({ reward, emoji = '🎁', code, onClose }: WinCel
   )
 }
 
-export function NoWin({ onClose }: { onClose?: () => void }) {
+export function NoWin({ onClose, playsLeft }: { onClose?: () => void; playsLeft?: number }) {
   const navigate = useNavigate()
 
   return (
@@ -143,12 +143,22 @@ export function NoWin({ onClose }: { onClose?: () => void }) {
           <p className="text-sm text-white/60 mb-2">Better luck on your next visit!</p>
           <p className="text-xs text-white/30 mb-8">Every visit gives you a new chance to win 🍀</p>
 
-          <button
-            className="block w-full py-4 rounded-2xl glass text-white font-bold text-base text-center mb-3"
-            onClick={() => { onClose?.(); navigate(-1) }}
-          >
-            ← Back
-          </button>
+          {playsLeft !== undefined && playsLeft > 0 ? (
+            <button
+              className="block w-full py-4 rounded-2xl font-bold text-base text-center mb-3 border-0 cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', color: 'white' }}
+              onClick={onClose}
+            >
+              Try Again ({playsLeft} left)
+            </button>
+          ) : (
+            <button
+              className="block w-full py-4 rounded-2xl glass text-white font-bold text-base text-center mb-3 border-0 cursor-pointer"
+              onClick={() => { onClose?.(); navigate(-1) }}
+            >
+              ← Back
+            </button>
+          )}
         </motion.div>
       </div>
     </div>
