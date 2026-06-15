@@ -29,12 +29,28 @@ function LockedField({ label, value, reason }: { label: string; value: string; r
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Stepper({ label, hint, value, min = 1, max = 20, onChange, disabled }: {
+  label: string; hint?: string; value: number; min?: number; max?: number
+  onChange: (v: number) => void; disabled?: boolean
+}) {
   return (
-    <Card className="p-6">
-      <h2 className="text-sm font-bold text-v-text mb-5">{title}</h2>
-      {children}
-    </Card>
+    <div className="flex flex-col gap-2">
+      <label className="text-xs font-semibold text-v-text-2 uppercase tracking-wider">{label}</label>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={disabled || value <= min}
+          className="w-9 h-9 rounded-xl border border-v-border bg-white text-v-text flex items-center justify-center text-lg font-bold hover:border-v-border-b disabled:opacity-30 disabled:cursor-not-allowed transition-all select-none">
+          −
+        </button>
+        <input type="number" value={value} min={min} max={max} disabled={disabled}
+          onChange={e => { const v = Math.max(min, Math.min(max, Number(e.target.value))); if (!isNaN(v)) onChange(v) }}
+          className="w-16 text-center bg-white border border-v-border rounded-xl py-2 text-sm font-bold text-v-text focus:outline-none focus:border-v-purple disabled:opacity-50" />
+        <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={disabled || value >= max}
+          className="w-9 h-9 rounded-xl border border-v-border bg-white text-v-text flex items-center justify-center text-lg font-bold hover:border-v-border-b disabled:opacity-30 disabled:cursor-not-allowed transition-all select-none">
+          +
+        </button>
+        {hint && <span className="text-xs text-v-text-3 ml-1">{hint}</span>}
+      </div>
+    </div>
   )
 }
 
@@ -58,6 +74,7 @@ export function VendorCampaignEditPage() {
   const [name, setName] = useState('')
   const [endDate, setEndDate] = useState('')
   const [userCap, setUserCap] = useState(100)
+  const [perDayUserLimit, setPerDayUserLimit] = useState(50)
   const [playsPerDay, setPlaysPerDay] = useState(1)
   const [winRatePercent, setWinRatePercent] = useState(30)
   const [saveState, setSaveState] = useState<'idle' | 'saved'>('idle')
@@ -69,6 +86,7 @@ export function VendorCampaignEditPage() {
     setName(campaign.name)
     setEndDate(campaign.endDate)
     setUserCap(campaign.userCap)
+    setPerDayUserLimit(campaign.perDayUserLimit)
     setPlaysPerDay(campaign.playsPerDay)
     setWinRatePercent(campaign.winRatePercent)
   }, [campaign])
@@ -94,11 +112,17 @@ export function VendorCampaignEditPage() {
   const isEnded = campaign.status === 'ended'
   const isLive = campaign.status === 'active' || campaign.status === 'paused'
   const color = getMechanicColor(campaign.mechanic as 'shake')
+  const isSingleDay = campaign.startDate === campaign.endDate
+  const campaignDays = Math.max(1, Math.ceil(
+    (new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / 86400000,
+  ) + 1)
+  const suggestedDailyLimit = Math.max(1, Math.floor(userCap / campaignDays))
 
   const hasChanges =
     name !== campaign.name ||
     endDate !== campaign.endDate ||
     userCap !== campaign.userCap ||
+    perDayUserLimit !== campaign.perDayUserLimit ||
     playsPerDay !== campaign.playsPerDay ||
     winRatePercent !== campaign.winRatePercent
 
@@ -109,6 +133,7 @@ export function VendorCampaignEditPage() {
         name,
         endDate,
         userCap,
+        perDayUserLimit,
         playsPerDay,
         winRatePercent,
       })
@@ -206,7 +231,9 @@ export function VendorCampaignEditPage() {
       )}
 
       <div className="space-y-4">
-        <Section title="Campaign Details">
+        {/* Campaign Details — matches create step 1 */}
+        <Card className="p-6">
+          <h2 className="text-sm font-bold text-v-text mb-5">Campaign Details</h2>
           <div className="space-y-5">
             {isEnded ? (
               <LockedField label="Campaign Name" value={campaign.name} />
@@ -222,54 +249,94 @@ export function VendorCampaignEditPage() {
               )}
             </div>
           </div>
-        </Section>
+        </Card>
 
-        <Section title="Participation & Win Rate">
-          <div className="space-y-6">
+        {/* Participation & Win Rate — matches create layout */}
+        <Card className="p-6">
+          <h2 className="text-sm font-bold text-v-text mb-5">Participation &amp; Win Rate</h2>
+          <div className="space-y-4">
+            <div className="pt-0 border-t-0 space-y-4">
+              <p className="text-[11px] font-semibold text-v-text-2 uppercase tracking-wider">Participation</p>
+
+              {isEnded ? (
+                <>
+                  <LockedField label="Overall User Cap" value={`${campaign.userCap} users total`} />
+                  {!isSingleDay && (
+                    <LockedField label="Daily User Limit" value={`${campaign.perDayUserLimit} users / day`} />
+                  )}
+                </>
+              ) : (
+                <>
+                  <Slider
+                    label="Overall User Cap"
+                    displayValue={`${userCap} users total`}
+                    min={Math.max(campaign.currentUsers, 10)}
+                    max={2000}
+                    step={10}
+                    value={userCap}
+                    onChange={e => setUserCap(Number(e.target.value))}
+                  />
+                  <p className="text-[11px] text-v-text-3 -mt-2">
+                    {campaign.currentUsers} players joined · cap cannot go below current players
+                  </p>
+                  {!isSingleDay && (
+                    <div>
+                      <Slider
+                        label="Daily User Limit"
+                        displayValue={`${perDayUserLimit} users / day`}
+                        min={1}
+                        max={userCap}
+                        step={1}
+                        value={perDayUserLimit}
+                        onChange={e => setPerDayUserLimit(Number(e.target.value))}
+                      />
+                      <p className="text-xs text-v-text-3 mt-1.5">
+                        Suggested: <span className="font-semibold text-v-text-2">{suggestedDailyLimit} / day</span> — even distribution over {campaignDays} days. Override if needed.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             {isEnded ? (
-              <>
-                <LockedField label="User Cap" value={`${campaign.userCap} users`} />
-                <LockedField label="Plays Per Day" value={`${campaign.playsPerDay}`} />
-                <LockedField label="Win Rate" value={`${campaign.winRatePercent}%`} />
-              </>
+              <LockedField label="Plays Per User Per Day" value={`${campaign.playsPerDay} plays / day`} />
             ) : (
-              <>
-                <Slider
-                  label="User Cap"
-                  displayValue={`${userCap} users`}
-                  min={Math.max(campaign.currentUsers, 10)}
-                  max={5000}
-                  step={10}
-                  value={userCap}
-                  onChange={e => setUserCap(Number(e.target.value))}
-                />
-                <p className="text-[11px] text-v-text-3 -mt-4">
-                  {campaign.currentUsers} players joined · cap cannot go below current players
-                </p>
-                <Slider
-                  label="Plays Per Day (per customer)"
-                  displayValue={`${playsPerDay} play${playsPerDay > 1 ? 's' : ''}`}
-                  min={1}
-                  max={5}
-                  step={1}
-                  value={playsPerDay}
-                  onChange={e => setPlaysPerDay(Number(e.target.value))}
-                />
-                <Slider
-                  label="Win Rate"
-                  displayValue={`${winRatePercent}%`}
-                  min={5}
-                  max={80}
-                  step={5}
-                  value={winRatePercent}
-                  onChange={e => setWinRatePercent(Number(e.target.value))}
-                />
-              </>
+              <Stepper
+                label="Plays Per User Per Day"
+                hint="plays / day"
+                value={playsPerDay}
+                min={1}
+                max={10}
+                onChange={setPlaysPerDay}
+              />
             )}
-          </div>
-        </Section>
 
-        <Section title="Rewards">
+            <div className="pt-2 border-t border-v-border space-y-2">
+              {isEnded ? (
+                <LockedField label="Overall Win Rate" value={`${campaign.winRatePercent}% of customers win`} />
+              ) : (
+                <>
+                  <Slider
+                    label="Overall Win Rate"
+                    displayValue={`${winRatePercent}% of customers win`}
+                    min={5}
+                    max={100}
+                    step={5}
+                    value={winRatePercent}
+                    onChange={e => setWinRatePercent(Number(e.target.value))}
+                  />
+                  <p className="text-xs text-v-text-3 mt-1.5">
+                    Daily win rate is the same — <span className="font-semibold text-v-text-2">{winRatePercent}%</span> of each day&apos;s players will win. Reward mix is locked while live.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-sm font-bold text-v-text mb-5">Rewards</h2>
           <div className="space-y-2">
             {campaign.rewards.map(r => (
               <div key={r.id} className="flex items-center justify-between p-3 rounded-xl bg-v-surface-2 border border-v-border">
@@ -277,12 +344,13 @@ export function VendorCampaignEditPage() {
                 <span className="text-xs text-v-text-3">{r.sharePercent}% share</span>
               </div>
             ))}
-            <p className="text-[11px] text-v-text-3 mt-2">Reward mix is locked while live to keep odds fair for all players.</p>
+            <p className="text-[11px] text-v-text-3 mt-2">Reward shares are locked while live to keep odds fair for all players.</p>
           </div>
-        </Section>
+        </Card>
 
         {!isEnded && STATUS_ACTIONS[campaign.status] && (
-          <Section title="Campaign Status">
+          <Card className="p-6">
+            <h2 className="text-sm font-bold text-v-text mb-5">Campaign Status</h2>
             <div className="space-y-3">
               {STATUS_ACTIONS[campaign.status]!.map(action => (
                 <div key={action.label} className="flex items-center justify-between gap-4 p-4 rounded-xl border border-v-border bg-v-surface-2">
@@ -305,7 +373,7 @@ export function VendorCampaignEditPage() {
                 </div>
               ))}
             </div>
-          </Section>
+          </Card>
         )}
       </div>
     </div>

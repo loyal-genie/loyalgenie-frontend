@@ -60,6 +60,7 @@ export function CustomerShakePage() {
   const [rewardEmoji, setRewardEmoji] = useState('🎁')
   const [rewardCode, setRewardCode] = useState<string | undefined>()
   const [playsLeft, setPlaysLeft] = useState<number | null>(null)
+  const [attempts, setAttempts] = useState<{ used: number; total: number } | null>(null)
   const [error, setError] = useState('')
   const [playStateReady, setPlayStateReady] = useState(false)
 
@@ -98,6 +99,7 @@ export function CustomerShakePage() {
     if (!playState) return
     setPlayStateReady(true)
     setPlaysLeft(playState.playsRemaining)
+    setAttempts({ used: playState.playsUsedToday, total: playState.playsPerDay })
     setError(playState.canPlay ? '' : playState.message)
   }, [playState])
 
@@ -108,6 +110,7 @@ export function CustomerShakePage() {
       queryClient.invalidateQueries({ queryKey: ['play-state', campaignId] })
       setWon(result.won)
       setPlaysLeft(result.playsRemaining)
+      setAttempts({ used: result.playsUsedToday, total: result.playsPerDay })
       if (result.won && result.reward) {
         setRewardText(result.reward.name)
         setRewardEmoji(result.reward.icon)
@@ -228,7 +231,7 @@ export function CustomerShakePage() {
   }
 
   if (phase === 'result' && !won) {
-    return <NoWin onClose={handlePlayAgain} playsLeft={playsLeft ?? undefined} />
+    return <NoWin onClose={handlePlayAgain} playsLeft={playsLeft ?? undefined} attempts={attempts ?? undefined} />
   }
 
   const isShaking = phase === 'shaking' || phase === 'charging'
@@ -290,6 +293,10 @@ export function CustomerShakePage() {
         <div className="glass rounded-full px-3 py-1.5 min-w-[120px] text-center">
           {!playStateReady ? (
             <p className="text-xs text-white/50 font-medium">Checking plays…</p>
+          ) : attempts ? (
+            <p className="text-xs text-white/90 font-bold">
+              {attempts.used}/{attempts.total} attempts
+            </p>
           ) : (
             <p className="text-xs text-white/70 font-medium">
               {playsLeft} play{playsLeft !== 1 ? 's' : ''} left today
@@ -322,7 +329,10 @@ export function CustomerShakePage() {
           {error || phaseCopy[phase]}
         </motion.p>
         {campaign && (
-          <p className="text-xs text-white/30 mt-1">{campaign.name}</p>
+          <p className="text-xs text-white/30 mt-1">
+            {campaign.name}
+            {attempts ? ` · ${attempts.used}/${attempts.total} attempts` : ''}
+          </p>
         )}
       </div>
 

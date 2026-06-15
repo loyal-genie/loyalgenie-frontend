@@ -121,7 +121,11 @@ export function WinCelebration({ reward, emoji = '🎁', code, onClose }: WinCel
   )
 }
 
-export function NoWin({ onClose, playsLeft }: { onClose?: () => void; playsLeft?: number }) {
+export function NoWin({ onClose, playsLeft, attempts }: {
+  onClose?: () => void
+  playsLeft?: number
+  attempts?: { used: number; total: number }
+}) {
   const navigate = useNavigate()
 
   return (
@@ -141,6 +145,11 @@ export function NoWin({ onClose, playsLeft }: { onClose?: () => void; playsLeft?
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <h2 className="text-2xl font-extrabold text-white mb-2">Not this time…</h2>
           <p className="text-sm text-white/60 mb-2">Better luck on your next visit!</p>
+          {attempts && (
+            <p className="text-sm font-bold text-purple-300 mb-2">
+              {attempts.used}/{attempts.total} attempts used today
+            </p>
+          )}
           <p className="text-xs text-white/30 mb-8">Every visit gives you a new chance to win 🍀</p>
 
           {playsLeft !== undefined && playsLeft > 0 ? (

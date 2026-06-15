@@ -276,10 +276,11 @@ export interface PublicCampaign {
 export interface PlayState {
   campaignId: string
   playsRemaining: number
+  playsUsedToday: number
+  playsPerDay: number
   canPlay: boolean
   message: string
   winRatePercent: number
-  playsPerDay: number
 }
 
 export interface ShakeResult {
@@ -287,6 +288,8 @@ export interface ShakeResult {
   reward: { id: string; name: string; description: string; icon: string } | null
   code: string | null
   playsRemaining: number
+  playsUsedToday: number
+  playsPerDay: number
   playId: string
 }
 
@@ -329,6 +332,7 @@ export interface UpdateCampaignPayload {
   name?: string
   endDate?: string
   userCap?: number
+  perDayUserLimit?: number
   playsPerDay?: number
   winRatePercent?: number
   status?: 'active' | 'paused' | 'ended'

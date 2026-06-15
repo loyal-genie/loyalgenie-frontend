@@ -3,9 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Delete, Loader2, Sparkles, Gift } from 'lucide-react'
-import { fetchPublicCampaign, verifyCampaignPin, getApiErrorMessage } from '@/lib/api'
+import { fetchPublicCampaign, verifyCampaignPin, fetchPlayState, getApiErrorMessage } from '@/lib/api'
 import { setPlaySession } from '@/lib/customer-game'
 import { getMechanicEmoji, getMechanicLabel, getMechanicColor } from '@/lib/utils'
+import { getUser, isCustomerAuthenticated } from '@/lib/auth'
 
 function FloatingOrbs() {
   return (
@@ -39,6 +40,14 @@ export function CustomerCampaignPage() {
     queryKey: ['public-campaign', id],
     queryFn: () => fetchPublicCampaign(id!),
     enabled: Boolean(id),
+  })
+
+  const customerId = getUser()?.userId
+  const { data: playState } = useQuery({
+    queryKey: ['play-state', id, customerId],
+    queryFn: () => fetchPlayState(id!),
+    enabled: Boolean(id) && isCustomerAuthenticated(),
+    staleTime: 0,
   })
 
   const verifyMutation = useMutation({
@@ -131,6 +140,13 @@ export function CustomerCampaignPage() {
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             <span className="text-xs font-bold text-amber-200">{campaign.winRatePercent}% chance to win!</span>
           </div>
+          {playState && (
+            <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">
+              <span className="text-xs font-bold text-white/80">
+                {playState.playsUsedToday}/{playState.playsPerDay} attempts today
+              </span>
+            </div>
+          )}
         </motion.div>
 
         {/* PIN card */}
