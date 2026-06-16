@@ -29,7 +29,7 @@ import {
   INTENSITY_DECAY,
   needsMotionPermissionPrompt,
   prefersReducedMotion,
-  randomResultDelayMs,
+  randomRevealDelayMs,
   vibrate,
 } from '@/lib/shake-engine'
 
@@ -227,7 +227,7 @@ export function CustomerShakePage() {
     const now = Date.now()
     sequenceStartRef.current = now
     shakeStartRef.current = now
-    resultDeadlineRef.current = now + randomResultDelayMs()
+    resultDeadlineRef.current = now + randomRevealDelayMs()
     scheduleResultDeadline()
     shakeMutation.mutate()
   }, [shakeMutation, scheduleResultDeadline])
@@ -241,12 +241,12 @@ export function CustomerShakePage() {
     })
   }, [])
 
-  const startShakeRef = useRef<(() => void) | null>(null)
-
   const onSensorPulse = useCallback(() => {
     sensorPulseRef.current = true
     setMotionHint('live')
   }, [])
+
+  const onPhysicalShakeRef = useRef<(() => void) | null>(null)
 
   const { ensurePermission, permission, sensorsPrimed, primeFromGesture } = useDeviceShake({
     listenIdle:
@@ -255,16 +255,18 @@ export function CustomerShakePage() {
       playStateReady &&
       canPlay &&
       playsLeft !== null &&
-      playsLeft > 0,
+      playsLeft > 0 &&
+      sensorsPrimed,
     listenActive: phase === 'shaking' || phase === 'charging',
-    onShakeStart: () => startShakeRef.current?.(),
+    onShakeStart: () => onPhysicalShakeRef.current?.(),
     onIntensity: val => bumpIntensity(val * 0.14),
     onShakeSpike: () => bumpIntensity(0.08),
     onSensorPulse,
     reducedMotion,
   })
 
-  const startShakeSequence = useCallback(async () => {
+  /** Starts play only after accelerometer shake — never from tap alone. */
+  const beginPlayAfterShake = useCallback(() => {
     if (
       startingRef.current ||
       phase !== 'idle' ||
@@ -281,27 +283,29 @@ export function CustomerShakePage() {
     startingRef.current = true
     setPhase('charging')
     hapticStart()
-
-    const perm = await ensurePermission()
-    if (perm === 'denied') {
-      startingRef.current = false
-      setPhase('idle')
-      setMotionHint('needed')
-      return
-    }
-
     kickOffPlay()
 
     setTimeout(() => {
       setPhase('shaking')
       hapticCharge()
       startingRef.current = false
-    }, reducedMotion ? 200 : CHARGE_MS)
-  }, [phase, canPlay, playsLeft, playSession, playStateReady, ensurePermission, kickOffPlay, reducedMotion])
+    }, reducedMotion ? 150 : CHARGE_MS)
+  }, [phase, canPlay, playsLeft, playSession, playStateReady, kickOffPlay, reducedMotion])
 
-  startShakeRef.current = startShakeSequence
+  const onPhysicalShake = useCallback(() => {
+    if (!motionPlay || phase !== 'idle') return
+    if (!sensorsPrimed) return
+    if (needsMotionPermissionPrompt() && permission !== 'granted') {
+      setMotionHint('needed')
+      void ensurePermission()
+      return
+    }
+    beginPlayAfterShake()
+  }, [motionPlay, phase, sensorsPrimed, permission, ensurePermission, beginPlayAfterShake])
 
-  // Chrome Android: prime sensors synchronously on every touch (user activation).
+  onPhysicalShakeRef.current = onPhysicalShake
+
+  // Chrome Android: tap arms sensors only — play starts on physical shake.
   const handleGestureArm = useCallback(() => {
     if (!motionPlay || phase !== 'idle') return
 
@@ -331,7 +335,7 @@ export function CustomerShakePage() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== 'Space' || e.repeat) return
       e.preventDefault()
-      if (phase === 'idle') startShakeSequence()
+      if (phase === 'idle') beginPlayAfterShake()
       else if (phase === 'shaking') {
         bumpIntensity(0.18)
         vibrate(25)
@@ -339,7 +343,7 @@ export function CustomerShakePage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [motionPlay, phase, startShakeSequence, bumpIntensity])
+  }, [motionPlay, phase, beginPlayAfterShake, bumpIntensity])
 
   const handleTap = () => {
     if (motionPlay) {
@@ -347,7 +351,8 @@ export function CustomerShakePage() {
       return
     }
 
-    if (phase === 'idle') startShakeSequence()
+    // Desktop / HTTP fallback — no accelerometer; tap acts as shake substitute.
+    if (phase === 'idle') beginPlayAfterShake()
     else if (phase === 'shaking') {
       bumpIntensity(reducedMotion ? 0.25 : 0.16)
       vibrate(22)
@@ -371,7 +376,7 @@ export function CustomerShakePage() {
     setPhase('idle')
     setWon(false)
     sensorPulseRef.current = false
-    setMotionHint('tap')
+    setMotionHint(sensorsPrimed ? (sensorPulseRef.current ? 'live' : 'ready') : 'tap')
   }
 
   if (campaignLoading || stateLoading) {
@@ -420,8 +425,8 @@ export function CustomerShakePage() {
           ? 'Campaign is full — no new players today'
           : 'No plays left today'
       : 'Loading your play status…',
-    charging: 'Get ready… feel the buzz!',
-    shaking: intensity > 0.5 ? 'Almost there… keep going!' : 'Keep shaking!',
+    charging: 'Shake detected!',
+    shaking: 'Keep shaking… revealing soon!',
     suspending: 'Revealing your reward…',
     revealing: won ? 'You won!' : '…',
     result: '',
@@ -606,10 +611,10 @@ export function CustomerShakePage() {
       >
         <p className="text-[9px] sm:text-xs text-white/30 leading-relaxed">
           {motionPlay
-            ? 'Tap once → shake to play · Fair server outcome'
+            ? 'Tap once to enable sensors → shake to play · Result in 2–3s'
             : reducedMotion
-              ? 'Tap rapidly to play · Fair server outcome'
-              : 'Tap or press spacebar · Fair server outcome'}
+              ? 'Tap to play · Result in 2–3s'
+              : 'Tap or spacebar (no motion) · Result in 2–3s'}
         </p>
       </motion.div>
     </motion.div>

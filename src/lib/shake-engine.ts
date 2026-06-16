@@ -3,15 +3,18 @@
 /** Visual progress ring span — result timing uses RESULT_DELAY_* instead. */
 export const SHAKE_DURATION_MS = 5000
 export const CHARGE_MS = 300
-/** Result appears this long after shake is detected (user may still be shaking). */
-export const RESULT_DELAY_MIN_MS = 1000
-export const RESULT_DELAY_MAX_MS = 5000
+/** After a real shake is detected, reveal within this window (user may keep shaking). */
+export const RESULT_DELAY_MIN_MS = 2000
+export const RESULT_DELAY_MAX_MS = 3000
 
 /** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
-export function randomResultDelayMs(): number {
+export function randomRevealDelayMs(): number {
   const span = RESULT_DELAY_MAX_MS - RESULT_DELAY_MIN_MS
   return RESULT_DELAY_MIN_MS + Math.floor(Math.random() * (span + 1))
 }
+
+/** @deprecated use randomRevealDelayMs */
+export const randomResultDelayMs = randomRevealDelayMs
 /** Active-phase spike threshold (intensity + haptics). */
 export const SHAKE_DELTA_THRESHOLD = 6
 /** Minimum per-frame delta that contributes to start energy. */

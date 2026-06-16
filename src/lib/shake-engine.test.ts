@@ -6,7 +6,7 @@ import {
   createShakeStartState,
   evaluateShakeStart,
   mockMotionEvent,
-  randomResultDelayMs,
+  randomRevealDelayMs,
   readMotionSample,
   RESULT_DELAY_MAX_MS,
   RESULT_DELAY_MIN_MS,
@@ -155,10 +155,10 @@ describe('orientationToMotionDelta', () => {
   })
 })
 
-describe('randomResultDelayMs', () => {
-  it('returns a value within 1–5 seconds', () => {
+describe('randomRevealDelayMs', () => {
+  it('returns a value within 2–3 seconds', () => {
     for (let i = 0; i < 50; i++) {
-      const ms = randomResultDelayMs()
+      const ms = randomRevealDelayMs()
       expect(ms).toBeGreaterThanOrEqual(RESULT_DELAY_MIN_MS)
       expect(ms).toBeLessThanOrEqual(RESULT_DELAY_MAX_MS)
     }
