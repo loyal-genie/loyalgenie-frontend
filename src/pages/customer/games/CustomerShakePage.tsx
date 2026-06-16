@@ -255,8 +255,7 @@ export function CustomerShakePage() {
       playStateReady &&
       canPlay &&
       playsLeft !== null &&
-      playsLeft > 0 &&
-      sensorsPrimed,
+      playsLeft > 0,
     listenActive: phase === 'shaking' || phase === 'charging',
     onShakeStart: () => onPhysicalShakeRef.current?.(),
     onIntensity: val => bumpIntensity(val * 0.14),
