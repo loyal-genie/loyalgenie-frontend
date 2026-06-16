@@ -208,8 +208,8 @@ export function OnboardingPage() {
 
       <div className="text-center pt-6 pb-8 px-4">
         <h1 className="text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ color: D.text }}>
-          Let&apos;s set up your café&apos;s{' '}
-          <span style={{ color: D.gold, fontStyle: 'italic' }}>magic.</span>
+          Let&apos;s set up your Business
+          
         </h1>
         <p className="text-sm max-w-sm mx-auto" style={{ color: D.textMuted }}>
           A few details and we&apos;ll have your loyalty program, branded app, and counter standee ready to go. Takes about 5 minutes.
@@ -307,26 +307,31 @@ export function OnboardingPage() {
             <>
               {step === 0 && (
                 <>
-                  <h2 className="text-2xl font-black mb-1" style={{ color: D.text }}>Tell us about your café</h2>
+                  <h2 className="text-2xl font-black mb-1" style={{ color: D.text }}>Tell us about your Business</h2>
                   <p className="text-sm mb-7" style={{ color: D.textMuted }}>The basics — who you are, what you&apos;re called, and how we reach you.</p>
                   <div className="space-y-5">
                     <div className="grid sm:grid-cols-2 gap-4">
-                      <div><OnboardingLabel>Name</OnboardingLabel><OnboardingInput placeholder="e.g. Brew & Co." value={form.name} onChange={set('name')} error={fieldErrors.name} /></div>
+                      {/* Added required to Name */}
+                      <div><OnboardingLabel required>Business Name</OnboardingLabel><OnboardingInput placeholder="e.g. Brew & Co." value={form.name} onChange={set('name')} error={fieldErrors.name} /></div>
                       <div><OnboardingLabel>Tagline</OnboardingLabel><OnboardingInput placeholder="e.g. Brewco Hospitality Pvt. Ltd." value={form.tagline ?? ''} onChange={set('tagline')} /></div>
                     </div>
                     <div><OnboardingLabel>Description</OnboardingLabel><OnboardingTextarea placeholder="e.g. Where every cup tells a story" value={form.description ?? ''} onChange={set('description')} /></div>
-                    <div><OnboardingLabel>Business Type</OnboardingLabel><OnboardingSelect value={form.businessType} onChange={set('businessType')} options={businessTypes} placeholder="Select business type" error={fieldErrors.businessType} /></div>
+                    {/* Added required to Business Type */}
+                    <div><OnboardingLabel required>Business Type</OnboardingLabel><OnboardingSelect value={form.businessType} onChange={set('businessType')} options={businessTypes} placeholder="Select business type" error={fieldErrors.businessType} /></div>
                     <div className="pt-2">
                       <p className="text-base font-bold mb-0.5" style={{ color: D.text }}>Contact information</p>
                       <p className="text-xs mb-4" style={{ color: D.textMuted }}>So we know who to ring when the magic&apos;s ready.</p>
                       <div className="space-y-4">
-                        <div><OnboardingLabel>Owner Name</OnboardingLabel><OnboardingInput placeholder="Full name" value={form.ownerName} onChange={set('ownerName')} error={fieldErrors.ownerName} /></div>
+                        {/* Added required to Owner Name */}
+                        <div><OnboardingLabel required>Owner Name</OnboardingLabel><OnboardingInput placeholder="Full name" value={form.ownerName} onChange={set('ownerName')} error={fieldErrors.ownerName} /></div>
                         <div className="grid sm:grid-cols-2 gap-4">
-                          <div><OnboardingLabel>Mobile Number</OnboardingLabel><OnboardingInput placeholder="9XXXX XXXXX" value={form.mobile} onChange={set('mobile')} prefix="+91" error={fieldErrors.mobile} /></div>
+                          {/* Added required to Mobile Number */}
+                          <div><OnboardingLabel required>Mobile Number</OnboardingLabel><OnboardingInput placeholder="9XXXX XXXXX" value={form.mobile} onChange={set('mobile')} prefix="+91" error={fieldErrors.mobile} /></div>
                           <div><OnboardingLabel>WhatsApp Number</OnboardingLabel><OnboardingInput placeholder="9XXXX XXXXX" value={form.whatsapp ?? ''} onChange={set('whatsapp')} prefix="+91" /></div>
                         </div>
                         <div>
-                          <OnboardingLabel>Email Address</OnboardingLabel>
+                          {/* Added required to Email Address */}
+                          <OnboardingLabel required>Email Address</OnboardingLabel>
                           <OnboardingInput
                             placeholder="you@yourcafe.com"
                             value={form.email}
@@ -345,15 +350,17 @@ export function OnboardingPage() {
 
               {step === 1 && (
                 <>
-                  <h2 className="text-2xl font-black mb-1" style={{ color: D.text }}>Café Details</h2>
+                  <h2 className="text-2xl font-black mb-1" style={{ color: D.text }}>Business Details</h2>
                   <p className="text-sm mb-7" style={{ color: D.textMuted }}>Where customers find you and when you&apos;re open.</p>
                   <div className="space-y-4">
                     <div className="grid sm:grid-cols-2 gap-4">
-                      <div><OnboardingLabel>City</OnboardingLabel><OnboardingInput placeholder="e.g. Hyderabad" value={form.city} onChange={set('city')} error={fieldErrors.city} /></div>
-                      <div><OnboardingLabel>Pincode</OnboardingLabel><OnboardingInput placeholder="6 digit Pincode" value={form.pincode ?? ''} onChange={set('pincode')} /></div>
+                      {/* Added required to City and Pincode */}
+                      <div><OnboardingLabel required>City</OnboardingLabel><OnboardingInput placeholder="e.g. Hyderabad" value={form.city} onChange={set('city')} error={fieldErrors.city} /></div>
+                      <div><OnboardingLabel required>Pincode</OnboardingLabel><OnboardingInput placeholder="6 digit Pincode" value={form.pincode ?? ''} onChange={set('pincode')} /></div>
                     </div>
                     <div><OnboardingLabel>Landmark</OnboardingLabel><OnboardingInput placeholder="e.g. Opp wow kids school" value={form.landmark ?? ''} onChange={set('landmark')} /></div>
-                    <div><OnboardingLabel>Full Address</OnboardingLabel><OnboardingTextarea placeholder="Street, Area, Building name etc" value={form.address ?? ''} onChange={set('address')} rows={2} /></div>
+                    {/* Added required to Full Address */}
+                    <div><OnboardingLabel required>Full Address</OnboardingLabel><OnboardingTextarea placeholder="Street, Area, Building name etc" value={form.address ?? ''} onChange={set('address')} rows={2} /></div>
                     <div><OnboardingLabel>Google Map Link</OnboardingLabel><OnboardingInput placeholder="Paste Google Map location link" value={form.mapLink ?? ''} onChange={set('mapLink')} /></div>
                     <div className="pt-2">
                       <p className="text-base font-bold mb-0.5" style={{ color: D.text }}>Timings</p>
@@ -435,7 +442,7 @@ export function OnboardingPage() {
 
               {step === 4 && (
                 <>
-                  <h2 className="text-2xl font-black mb-1" style={{ color: D.text }}>Brand Your Cafe</h2>
+                  <h2 className="text-2xl font-black mb-1" style={{ color: D.text }}>Brand Your Business</h2>
                   <p className="text-sm mb-7" style={{ color: D.textMuted }}>This is what your customers will see inside the LoyalGenie app — your logo, your colours, your vibe.</p>
                   <div className="space-y-5">
                     <OnboardingUpload
@@ -473,7 +480,16 @@ export function OnboardingPage() {
                         <div><OnboardingLabel>Facebook</OnboardingLabel><OnboardingInput placeholder="yourpage" value={form.facebook ?? ''} onChange={set('facebook')} prefix="@" /></div>
                       </div>
                       <div className="grid grid-cols-1 gap-4 mt-4">
-                        <div><OnboardingLabel>Website</OnboardingLabel><OnboardingInput placeholder="yoursite.com" value={form.website ?? ''} onChange={set('website')} prefix="https://" /></div>
+                        <div>
+  <OnboardingLabel>Website</OnboardingLabel>
+  <OnboardingInput 
+    placeholder="yoursite.com" 
+    value={form.website ?? ''} 
+    onChange={set('website')} 
+    prefix="https://" 
+    type="url"
+  />
+</div>
                         <div><OnboardingLabel>Google Review Link</OnboardingLabel><OnboardingInput placeholder="Paste your Google review link" value={form.googleReview ?? ''} onChange={set('googleReview')} /></div>
                       </div>
                     </div>
