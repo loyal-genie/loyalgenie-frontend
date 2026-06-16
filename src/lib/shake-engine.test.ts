@@ -156,7 +156,7 @@ describe('orientationToMotionDelta', () => {
 })
 
 describe('randomRevealDelayMs', () => {
-  it('returns a value within 2–3 seconds', () => {
+  it('returns a value within 5–7 seconds', () => {
     for (let i = 0; i < 50; i++) {
       const ms = randomRevealDelayMs()
       expect(ms).toBeGreaterThanOrEqual(RESULT_DELAY_MIN_MS)

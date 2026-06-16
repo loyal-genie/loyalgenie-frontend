@@ -14,12 +14,12 @@ import {
   StarField,
   SHAKE_PARTICLE_COLORS,
 } from '@/components/customer/shake-effects'
-import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
+import { getCampaignIdFromSearch, getPlaySession, hasRecentMotionGesture } from '@/lib/customer-game'
 import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage, type PlayState } from '@/lib/api'
 import { getUser } from '@/lib/auth'
 import { useDeviceShake } from '@/hooks/useDeviceShake'
+import { primeMotionSensors } from '@/lib/shake-motion-sensors'
 import {
-  CHARGE_MS,
   hapticCharge,
   hapticReveal,
   hapticStart,
@@ -33,8 +33,8 @@ import {
   vibrate,
 } from '@/lib/shake-engine'
 
-type Phase = 'idle' | 'charging' | 'shaking' | 'suspending' | 'revealing' | 'result'
-type MotionHint = 'tap' | 'needed' | 'ready' | 'live'
+type Phase = 'idle' | 'shaking' | 'suspending' | 'revealing' | 'result'
+type MotionHint = 'needed' | 'ready' | 'live'
 
 const GAME_BG = 'linear-gradient(165deg, #1A0545 0%, #2D1B69 38%, #0D0B1E 100%)'
 
@@ -50,7 +50,7 @@ export function CustomerShakePage() {
   const [intensity, setIntensity] = useState(0)
   const [shakeProgress, setShakeProgress] = useState(0)
   const [burstKey, setBurstKey] = useState(0)
-  const [motionHint, setMotionHint] = useState<MotionHint>('tap')
+  const [motionHint, setMotionHint] = useState<MotionHint>('ready')
   const [won, setWon] = useState(false)
   const [rewardText, setRewardText] = useState('')
   const [rewardEmoji, setRewardEmoji] = useState('🎁')
@@ -248,7 +248,7 @@ export function CustomerShakePage() {
 
   const onPhysicalShakeRef = useRef<(() => void) | null>(null)
 
-  const { ensurePermission, permission, sensorsPrimed, primeFromGesture } = useDeviceShake({
+  const { ensurePermission, permission, primeFromGesture } = useDeviceShake({
     listenIdle:
       motionPlay &&
       phase === 'idle' &&
@@ -256,7 +256,7 @@ export function CustomerShakePage() {
       canPlay &&
       playsLeft !== null &&
       playsLeft > 0,
-    listenActive: phase === 'shaking' || phase === 'charging',
+    listenActive: phase === 'shaking',
     onShakeStart: () => onPhysicalShakeRef.current?.(),
     onIntensity: val => bumpIntensity(val * 0.14),
     onShakeSpike: () => bumpIntensity(0.08),
@@ -264,7 +264,7 @@ export function CustomerShakePage() {
     reducedMotion,
   })
 
-  /** Starts play only after accelerometer shake — never from tap alone. */
+  /** Shake detected → 5–7s active shaking → reveal. */
   const beginPlayAfterShake = useCallback(() => {
     if (
       startingRef.current ||
@@ -280,54 +280,49 @@ export function CustomerShakePage() {
     }
 
     startingRef.current = true
-    setPhase('charging')
     hapticStart()
     kickOffPlay()
-
-    setTimeout(() => {
-      setPhase('shaking')
-      hapticCharge()
-      startingRef.current = false
-    }, reducedMotion ? 150 : CHARGE_MS)
-  }, [phase, canPlay, playsLeft, playSession, playStateReady, kickOffPlay, reducedMotion])
+    setPhase('shaking')
+    hapticCharge()
+    startingRef.current = false
+  }, [phase, canPlay, playsLeft, playSession, playStateReady, kickOffPlay])
 
   const onPhysicalShake = useCallback(() => {
     if (!motionPlay || phase !== 'idle') return
-    if (!sensorsPrimed) return
     if (needsMotionPermissionPrompt() && permission !== 'granted') {
       setMotionHint('needed')
-      void ensurePermission()
       return
     }
     beginPlayAfterShake()
-  }, [motionPlay, phase, sensorsPrimed, permission, ensurePermission, beginPlayAfterShake])
+  }, [motionPlay, phase, permission, beginPlayAfterShake])
 
   onPhysicalShakeRef.current = onPhysicalShake
 
-  // Chrome Android: tap arms sensors only — play starts on physical shake.
-  const handleGestureArm = useCallback(() => {
-    if (!motionPlay || phase !== 'idle') return
-
-    primeFromGesture()
-
-    if (needsMotionPermissionPrompt() && permission === 'unknown') {
-      setMotionHint('needed')
-      void ensurePermission().then(perm => {
-        if (perm === 'granted') setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
-        else if (perm === 'denied') setMotionHint('needed')
-      })
-      return
-    }
-
-    setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
-  }, [motionPlay, phase, primeFromGesture, permission, ensurePermission])
-
+  // Auto-prime sensors (PIN taps count as user gesture) — shake works immediately, no tap on this screen.
   useEffect(() => {
-    if (!motionPlay) return
-    if (needsMotionPermissionPrompt() && permission === 'unknown') {
-      setMotionHint('needed')
+    if (!motionPlay || !playStateReady || !canPlay) return
+
+    if (hasRecentMotionGesture()) {
+      primeMotionSensors()
+      primeFromGesture()
     }
-  }, [motionPlay, permission])
+
+    if (needsMotionPermissionPrompt() && permission !== 'granted') {
+      setMotionHint('needed')
+    } else {
+      setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
+    }
+  }, [motionPlay, playStateReady, canPlay, primeFromGesture, permission])
+
+  // iOS: one tap only when motion permission still required.
+  const handlePermissionTap = useCallback(() => {
+    if (!motionPlay || phase !== 'idle' || motionHint !== 'needed') return
+    primeFromGesture()
+    void ensurePermission().then(perm => {
+      if (perm === 'granted') setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
+      else setMotionHint('needed')
+    })
+  }, [motionPlay, phase, motionHint, primeFromGesture, ensurePermission])
 
   useEffect(() => {
     if (motionPlay) return
@@ -346,11 +341,11 @@ export function CustomerShakePage() {
 
   const handleTap = () => {
     if (motionPlay) {
-      handleGestureArm()
+      handlePermissionTap()
       return
     }
 
-    // Desktop / HTTP fallback — no accelerometer; tap acts as shake substitute.
+    // Desktop / HTTP fallback — no accelerometer.
     if (phase === 'idle') beginPlayAfterShake()
     else if (phase === 'shaking') {
       bumpIntensity(reducedMotion ? 0.25 : 0.16)
@@ -375,7 +370,7 @@ export function CustomerShakePage() {
     setPhase('idle')
     setWon(false)
     sensorPulseRef.current = false
-    setMotionHint(sensorsPrimed ? (sensorPulseRef.current ? 'live' : 'ready') : 'tap')
+    setMotionHint('ready')
   }
 
   if (campaignLoading || stateLoading) {
@@ -401,10 +396,10 @@ export function CustomerShakePage() {
     return <NoWin onClose={handlePlayAgain} playsLeft={playsLeft ?? undefined} attempts={attempts ?? undefined} />
   }
 
-  const isShaking = phase === 'shaking' || phase === 'charging'
+  const isShaking = phase === 'shaking'
   const isSuspense = phase === 'suspending' || phase === 'revealing'
   const winRate = campaign?.winRatePercent ?? 30
-  const phonePhase = isSuspense ? 'suspense' : isShaking ? (phase === 'charging' ? 'charging' : 'shaking') : 'idle'
+  const phonePhase = isSuspense ? 'suspense' : isShaking ? 'shaking' : 'idle'
 
   const phaseCopy: Record<Phase, string> = {
     idle: playStateReady
@@ -412,20 +407,15 @@ export function CustomerShakePage() {
         ? needsHttpsForShake
           ? 'Shake requires HTTPS — use the secure site link'
           : motionPlay
-            ? motionHint === 'tap'
-              ? 'Tap anywhere, then shake your phone!'
-              : motionHint === 'needed'
-                ? 'Allow motion access, then shake!'
-                : motionHint === 'live' || sensorsPrimed
-                  ? 'Shake your phone now!'
-                  : 'Tap the screen, then shake!'
+            ? motionHint === 'needed'
+              ? 'Tap once to allow motion, then shake!'
+              : 'Shake your phone to start!'
             : 'Tap or press spacebar to start!'
         : blockReason === 'daily_participant_limit' || blockReason === 'user_cap'
           ? 'Campaign is full — no new players today'
           : 'No plays left today'
       : 'Loading your play status…',
-    charging: 'Shake detected!',
-    shaking: 'Keep shaking… revealing soon!',
+    shaking: 'Keep shaking… result in a few seconds!',
     suspending: 'Revealing your reward…',
     revealing: won ? 'You won!' : '…',
     result: '',
@@ -444,7 +434,7 @@ export function CustomerShakePage() {
       style={{ background: GAME_BG }}
       animate={screenShake}
       transition={isShaking ? { duration: 0.1, repeat: Infinity } : {}}
-      onTouchStart={handleGestureArm}
+      onTouchStart={handlePermissionTap}
     >
       <StarField />
       <FloatingPrizes visible={phase === 'idle'} />
@@ -535,7 +525,7 @@ export function CustomerShakePage() {
             animate={{ opacity: 1 }}
             className="text-[10px] text-amber-300/80 mt-2 flex items-center justify-center gap-1"
           >
-            <Smartphone className="w-3 h-3" /> Tap the phone to allow motion sensors
+            <Smartphone className="w-3 h-3" /> Tap once to enable motion sensors (iOS)
           </motion.p>
         )}
       </div>
@@ -596,7 +586,7 @@ export function CustomerShakePage() {
           intensity={intensity}
           onTap={handleTap}
           shakeToStart={motionPlay}
-          motionHint={motionHint === 'tap' ? 'unknown' : motionHint === 'live' ? 'ready' : motionHint}
+          motionHint={motionHint === 'live' ? 'ready' : motionHint}
           disabled={isSuspense || !playStateReady || !canPlay || playsLeft === null || playsLeft <= 0}
           reducedMotion={reducedMotion}
         />
@@ -610,10 +600,10 @@ export function CustomerShakePage() {
       >
         <p className="text-[9px] sm:text-xs text-white/30 leading-relaxed">
           {motionPlay
-            ? 'Tap once to enable sensors → shake to play · Result in 2–3s'
+            ? 'Shake to play · Result reveals in 5–7 seconds'
             : reducedMotion
-              ? 'Tap to play · Result in 2–3s'
-              : 'Tap or spacebar (no motion) · Result in 2–3s'}
+              ? 'Tap to play · Result in 5–7 seconds'
+              : 'Tap or spacebar (no motion) · Result in 5–7 seconds'}
         </p>
       </motion.div>
     </motion.div>

@@ -17,6 +17,7 @@ import {
 } from '@/lib/shake-engine'
 import {
   armFromUserGesture,
+  isMotionSensorAttached,
   motionPermissionOk,
   orientationToMotionDelta,
   setMotionSensorHandlers,
@@ -55,7 +56,7 @@ export function useDeviceShake({
   const onShakeSpikeRef = useRef(onShakeSpike)
   const onSensorPulseRef = useRef(onSensorPulse)
 
-  listenIdleRef.current = listenIdle && sensorsPrimed
+  listenIdleRef.current = listenIdle && (sensorsPrimed || isMotionSensorAttached())
   listenActiveRef.current = listenActive
   onShakeStartRef.current = onShakeStart
   onIntensityRef.current = onIntensity

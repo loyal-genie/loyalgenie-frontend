@@ -3,9 +3,9 @@
 /** Visual progress ring span — result timing uses RESULT_DELAY_* instead. */
 export const SHAKE_DURATION_MS = 5000
 export const CHARGE_MS = 300
-/** After a real shake is detected, reveal within this window (user may keep shaking). */
-export const RESULT_DELAY_MIN_MS = 2000
-export const RESULT_DELAY_MAX_MS = 3000
+/** After shake triggers, keep shaking this long before reveal. */
+export const RESULT_DELAY_MIN_MS = 5000
+export const RESULT_DELAY_MAX_MS = 7000
 
 /** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
 export function randomRevealDelayMs(): number {
