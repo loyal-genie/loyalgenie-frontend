@@ -64,9 +64,10 @@ interface WinCelebrationProps {
   code?: string
   businessName?: string
   onClose?: () => void
+  closeLabel?: string
 }
 
-export function WinCelebration({ reward, emoji = '🎁', code, onClose }: WinCelebrationProps) {
+export function WinCelebration({ reward, emoji = '🎁', code, onClose, closeLabel = 'Play Again' }: WinCelebrationProps) {
   const displayCode = code ?? `LG-WIN7`
 
   return (
@@ -133,7 +134,7 @@ export function WinCelebration({ reward, emoji = '🎁', code, onClose }: WinCel
             className="block w-full py-3 sm:py-3.5 rounded-2xl glass text-white text-sm text-center border-0 cursor-pointer active:scale-[0.98] transition-transform"
             onClick={onClose}
           >
-            Play Again
+            {closeLabel}
           </button>
         </motion.div>
       </div>

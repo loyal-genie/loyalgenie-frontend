@@ -64,3 +64,14 @@ export function inferDurationMode(startDate: string, endDate: string): DurationM
 export function campaignDayCount(startDate: string, endDate: string) {
   return Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1)
 }
+
+/** Number of calendar days for a duration preset (claim period, etc.). */
+export function durationModeToDays(mode: DurationMode): number {
+  if (mode === 'today') return 1
+  if (mode === '7d') return 7
+  if (mode === '14d') return 14
+  if (mode === '1m') return 30
+  if (mode === '2m') return 60
+  if (mode === '3m') return 90
+  return 30
+}

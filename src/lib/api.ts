@@ -268,6 +268,30 @@ export interface CampaignRewardDto {
   description: string
   icon: string
   sharePercent: number
+  rewardTier?: string | null
+}
+
+export interface StampCampaignStatsDto {
+  enrolled: number
+  active: number
+  completed: number
+  expired: number
+  completionRate: number
+  surpriseAwards: number
+  bigAwards: number
+  totalRewardsIssued: number
+  avgStampsCollected: number
+  claimDeadline: string
+  enrollmentCloseDate: string
+  claimPeriodDays: number
+  pinActive: boolean
+  enrollmentOpen: boolean
+  stampConfig: {
+    totalStamps: number
+    prefillStamps: number
+    surpriseRange: [number, number]
+    bigRange: [number, number]
+  } | null
 }
 
 export interface CampaignDto {
@@ -284,15 +308,18 @@ export interface CampaignDto {
   winRatePercent: number
   pin: string | null
   pinExpiresAt: string | null
+  claimPeriodDays?: number
+  capFilledAt?: string | null
   createdAt: string
   rewards: CampaignRewardDto[]
   currentUsers: number
   participations: number
   rewardsClaimed: number
   redeemedCount: number
+  stampStats?: StampCampaignStatsDto | null
 }
 
-export interface CreateCampaignPayload {
+export interface CreateShakeCampaignPayload {
   name: string
   mechanic: 'shake'
   startDate: string
@@ -303,6 +330,29 @@ export interface CreateCampaignPayload {
   winRatePercent: number
   rewards: { name: string; description?: string; icon: string; sharePercent: number }[]
 }
+
+export interface CreateStampCampaignPayload {
+  name: string
+  mechanic: 'stamp'
+  startDate: string
+  endDate: string
+  userCap: number
+  claimPeriodDays: number
+  stampConfig: {
+    totalStamps: number
+    prefillStamps: number
+    surpriseRange: [number, number]
+    bigRange: [number, number]
+    surpriseMode: 'single' | 'pool'
+    bigMode: 'single' | 'pool'
+  }
+  rewards: {
+    surprise: { name: string; description?: string; icon: string; winPercent: number }[]
+    big: { name: string; description?: string; icon: string; winPercent: number }[]
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateStampCampaignPayload
 
 export interface BusinessWithCampaigns {
   id: string
@@ -329,9 +379,54 @@ export interface PublicCampaign {
   mechanic: string
   startDate: string
   endDate: string
-  playsPerDay: number
-  winRatePercent: number
-  rewards: { id: string; name: string; description: string; icon: string }[]
+  playsPerDay?: number
+  winRatePercent?: number
+  userCap?: number
+  currentUsers?: number
+  claimPeriodDays?: number
+  stampConfig?: {
+    totalStamps: number
+    prefillStamps: number
+    surpriseRange: [number, number]
+    bigRange: [number, number]
+  } | null
+  rewards: { id: string; name: string; description: string; icon: string; tier?: string | null }[]
+}
+
+export interface StampState {
+  campaignId: string
+  mechanic: 'stamp'
+  enrolled: boolean
+  enrollmentOpen: boolean
+  stampsCollected: number
+  totalStamps: number
+  prefillStamps: number
+  surpriseRange: [number, number]
+  bigRange: [number, number]
+  surpriseAwarded: boolean
+  bigAwarded: boolean
+  surpriseTriggerAt: number | null
+  bigTriggerAt: number | null
+  status: 'active' | 'completed' | 'expired' | null
+  claimDeadline: string | null
+  enrollmentCloseDate: string | null
+  canCollectToday: boolean
+  cardComplete: boolean
+  userCap: number
+  currentUsers: number
+}
+
+export interface StampCollectResult {
+  enrolled: boolean
+  stampsCollected: number
+  totalStamps: number
+  stampEarned: boolean
+  cardComplete: boolean
+  canCollectTomorrow: boolean
+  trigger: 'surprise' | 'big' | null
+  won: boolean
+  reward: { name: string; icon: string } | null
+  code: string | null
 }
 
 export interface PlayState {
@@ -443,6 +538,19 @@ export async function fetchPlayState(campaignId: string) {
 export async function executeShake(campaignId: string, playSessionToken: string) {
   const { data } = await api.post<{ success: boolean; data: ShakeResult }>(
     `/campaigns/${campaignId}/shake`,
+    { playSessionToken },
+  )
+  return data.data
+}
+
+export async function fetchStampState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: StampState }>(`/campaigns/${campaignId}/stamp-state`)
+  return data.data
+}
+
+export async function executeStamp(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{ success: boolean; data: StampCollectResult }>(
+    `/campaigns/${campaignId}/stamp`,
     { playSessionToken },
   )
   return data.data

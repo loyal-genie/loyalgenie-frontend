@@ -7,6 +7,7 @@ import {
   fetchPublicCampaign,
   verifyCampaignPin,
   fetchPlayState,
+  fetchStampState,
   fetchAuthSession,
   getApiErrorMessage,
 } from '@/lib/api'
@@ -64,7 +65,14 @@ export function CustomerCampaignPage() {
   const { data: playState } = useQuery({
     queryKey: ['play-state', id, serverSession?.userId],
     queryFn: () => fetchPlayState(id!),
-    enabled: Boolean(id) && authReady,
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'shake',
+    staleTime: 0,
+  })
+
+  const { data: stampState } = useQuery({
+    queryKey: ['stamp-state', id, serverSession?.userId],
+    queryFn: () => fetchStampState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'stamp',
     staleTime: 0,
   })
 
@@ -77,7 +85,11 @@ export function CustomerCampaignPage() {
     },
     onSuccess: (data) => {
       setPlaySession(id!, data.playSessionToken)
-      navigate(`/customer/games/shake?campaign=${id}`)
+      if (campaign?.mechanic === 'stamp') {
+        navigate(`/customer/games/stamp?campaign=${id}&collect=1`)
+      } else {
+        navigate(`/customer/games/shake?campaign=${id}`)
+      }
     },
     onError: (err) => {
       if (err instanceof Error && err.message === 'NOT_AUTHENTICATED') {
@@ -90,6 +102,15 @@ export function CustomerCampaignPage() {
   })
 
   const color = campaign ? getMechanicColor(campaign.mechanic as 'shake') : '#7C3AED'
+  const isStamp = campaign?.mechanic === 'stamp'
+
+  const handleBack = () => {
+    if (campaign?.businessId) {
+      navigate(`/customer/business/${campaign.businessId}`)
+    } else {
+      navigate('/customer')
+    }
+  }
 
   const handleKey = (k: string) => {
     markMotionGesture()
@@ -164,7 +185,7 @@ export function CustomerCampaignPage() {
       <div className="relative z-10 flex flex-col min-h-dvh px-4 sm:px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] max-w-md mx-auto w-full">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white mb-6 w-fit bg-transparent border-0 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Back
@@ -189,10 +210,38 @@ export function CustomerCampaignPage() {
           </motion.div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-white mb-1 px-1">{campaign.name}</h1>
           <p className="text-sm font-semibold" style={{ color }}>{getMechanicLabel(campaign.mechanic as 'shake')}</p>
-          <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span className="text-xs font-bold text-amber-200">{campaign.winRatePercent}% chance to win!</span>
-          </div>
+          {campaign.mechanic === 'shake' && campaign.winRatePercent != null && (
+            <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span className="text-xs font-bold text-amber-200">{campaign.winRatePercent}% chance to win!</span>
+            </div>
+          )}
+          {campaign.mechanic === 'stamp' && stampState && (
+            <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span className="text-xs font-bold text-amber-200">
+                {stampState.enrolled
+                  ? `${stampState.stampsCollected}/${stampState.totalStamps} stamps`
+                  : stampState.enrollmentOpen
+                    ? `${stampState.currentUsers}/${stampState.userCap} spots filled`
+                    : 'Enrollment closed'}
+              </span>
+            </div>
+          )}
+          {campaign.mechanic === 'stamp' && stampState?.enrolled && !stampState.canCollectToday && !stampState.cardComplete && (
+            <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">
+              <span className="text-xs font-bold text-white/80">Stamp collected today</span>
+            </div>
+          )}
+          {campaign.mechanic === 'stamp' && stampState?.enrolled && (
+            <p className="text-xs text-amber-200/80 mt-2 px-2">
+              {!stampState.canCollectToday && !stampState.cardComplete
+                ? 'Come back tomorrow for your next stamp.'
+                : stampState.canCollectToday
+                  ? 'Enter today\'s staff PIN to collect your stamp.'
+                  : null}
+            </p>
+          )}
           {playState && (
             <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">
               <span className="text-xs font-bold text-white/80">
@@ -321,13 +370,15 @@ export function CustomerCampaignPage() {
             {verifyMutation.isPending ? (
               <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Verifying…</span>
             ) : pin.length === 3 ? (
-              `Let's Shake! ${getMechanicEmoji(campaign.mechanic)}`
+              isStamp ? `Collect Stamp ${getMechanicEmoji(campaign.mechanic)}` : `Let's Shake! ${getMechanicEmoji(campaign.mechanic)}`
             ) : (
               'Enter 3-digit PIN'
             )}
           </motion.button>
 
-          <p className="text-center text-[10px] text-white/30 mt-4">PIN refreshes every 2 min on staff screen</p>
+          <p className="text-center text-[10px] text-white/30 mt-4">
+            {isStamp ? 'PIN rotates daily at midnight' : 'PIN refreshes every 2 min on staff screen'}
+          </p>
         </motion.div>
       </div>
     </div>

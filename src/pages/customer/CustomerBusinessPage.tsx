@@ -92,6 +92,8 @@ export function CustomerBusinessPage() {
           <div className="space-y-4">
             {biz.campaigns.map((c, i) => {
               const meta = MECHANIC_META[c.mechanic as keyof typeof MECHANIC_META] ?? MECHANIC_META.shake
+              const isStamp = c.mechanic === 'stamp'
+              const isPlayable = c.mechanic === 'shake' || isStamp
               return (
                 <motion.div
                   key={c.id}
@@ -111,22 +113,22 @@ export function CustomerBusinessPage() {
                       {getMechanicLabel(c.mechanic as 'shake')}
                     </span>
                     <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white">
-                      {c.winRatePercent}% win chance
+                      {isStamp ? 'Surprise + big rewards' : `${c.winRatePercent}% win chance`}
                     </span>
                     <div className="absolute bottom-3 right-4 text-3xl drop-shadow">{getMechanicEmoji(c.mechanic)}</div>
                   </div>
                   <div className="p-5">
                     <h3 className="text-base font-extrabold text-gray-900 mb-1">{c.name}</h3>
                     <p className="text-xs text-gray-500 mb-4">
-                      {c.playsPerDay ?? 1} play per day · ends {c.endDate}
+                      {isStamp ? '1 stamp per day' : `${c.playsPerDay ?? 1} play per day`} · ends {c.endDate}
                     </p>
-                    {c.mechanic === 'shake' ? (
+                    {isPlayable ? (
                       <Link
                         to={`/customer/campaigns/${c.id}`}
                         className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold text-white no-underline transition-transform active:scale-[0.98]"
                         style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, ${meta.cardTo})`, boxShadow: `0 8px 24px ${meta.cardFrom}40` }}
                       >
-                        Enter PIN & Play {getMechanicEmoji(c.mechanic)}
+                        {isStamp ? 'Enter PIN & Collect Stamp' : `Enter PIN & Play`} {getMechanicEmoji(c.mechanic)}
                       </Link>
                     ) : (
                       <span className="block text-center text-xs text-gray-400 py-3">Coming soon</span>

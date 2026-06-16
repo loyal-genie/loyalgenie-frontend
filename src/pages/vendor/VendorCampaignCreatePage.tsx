@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card'
 import { getMechanicLabel, getMechanicEmoji, getMechanicColor } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/api'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
-import { computeCreateDates, fmtCampaignDate, type DurationMode } from '@/lib/campaign-duration'
+import { computeCreateDates, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
 import { todayInCampaignTz } from '@/lib/campaign-dates'
 import type { MechanicType } from '@/lib/types'
 
@@ -178,6 +178,7 @@ export function VendorCampaignCreatePage() {
     playsPerDay: 1,
     // Shake & Win only
     overallWinRate: 30,
+    claimDurationMode: '14d' as DurationMode,
   })
 
   // Shake rewards
@@ -297,29 +298,69 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake') {
-      setLaunchError('Only Shake & Win is wired to the API in this release.')
+    if (mechanic !== 'shake' && mechanic !== 'stamp') {
+      setLaunchError('Only Shake & Win and Stamp Card are wired to the API in this release.')
       return
     }
     setLaunchError('')
     try {
+      if (mechanic === 'shake') {
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'shake',
+          startDate: dates.start,
+          endDate: dates.end,
+          userCap: basics.userCap,
+          perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
+          playsPerDay: basics.playsPerDay,
+          winRatePercent: basics.overallWinRate,
+          rewards: shakeRewards
+            .filter(r => r.name.trim())
+            .map(r => ({
+              name: r.name.trim(),
+              description: r.description,
+              icon: r.icon,
+              sharePercent: r.probability,
+            })),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
       const campaign = await createMutation.mutateAsync({
         name: basics.name.trim(),
-        mechanic: 'shake',
+        mechanic: 'stamp',
         startDate: dates.start,
         endDate: dates.end,
         userCap: basics.userCap,
-        perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
-        playsPerDay: basics.playsPerDay,
-        winRatePercent: basics.overallWinRate,
-        rewards: shakeRewards
-          .filter(r => r.name.trim())
-          .map(r => ({
-            name: r.name.trim(),
-            description: r.description,
-            icon: r.icon,
-            sharePercent: r.probability,
-          })),
+        claimPeriodDays: durationModeToDays(basics.claimDurationMode),
+        stampConfig: {
+          totalStamps: stampConfig.totalStamps,
+          prefillStamps: stampConfig.prefillStamps,
+          surpriseRange: [stampConfig.surpriseFrom, stampConfig.surpriseTo] as [number, number],
+          bigRange: [stampConfig.bigRewardFrom, stampConfig.bigRewardTo] as [number, number],
+          surpriseMode: stampConfig.surpriseMode,
+          bigMode: stampConfig.bigMode,
+        },
+        rewards: {
+          surprise: stampConfig.surpriseMode === 'single'
+            ? [{ name: stampConfig.surpriseSingle.trim(), icon: '🎁', winPercent: 100 }]
+            : stampConfig.surprisePool.filter(r => r.name).map(r => ({
+                name: r.name.trim(),
+                description: r.description,
+                icon: r.icon,
+                winPercent: r.probability,
+              })),
+          big: stampConfig.bigMode === 'single'
+            ? [{ name: stampConfig.bigSingle.trim(), icon: '🏆', winPercent: 100 }]
+            : stampConfig.bigPool.filter(r => r.name).map(r => ({
+                name: r.name.trim(),
+                description: r.description,
+                icon: r.icon,
+                winPercent: r.probability,
+              })),
+        },
       })
       setLaunched(true)
       setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -427,6 +468,30 @@ export function VendorCampaignCreatePage() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+
+                  {/* Claim period — stamp only */}
+                  {isStamp && (
+                    <div className="mt-5 pt-4 border-t border-v-border">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-semibold text-v-text-2 uppercase tracking-wider">Claim Period</label>
+                        <span className="text-xs text-v-purple font-semibold">
+                          {durationModeToDays(basics.claimDurationMode)} days after enrollment closes
+                        </span>
+                      </div>
+                      <p className="text-xs text-v-text-3 mb-3">
+                        After the campaign ends or user cap fills, enrolled customers have this long to complete their stamp card.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {DURATION_ALL.filter(o => o.key !== 'custom').map(opt => (
+                          <button key={opt.key} onClick={() => setBasics(p => ({ ...p, claimDurationMode: opt.key }))}
+                            className={`rounded-xl py-2.5 px-3 text-center border-2 transition-all min-w-[4.5rem] ${basics.claimDurationMode === opt.key ? 'border-v-purple bg-v-surface-3' : 'border-v-border bg-white hover:border-v-border-b'}`}>
+                            <div className={`text-sm font-bold ${basics.claimDurationMode === opt.key ? 'text-v-purple' : 'text-v-text'}`}>{opt.label}</div>
+                            <div className="text-[10px] text-v-text-3 mt-0.5">{opt.sub}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Active hours — deferred (not enforced in v1) */}
                   {false && !isLottery && (
@@ -788,6 +853,7 @@ export function VendorCampaignCreatePage() {
                       })(),
                     },
                     ...(!isLottery ? [{ label: isShakeSpinOrDice ? 'Overall User Cap' : 'User Cap', value: `${basics.userCap} users` }] : []),
+                    ...(isStamp ? [{ label: 'Claim Period', value: `${durationModeToDays(basics.claimDurationMode)} days after enrollment closes` }] : []),
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
                     ...(mechanic === 'shake' ? [
@@ -862,7 +928,9 @@ export function VendorCampaignCreatePage() {
               <Card className="p-5 text-center">
                 <p className="text-xs text-v-text-3 mb-2">A PIN will be auto-generated on launch</p>
                 <div className="text-4xl font-black tracking-[0.3em] text-v-border-b">···</div>
-                <p className="text-xs text-v-text-3 mt-2">Rotates every 60 seconds · Campaign-level</p>
+                <p className="text-xs text-v-text-3 mt-2">
+                  {isStamp ? 'Rotates daily at midnight · Campaign-level' : 'Rotates every 120 seconds · Campaign-level'}
+                </p>
               </Card>
 
               <Button variant="gold" size="lg" className="w-full" onClick={handleLaunch} disabled={createMutation.isPending}>

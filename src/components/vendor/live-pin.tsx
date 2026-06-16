@@ -8,9 +8,10 @@ interface LivePINProps {
   campaignId: string
   active?: boolean
   compact?: boolean
+  daily?: boolean
 }
 
-export function LivePIN({ campaignId, active = true, compact = false }: LivePINProps) {
+export function LivePIN({ campaignId, active = true, compact = false, daily = false }: LivePINProps) {
   const { data, isLoading, isFetching, refetch } = useCampaignPin(campaignId, active)
   const [displayPin, setDisplayPin] = useState('···')
   const [seconds, setSeconds] = useState(120)
@@ -46,13 +47,18 @@ export function LivePIN({ campaignId, active = true, compact = false }: LivePINP
     refetch()
   }, [seconds, active, refetch])
 
-  const cycle = data?.cycleSeconds ?? 120
+  const cycle = data?.cycleSeconds ?? (daily ? 86400 : 120)
+  const isDaily = daily || cycle >= 86400
+  const urgency = isDaily ? seconds <= 3600 : seconds <= 15
+  const expired = seconds === 0
   const pct = cycle > 0 ? seconds / cycle : 0
   const r = 28
   const circ = 2 * Math.PI * r
   const dash = circ * (1 - pct)
-  const urgency = seconds <= 15
-  const expired = seconds === 0
+
+  const timeLabel = isDaily
+    ? (expired ? 'Refreshing…' : seconds >= 3600 ? `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`)
+    : (expired ? 'Refreshing…' : `${seconds}s`)
 
   if (!active) {
     return (
@@ -84,7 +90,7 @@ export function LivePIN({ campaignId, active = true, compact = false }: LivePINP
         </AnimatePresence>
         <span className={cn('text-[9px] font-semibold flex items-center gap-1', expired || urgency ? 'text-orange-500' : 'text-v-text-3')}>
           {expired && isFetching ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : null}
-          {expired ? 'Refreshing…' : `${seconds}s`}
+          {timeLabel}
         </span>
       </div>
     )
@@ -130,7 +136,7 @@ export function LivePIN({ campaignId, active = true, compact = false }: LivePINP
       <div className="text-center">
         <p className="text-xs font-semibold text-v-text">Staff PIN</p>
         <p className="text-[10px] text-v-text-3">
-          {expired ? 'PIN expired — fetching new code…' : `Rotates every ${cycle}s · auto-refreshes`}
+          {expired ? 'New PIN loading…' : isDaily ? 'Rotates daily at midnight' : `Rotates every ${cycle}s · auto-refreshes`}
         </p>
       </div>
     </div>

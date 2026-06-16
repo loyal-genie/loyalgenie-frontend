@@ -15,7 +15,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
 function BusinessCard({ biz, index }: { biz: BusinessWithCampaigns; index: number }) {
   const emoji = CATEGORY_EMOJI[biz.businessType] ?? '🏪'
   const shakeCampaigns = biz.campaigns.filter(c => c.mechanic === 'shake')
+  const stampCampaigns = biz.campaigns.filter(c => c.mechanic === 'stamp')
+  const badgeCampaigns = [...stampCampaigns, ...shakeCampaigns].slice(0, 2)
   const topWinRate = Math.max(...shakeCampaigns.map(c => c.winRatePercent), 0)
+  const hasStamp = stampCampaigns.length > 0
 
   return (
     <motion.div
@@ -35,8 +38,8 @@ function BusinessCard({ biz, index }: { biz: BusinessWithCampaigns; index: numbe
               {emoji}
             </span>
             <div className="flex flex-wrap gap-1.5 z-10">
-              {shakeCampaigns.slice(0, 2).map(c => {
-                const meta = MECHANIC_META.shake
+              {badgeCampaigns.map(c => {
+                const meta = MECHANIC_META[c.mechanic as keyof typeof MECHANIC_META] ?? MECHANIC_META.shake
                 return (
                   <span
                     key={c.id}
@@ -55,11 +58,15 @@ function BusinessCard({ biz, index }: { biz: BusinessWithCampaigns; index: numbe
                 <h3 className="text-base font-extrabold text-gray-900 truncate">{biz.name}</h3>
                 <p className="text-xs text-gray-500 mt-1 line-clamp-2">{biz.tagline || biz.businessType}</p>
               </div>
-              {topWinRate > 0 && (
+              {topWinRate > 0 ? (
                 <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
                   Up to {topWinRate}% win
                 </span>
-              )}
+              ) : hasStamp ? (
+                <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                  Stamp card
+                </span>
+              ) : null}
             </div>
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
               <span className="text-xs text-gray-400">{biz.city} · {biz.campaigns.length} live</span>
