@@ -1,7 +1,17 @@
 /** Haptics + motion helpers for Shake & Win */
 
-export const SHAKE_DURATION_MS = 2400
-export const CHARGE_MS = 450
+/** Visual progress ring span — result timing uses RESULT_DELAY_* instead. */
+export const SHAKE_DURATION_MS = 5000
+export const CHARGE_MS = 300
+/** Result appears this long after shake is detected (user may still be shaking). */
+export const RESULT_DELAY_MIN_MS = 1000
+export const RESULT_DELAY_MAX_MS = 5000
+
+/** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
+export function randomResultDelayMs(): number {
+  const span = RESULT_DELAY_MAX_MS - RESULT_DELAY_MIN_MS
+  return RESULT_DELAY_MIN_MS + Math.floor(Math.random() * (span + 1))
+}
 /** Active-phase spike threshold (intensity + haptics). */
 export const SHAKE_DELTA_THRESHOLD = 6
 /** Minimum per-frame delta that contributes to start energy. */

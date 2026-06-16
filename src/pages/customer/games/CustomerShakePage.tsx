@@ -29,7 +29,7 @@ import {
   INTENSITY_DECAY,
   needsMotionPermissionPrompt,
   prefersReducedMotion,
-  SHAKE_DURATION_MS,
+  randomResultDelayMs,
   vibrate,
 } from '@/lib/shake-engine'
 
@@ -63,11 +63,18 @@ export function CustomerShakePage() {
   const [playStateReady, setPlayStateReady] = useState(false)
 
   const shakeStartRef = useRef<number | null>(null)
+  const sequenceStartRef = useRef<number | null>(null)
   const resolvedRef = useRef(false)
   const intensityRef = useRef(0)
   const progressRafRef = useRef<number | null>(null)
   const startingRef = useRef(false)
   const sensorPulseRef = useRef(false)
+  const resultDeadlineRef = useRef<number | null>(null)
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const deadlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const apiReadyRef = useRef(false)
+  const latestWonRef = useRef(false)
+  const revealingRef = useRef(false)
 
   const customerId = getUser()?.userId
   const playSession = campaignId ? getPlaySession(campaignId) : null
@@ -119,12 +126,15 @@ export function CustomerShakePage() {
   }, [phase])
 
   useEffect(() => {
-    if (phase !== 'shaking' || !shakeStartRef.current) return
+    if (!sequenceStartRef.current || !resultDeadlineRef.current) return
+    if (phase === 'idle' || phase === 'result' || phase === 'revealing') return
 
     const update = () => {
-      if (!shakeStartRef.current) return
-      const elapsed = Date.now() - shakeStartRef.current
-      setShakeProgress(Math.min(1, elapsed / SHAKE_DURATION_MS))
+      const start = sequenceStartRef.current
+      const end = resultDeadlineRef.current
+      if (!start || !end) return
+      const span = Math.max(1, end - start)
+      setShakeProgress(Math.min(1, (Date.now() - start) / span))
       progressRafRef.current = requestAnimationFrame(update)
     }
     progressRafRef.current = requestAnimationFrame(update)
@@ -133,11 +143,54 @@ export function CustomerShakePage() {
     }
   }, [phase])
 
+  const clearPlayTimers = useCallback(() => {
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current)
+    if (deadlineTimerRef.current) clearTimeout(deadlineTimerRef.current)
+    revealTimerRef.current = null
+    deadlineTimerRef.current = null
+  }, [])
+
+  const tryRevealResult = useCallback(() => {
+    const deadline = resultDeadlineRef.current
+    if (!deadline || !apiReadyRef.current) {
+      if (deadline && Date.now() >= deadline) setPhase('suspending')
+      return
+    }
+    if (Date.now() < deadline || revealingRef.current) return
+
+    revealingRef.current = true
+    setPhase('revealing')
+    hapticReveal(latestWonRef.current)
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current)
+    const flashDelay = reducedMotion ? 200 : 400
+    revealTimerRef.current = setTimeout(() => {
+      setPhase('result')
+      revealTimerRef.current = null
+    }, flashDelay)
+  }, [reducedMotion])
+
+  useEffect(() => {
+    return () => clearPlayTimers()
+  }, [clearPlayTimers])
+
+  const scheduleResultDeadline = useCallback(() => {
+    const deadline = resultDeadlineRef.current
+    if (!deadline) return
+    const wait = Math.max(0, deadline - Date.now())
+    if (deadlineTimerRef.current) clearTimeout(deadlineTimerRef.current)
+    deadlineTimerRef.current = setTimeout(() => {
+      deadlineTimerRef.current = null
+      tryRevealResult()
+    }, wait)
+  }, [tryRevealResult])
+
   const shakeMutation = useMutation({
     mutationFn: () => executeShake(campaignId!, playSession!),
     onSuccess: result => {
       queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
       queryClient.invalidateQueries({ queryKey: ['play-state', campaignId] })
+      apiReadyRef.current = true
+      latestWonRef.current = result.won
       setWon(result.won)
       setPlaysLeft(result.playsRemaining)
       setCanPlay(result.playsRemaining > 0)
@@ -148,27 +201,36 @@ export function CustomerShakePage() {
         setRewardEmoji(result.reward.icon)
         setRewardCode(result.code ?? undefined)
       }
-      setPhase('revealing')
-      hapticReveal(result.won)
-      const revealDelay = reducedMotion ? 300 : 700
-      setTimeout(() => setPhase('result'), revealDelay)
+      tryRevealResult()
     },
     onError: err => {
+      clearPlayTimers()
       setError(getApiErrorMessage(err, 'Could not complete shake. Try again.'))
       setPhase('idle')
       resolvedRef.current = false
+      apiReadyRef.current = false
+      revealingRef.current = false
+      sequenceStartRef.current = null
       shakeStartRef.current = null
+      resultDeadlineRef.current = null
       setShakeProgress(0)
       setIntensity(0)
     },
   })
 
-  const finishShake = useCallback(() => {
+  const kickOffPlay = useCallback(() => {
     if (resolvedRef.current || shakeMutation.isPending) return
+
     resolvedRef.current = true
-    setPhase('suspending')
+    apiReadyRef.current = false
+    revealingRef.current = false
+    const now = Date.now()
+    sequenceStartRef.current = now
+    shakeStartRef.current = now
+    resultDeadlineRef.current = now + randomResultDelayMs()
+    scheduleResultDeadline()
     shakeMutation.mutate()
-  }, [shakeMutation])
+  }, [shakeMutation, scheduleResultDeadline])
 
   const bumpIntensity = useCallback((amount: number) => {
     setIntensity(i => {
@@ -228,16 +290,14 @@ export function CustomerShakePage() {
       return
     }
 
+    kickOffPlay()
+
     setTimeout(() => {
       setPhase('shaking')
-      shakeStartRef.current = Date.now()
       hapticCharge()
       startingRef.current = false
-      if (reducedMotion) {
-        setTimeout(finishShake, 1200)
-      }
     }, reducedMotion ? 200 : CHARGE_MS)
-  }, [phase, canPlay, playsLeft, playSession, playStateReady, ensurePermission, finishShake, reducedMotion])
+  }, [phase, canPlay, playsLeft, playSession, playStateReady, ensurePermission, kickOffPlay, reducedMotion])
 
   startShakeRef.current = startShakeSequence
 
@@ -265,13 +325,6 @@ export function CustomerShakePage() {
       setMotionHint('needed')
     }
   }, [motionPlay, permission])
-
-  useEffect(() => {
-    if (phase !== 'shaking' || !shakeStartRef.current) return
-    const remaining = SHAKE_DURATION_MS - (Date.now() - shakeStartRef.current)
-    const timer = setTimeout(finishShake, Math.max(0, remaining) + (reducedMotion ? 0 : 150))
-    return () => clearTimeout(timer)
-  }, [phase, finishShake, reducedMotion])
 
   useEffect(() => {
     if (motionPlay) return
@@ -307,7 +360,12 @@ export function CustomerShakePage() {
       return
     }
     resolvedRef.current = false
+    apiReadyRef.current = false
+    revealingRef.current = false
     shakeStartRef.current = null
+    sequenceStartRef.current = null
+    resultDeadlineRef.current = null
+    clearPlayTimers()
     setIntensity(0)
     setShakeProgress(0)
     setPhase('idle')
