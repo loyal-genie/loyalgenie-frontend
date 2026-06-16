@@ -1,8 +1,12 @@
 import { useState } from 'react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Megaphone, Users, Settings, ChevronRight, Zap, QrCode, Menu, X } from 'lucide-react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, Megaphone, Users, Settings, ChevronRight, Zap, QrCode, Menu, X, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useBusinessProfile } from '@/hooks/useBusinessProfile'
+import { useCampaigns } from '@/hooks/useCampaigns'
+import { effectiveCampaignStatus } from '@/lib/campaign-dates'
+import type { CampaignStatus } from '@/lib/types'
+import { clearSession } from '@/lib/auth' // Imported your auth clearer
 
 const nav = [
   { label: 'Dashboard', href: '/vendor/dashboard', icon: LayoutDashboard },
@@ -12,16 +16,19 @@ const nav = [
   { label: 'Settings', href: '/vendor/settings', icon: Settings },
 ]
 
-import { useCampaigns } from '@/hooks/useCampaigns'
-import { effectiveCampaignStatus } from '@/lib/campaign-dates'
-import type { CampaignStatus } from '@/lib/types'
-
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation()
+  const navigate = useNavigate()
   const { data: profile } = useBusinessProfile()
   const { data: campaigns = [] } = useCampaigns()
   const activeCount = campaigns.filter(c => effectiveCampaignStatus(c.status as CampaignStatus, c.endDate) === 'active').length
   const totalPlays = campaigns.reduce((s, c) => s + c.participations, 0)
+
+  const handleSignOut = () => {
+    if (onNavigate) onNavigate() // Close mobile menu drawer if open
+    clearSession()               // Clears local storage keys
+    navigate('/')                // Redirects user to landing/home page
+  }
 
   return (
     <>
@@ -58,7 +65,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="p-4 border-t border-vs-border">
+      {/* Bottom Section: Campaign summary and Sign Out actions */}
+      <div className="p-4 border-t border-vs-border space-y-3">
         <div className="rounded-xl p-3 flex items-start gap-3 bg-v-purple/10 border border-v-purple/20">
           <Zap className="w-4 h-4 mt-0.5 shrink-0 text-[#F5C518]" />
           <div>
@@ -66,6 +74,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             <div className="text-[10px] mt-0.5 text-vs-text-3">{totalPlays} total plays</div>
           </div>
         </div>
+
+        {/* Brand New Sign Out Button */}
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium border border-transparent text-vs-text-2 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer bg-transparent"
+        >
+          <LogOut className="w-4 h-4 shrink-0 text-[#5B5897] hover:text-red-400" />
+          Sign Out
+        </button>
       </div>
     </>
   )

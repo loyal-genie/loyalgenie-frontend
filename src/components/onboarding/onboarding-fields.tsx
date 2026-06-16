@@ -17,10 +17,12 @@ export const onboardingTheme = {
   purple2: '#9D6FF0',
 } as const
 
-export function OnboardingLabel({ children }: { children: React.ReactNode }) {
+// 1. Updated Label Component to render a red asterisk if the field is required
+export function OnboardingLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
     <label className="block text-xs font-semibold mb-1.5" style={{ color: onboardingTheme.label }}>
       {children}
+      {required && <span className="text-red-400 ml-1">*</span>}
     </label>
   )
 }
@@ -85,6 +87,7 @@ export function OnboardingTextarea({ placeholder, value, onChange, rows = 3 }: F
   )
 }
 
+// 2. Updated Select Component to fix invisible white text / option backgrounds
 export function OnboardingSelect({ value, onChange, options, placeholder, error }: {
   value: string
   onChange: (v: string) => void
@@ -107,8 +110,16 @@ export function OnboardingSelect({ value, onChange, options, placeholder, error 
           onFocus={(e) => { e.currentTarget.style.borderColor = onboardingTheme.inputFocus }}
           onBlur={(e) => { e.currentTarget.style.borderColor = error ? '#DC2626' : onboardingTheme.inputBorder }}
         >
-          {placeholder && <option value="">{placeholder}</option>}
-          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+          {placeholder && (
+            <option value="" style={{ background: onboardingTheme.card, color: onboardingTheme.textMuted }}>
+              {placeholder}
+            </option>
+          )}
+          {options.map((o) => (
+            <option key={o} value={o} style={{ background: onboardingTheme.card, color: onboardingTheme.text }}>
+              {o}
+            </option>
+          ))}
         </select>
         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: onboardingTheme.textMuted }} />
       </div>
