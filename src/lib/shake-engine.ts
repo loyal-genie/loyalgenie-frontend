@@ -4,8 +4,8 @@
 export const SHAKE_DURATION_MS = 12000
 export const CHARGE_MS = 300
 /** After shake triggers, keep shaking this long before reveal. */
-export const RESULT_DELAY_MIN_MS = 6000
-export const RESULT_DELAY_MAX_MS = 8000
+export const RESULT_DELAY_MIN_MS = 5000
+export const RESULT_DELAY_MAX_MS = 7000
 /**
  * Frames to skip after arming before evaluating shake-start.
  * At 100 Hz: 120 frames = 1.2 s.  At 60 Hz: 120 frames = 2 s.
