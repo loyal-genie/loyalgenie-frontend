@@ -308,17 +308,21 @@ export function evaluateShakeStart(
   const hpY = sample.y - next.baselineY
   const hpZ = sample.z - next.baselineZ
 
-  if (next.prevHpX === null) {
+  if (next.prevHpX === null || next.prevHpY === null || next.prevHpZ === null) {
     next.prevHpX = hpX
     next.prevHpY = hpY
     next.prevHpZ = hpZ
     return { triggered: false, state: next }
   }
 
+  const prevHpX = next.prevHpX
+  const prevHpY = next.prevHpY
+  const prevHpZ = next.prevHpZ
+
   const delta =
-    Math.abs(hpX - next.prevHpX) +
-    Math.abs(hpY - next.prevHpY) +
-    Math.abs(hpZ - next.prevHpZ)
+    Math.abs(hpX - prevHpX) +
+    Math.abs(hpY - prevHpY) +
+    Math.abs(hpZ - prevHpZ)
 
   next.prevHpX = hpX
   next.prevHpY = hpY
