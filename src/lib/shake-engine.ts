@@ -8,11 +8,11 @@ export const RESULT_DELAY_MIN_MS = 5000
 export const RESULT_DELAY_MAX_MS = 7000
 
 /**
- * devicemotion frames to skip after arming (tap) before evaluating shake-start.
- * At ~100 Hz: 25 frames ≈ 250ms. The tap itself provides a natural gesture boundary;
- * warmup just lets the sample baseline settle after the touch event.
+ * Frames to skip after arming before evaluating shake-start.
+ * At 100 Hz: 50 frames = 500ms.  At 60 Hz: 50 frames = 833ms.
+ * This absorbs PIN-tap vibration decay, navigation animation, and grip-settling.
  */
-export const SHAKE_IDLE_WARMUP_FRAMES = 25
+export const SHAKE_IDLE_WARMUP_FRAMES = 80
 
 /** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
 export function randomRevealDelayMs(): number {
@@ -28,26 +28,37 @@ export const SHAKE_START_DEBOUNCE_MS = 450
 export const INTENSITY_DECAY = 0.04
 
 /**
- * Oscillation-based shake detection constants.
+ * Axis-reversal shake detection.
  *
- * A real shake = rapid back-and-forth → multiple axis reversals in a short window.
- * Tilting or adjusting grip = phone moves one direction and settles → 0–1 reversals.
+ * A deliberate shake = rapid back-and-forth → direction reverses on X or Y at high frequency.
+ * Tilting the phone = monotonic movement on one axis → 0–1 reversals, never 5.
+ * Walking = low-frequency oscillation (≤ 3 Hz) → 5 reversals need > 600 ms → excluded.
+ * Holding still = tiny noise (<0.5 m/s² per frame) → stays below threshold.
  *
- * This is fundamentally more reliable than energy/delta accumulation because
- * accelerationIncludingGravity shifts with gravity when you tilt, making any
- * energy-based threshold ambiguous between "tilt" and "shake".
+ * Key insight: tilting produces ONE directional change on an axis, not oscillation.
+ * A real shake at 4 Hz creates 10+ direction changes per second on X or Y.
+ *
+ * The 80-frame warmup (~800 ms at 100 Hz / 1333 ms at 60 Hz) absorbs:
+ *   • PIN-tap vibration decay            (~200–350 ms)
+ *   • SPA navigation animation           (~300–500 ms)
+ *   • Grip-settling after page load      (~300–500 ms)
  */
 
-/** Min per-frame change on a single axis (m/s²) to register a directional sample.
- *  Filters sensor noise (<0.4) and slow drift, without requiring violent motion. */
-export const SHAKE_AXIS_DELTA_MIN = 0.8
-/** Number of axis direction-reversals required to confirm a shake.
- *  4 reversals ≈ 2 full oscillations — clearly intentional. */
-export const SHAKE_MIN_REVERSALS = 4
-/** All reversals must occur within this window (ms). Deliberate shake bursts
- *  happen in <500ms; idle handling / slow adjustment takes multiple seconds. */
-export const SHAKE_REVERSAL_WINDOW_MS = 750
-/** shake.js-style speed threshold — kept for active-phase intensity only. */
+/** Minimum per-frame change on a single axis (m/s²) to register a direction.
+ *  Fast tilt (60° in 50 ms at 60 Hz): ~0.9 m/s² per frame — below threshold.
+ *  Deliberate shake (1 cm at 4 Hz, 60 Hz): ~1.9 m/s² per frame — above threshold. */
+export const SHAKE_AXIS_DELTA_MIN = 1.2
+
+/** Direction reversals required.  5 = 2.5 full oscillations.
+ *  At 4 Hz each reversal ≈ 125 ms apart → 5 reversals span 500 ms < 600 ms window. */
+export const SHAKE_MIN_REVERSALS = 5
+
+/** All 5 reversals must fall within this window.
+ *  Walking at ≤ 3 Hz: 5 reversals span ≥ 833 ms > 600 ms → filtered.
+ *  Shaking at ≥ 4 Hz: 5 reversals span ≤ 500 ms < 600 ms → detected. */
+export const SHAKE_REVERSAL_WINDOW_MS = 600
+
+/** shake.js-style speed threshold — kept for active-phase intensity feedback only. */
 export const SHAKE_SPEED_THRESHOLD = 3
 
 export function prefersReducedMotion(): boolean {
@@ -219,17 +230,17 @@ export function computeShakeSpeed(
 }
 
 /**
- * Oscillation-based shake start state.
- * Tracks per-axis direction history to detect rapid back-and-forth reversal patterns.
+ * Axis-reversal shake detection state.
+ * Tracks per-axis direction to count rapid back-and-forth oscillations.
  */
 export interface ShakeStartState {
   prevX: number | null
   prevY: number | null
-  lastSignX: number       // direction of last significant x change: -1 | 0 | +1
-  lastSignY: number       // direction of last significant y change: -1 | 0 | +1
-  reversals: number       // accumulated direction-reversal count
-  burstStartAt: number    // timestamp of first reversal in current burst (0 = none yet)
-  lastMotionAt: number    // last frame with significant axis motion
+  lastSignX: number       // direction of last significant X move: -1 | 0 | +1
+  lastSignY: number       // direction of last significant Y move: -1 | 0 | +1
+  reversals: number       // direction-reversal count (one per oscillation peak)
+  burstStartAt: number    // timestamp of first reversal (0 = burst not started yet)
+  lastMotionAt: number    // last frame with |delta| ≥ SHAKE_AXIS_DELTA_MIN
   lastTriggeredAt: number
 }
 
@@ -247,15 +258,27 @@ export function createShakeStartState(): ShakeStartState {
 }
 
 /**
- * Oscillation-based shake detector.
+ * Axis-reversal shake detector.
  *
- * Counts direction reversals on X and Y axes per sensor frame.
- * A deliberate shake produces 4+ reversals within ~750ms.
- * Tilting, picking up, or adjusting grip produces 0–1 reversals.
+ * Counts per-frame direction reversals on the X and Y axes.
+ * Five reversals within 600 ms confirms a ≥ 4 Hz oscillation — a deliberate shake.
  *
- * @param sample  Current accelerometer sample (accelerationIncludingGravity preferred)
+ * Why this works for all sensor data types:
+ *  • accelerationIncludingGravity: tilting is monotonic (0–1 reversals),
+ *    only actual left/right oscillation creates multiple rapid reversals.
+ *  • acceleration (linear, iOS): gravity removed, per-axis acceleration
+ *    directly reflects hand motion — very clean reversal signal.
+ *
+ * False-positive analysis for accelerationIncludingGravity (worst case):
+ *  • Still:        dx ≈ 0–0.3 m/s²    < 1.2 threshold → 0 reversals ✓
+ *  • Tilt:         monotonic dx 0.3–0.9 m/s² per frame → 0–1 reversals ✓
+ *  • Fast grip adj:same direction, 1–2 reversals max    → < 5 ✓
+ *  • Walking 2 Hz: low-freq osc, 5 reversals need 833 ms > 600 ms window ✓
+ *  • Shake ≥ 4 Hz: 5 reversals in ≤ 500 ms < 600 ms window → triggers ✓
+ *
+ * @param sample  Current accelerometer sample (gravity-inclusive or linear)
  * @param now     Current timestamp in ms
- * @param state   Accumulated detection state (mutated into next)
+ * @param state   Accumulated detection state
  */
 export function evaluateShakeStart(
   sample: { x: number; y: number; z: number },
@@ -274,7 +297,7 @@ export function evaluateShakeStart(
     next.burstStartAt = 0
   }
 
-  // First frame after arm/reset — record baseline, do not count
+  // First frame after arm/reset — establish baseline, do not count
   if (next.prevX === null || next.prevY === null) {
     next.prevX = sample.x
     next.prevY = sample.y
@@ -284,7 +307,7 @@ export function evaluateShakeStart(
   const dx = sample.x - next.prevX
   const dy = sample.y - next.prevY
 
-  // Check x-axis oscillation
+  // Detect X-axis direction reversal
   if (Math.abs(dx) >= SHAKE_AXIS_DELTA_MIN) {
     const signX = dx > 0 ? 1 : -1
     if (next.lastSignX !== 0 && signX !== next.lastSignX) {
@@ -295,7 +318,7 @@ export function evaluateShakeStart(
     next.lastMotionAt = now
   }
 
-  // Check y-axis oscillation
+  // Detect Y-axis direction reversal
   if (Math.abs(dy) >= SHAKE_AXIS_DELTA_MIN) {
     const signY = dy > 0 ? 1 : -1
     if (next.lastSignY !== 0 && signY !== next.lastSignY) {
