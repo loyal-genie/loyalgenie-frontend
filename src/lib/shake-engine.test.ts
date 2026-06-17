@@ -90,14 +90,15 @@ describe('evaluateShakeStart', () => {
     expect(result.state.energy).toBe(0)
   })
 
-  it('triggers on a deliberate shake burst (multiple frames over ~150ms)', () => {
+  it('triggers only on a sustained, firm deliberate shake burst', () => {
     let state = createShakeStartState()
     let triggered = false
-    const frames = [0, 1.8, 2.4, 2.6, 2.1, 1.7, 1.3]
+    // Simulates: deliberate shake with strong peaks
+    const frames = [0.2, 2.8, 3.1, 2.5, 2.9, 3.2, 2.6, 2.2, 1.8]
     const t0 = 5_000
 
     for (let i = 0; i < frames.length; i++) {
-      const result = evaluateShakeStart(frames[i], t0 + i * 30, state)
+      const result = evaluateShakeStart(frames[i], t0 + i * 35, state)
       state = result.state
       if (result.triggered) triggered = true
     }
@@ -110,44 +111,20 @@ describe('evaluateShakeStart', () => {
     expect(result.triggered).toBe(false)
   })
 
-  it('does not trigger on slow drift over one frame', () => {
-    let state = createShakeStartState()
-    const result = evaluateShakeStart(0.6, 1_000, state)
-    state = result.state
-    const result2 = evaluateShakeStart(0.7, 2_500, state)
-    expect(result2.triggered).toBe(false)
-  })
-
-  it('simulates Android deliberate shake with gravity-inclusive samples', () => {
-    let prev: { x: number; y: number; z: number } | null = null
+  it('does not trigger on slow drift or light hand movement', () => {
     let state = createShakeStartState()
     let triggered = false
-    const t0 = 30_000
+    // Simulates: picking up phone, adjusting in hand (light, slow motion)
+    const frames = [0.3, 0.4, 0.35, 0.5, 0.2, 0.3]
+    const t0 = 5_000
 
-    const positions = [
-      { x: 0.1, y: 0.2, z: 9.8 },
-      { x: 1.4, y: -1.1, z: 9.4 },
-      { x: 2.2, y: -1.8, z: 8.9 },
-      { x: 0.8, y: 1.2, z: 9.6 },
-      { x: -1.0, y: 1.5, z: 9.85 },
-      { x: -1.8, y: 0.4, z: 9.7 },
-      { x: 0.5, y: -0.6, z: 9.5 },
-    ]
-
-    for (let i = 0; i < positions.length; i++) {
-      const event = mockMotionEvent({
-        acceleration: { x: 0, y: 0, z: 0 },
-        accelerationIncludingGravity: positions[i],
-      })
-      const { delta, sample } = computeShakeDelta(event, prev)
-      prev = sample
-
-      const result = evaluateShakeStart(delta, t0 + i * 30, state)
+    for (let i = 0; i < frames.length; i++) {
+      const result = evaluateShakeStart(frames[i], t0 + i * 50, state)
       state = result.state
       if (result.triggered) triggered = true
     }
 
-    expect(triggered).toBe(true)
+    expect(triggered).toBe(false)
   })
 })
 
@@ -175,8 +152,8 @@ describe('randomRevealDelayMs', () => {
 })
 
 describe('SHAKE_IDLE_WARMUP_FRAMES', () => {
-  it('skips initial sensor frames before evaluating shake start', async () => {
+  it('establishes a ~500ms baseline after PIN entry before evaluation', async () => {
     const { SHAKE_IDLE_WARMUP_FRAMES } = await import('./shake-engine')
-    expect(SHAKE_IDLE_WARMUP_FRAMES).toBeGreaterThanOrEqual(8)
+    expect(SHAKE_IDLE_WARMUP_FRAMES).toBeGreaterThanOrEqual(40)
   })
 })

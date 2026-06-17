@@ -10,8 +10,9 @@ export const RESULT_DELAY_MAX_MS = 7000
 /**
  * devicemotion frames to skip before evaluating shake-start (establishes baseline;
  * does not delay with a timer — only ignores the first N sensor readings).
+ * At ~100 Hz device events: 50 frames ≈ 500ms baseline settle time.
  */
-export const SHAKE_IDLE_WARMUP_FRAMES = 12
+export const SHAKE_IDLE_WARMUP_FRAMES = 50
 
 /** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
 export function randomRevealDelayMs(): number {
@@ -27,14 +28,14 @@ export const SHAKE_DELTA_THRESHOLD = 6
 export const SHAKE_START_MIN_DELTA = 0.45
 /** At least one frame must reach this delta (filters steady drift). */
 export const SHAKE_START_PEAK_DELTA = 1.1
-/** Cumulative energy required to start — tuned for a deliberate shake burst. */
-export const SHAKE_START_ENERGY = 4.5
-/** Minimum motion frames in a burst before shake can start. */
-export const SHAKE_START_MIN_FRAMES = 4
-/** Minimum peaks (sharp motion frames) in a burst. */
-export const SHAKE_START_MIN_PEAKS = 2
+/** Cumulative energy required to start — tuned for a deliberate, firm shake. */
+export const SHAKE_START_ENERGY = 7.2
+/** Minimum motion frames in a burst before shake can start — requires sustained motion. */
+export const SHAKE_START_MIN_FRAMES = 8
+/** Minimum peaks (sharp motion frames) in a burst — filters gentle sway. */
+export const SHAKE_START_MIN_PEAKS = 4
 /** Burst must last at least this long (filters single-frame spikes). */
-export const SHAKE_START_MIN_BURST_MS = 120
+export const SHAKE_START_MIN_BURST_MS = 180
 /** Burst must complete within this window (filters slow drift). */
 export const SHAKE_START_MAX_BURST_MS = 900
 export const SHAKE_START_DEBOUNCE_MS = 450
