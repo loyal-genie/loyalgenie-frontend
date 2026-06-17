@@ -30,7 +30,6 @@ import {
   needsMotionPermissionPrompt,
   prefersReducedMotion,
   randomRevealDelayMs,
-  SHAKE_DETECTION_ARM_DELAY_MS,
   vibrate,
 } from '@/lib/shake-engine'
 
@@ -77,7 +76,6 @@ export function CustomerShakePage() {
   const apiReadyRef = useRef(false)
   const latestWonRef = useRef(false)
   const revealingRef = useRef(false)
-  const armTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const customerId = getUser()?.userId
   const playSession = campaignId ? getPlaySession(campaignId) : null
@@ -303,40 +301,7 @@ export function CustomerShakePage() {
 
   onPhysicalShakeRef.current = onPhysicalShake
 
-  const clearArmTimer = useCallback(() => {
-    if (armTimerRef.current) {
-      clearTimeout(armTimerRef.current)
-      armTimerRef.current = null
-    }
-  }, [])
-
-  /**
-   * Wait for sensor baseline to settle after PIN entry / navigation, then arm
-   * shake detection so only a deliberate shake starts the 5–7s reveal sequence.
-   */
-  const scheduleShakeDetectionArm = useCallback(() => {
-    clearArmTimer()
-    setShakeDetectionArmed(false)
-
-    if (!motionPlay || !playStateReady || !canPlay) return
-    if (needsMotionPermissionPrompt() && permission !== 'granted') return
-
-    armTimerRef.current = setTimeout(() => {
-      armTimerRef.current = null
-      armShakeDetection()
-      setShakeDetectionArmed(true)
-      setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
-    }, SHAKE_DETECTION_ARM_DELAY_MS)
-  }, [
-    motionPlay,
-    playStateReady,
-    canPlay,
-    permission,
-    clearArmTimer,
-    armShakeDetection,
-  ])
-
-  // Keep sensors attached from PIN gesture, but do not arm detection until grace elapses.
+  // Arm sensors immediately — game only starts when evaluateShakeStart detects a real shake.
   useEffect(() => {
     if (!motionPlay || !playStateReady || !canPlay) return
 
@@ -345,22 +310,16 @@ export function CustomerShakePage() {
       primeFromGesture()
     }
 
-    scheduleShakeDetectionArm()
-
     if (needsMotionPermissionPrompt() && permission !== 'granted') {
       setMotionHint('needed')
+      setShakeDetectionArmed(false)
+      return
     }
 
-    return () => clearArmTimer()
-  }, [
-    motionPlay,
-    playStateReady,
-    canPlay,
-    primeFromGesture,
-    permission,
-    scheduleShakeDetectionArm,
-    clearArmTimer,
-  ])
+    armShakeDetection()
+    setShakeDetectionArmed(true)
+    setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
+  }, [motionPlay, playStateReady, canPlay, primeFromGesture, permission, armShakeDetection])
 
   // iOS: one tap only when motion permission still required.
   const handlePermissionTap = useCallback(() => {
@@ -368,12 +327,14 @@ export function CustomerShakePage() {
     primeFromGesture()
     void ensurePermission().then(perm => {
       if (perm === 'granted') {
-        scheduleShakeDetectionArm()
+        armShakeDetection()
+        setShakeDetectionArmed(true)
+        setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
       } else {
         setMotionHint('needed')
       }
     })
-  }, [motionPlay, phase, motionHint, primeFromGesture, ensurePermission, scheduleShakeDetectionArm])
+  }, [motionPlay, phase, motionHint, primeFromGesture, ensurePermission, armShakeDetection])
 
   useEffect(() => {
     if (motionPlay) return
@@ -416,7 +377,6 @@ export function CustomerShakePage() {
     sequenceStartRef.current = null
     resultDeadlineRef.current = null
     clearPlayTimers()
-    clearArmTimer()
     setShakeDetectionArmed(false)
     setIntensity(0)
     setShakeProgress(0)
@@ -424,7 +384,8 @@ export function CustomerShakePage() {
     setWon(false)
     sensorPulseRef.current = false
     setMotionHint('ready')
-    scheduleShakeDetectionArm()
+    armShakeDetection()
+    setShakeDetectionArmed(true)
   }
 
   if (campaignLoading || stateLoading) {
@@ -463,9 +424,7 @@ export function CustomerShakePage() {
           : motionPlay
             ? motionHint === 'needed'
               ? 'Tap once to allow motion, then shake!'
-              : !shakeDetectionArmed
-                ? 'Hold steady… get ready to shake!'
-                : 'Shake your phone to start!'
+              : 'Shake your phone to start!'
             : 'Tap or press spacebar to start!'
         : blockReason === 'daily_participant_limit' || blockReason === 'user_cap'
           ? 'Campaign is full — no new players today'

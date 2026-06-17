@@ -8,10 +8,10 @@ export const RESULT_DELAY_MIN_MS = 5000
 export const RESULT_DELAY_MAX_MS = 7000
 
 /**
- * After the shake page loads, ignore motion for this long while the sensor
- * baseline settles (PIN entry / navigation often causes false shake triggers).
+ * devicemotion frames to skip before evaluating shake-start (establishes baseline;
+ * does not delay with a timer — only ignores the first N sensor readings).
  */
-export const SHAKE_DETECTION_ARM_DELAY_MS = 1200
+export const SHAKE_IDLE_WARMUP_FRAMES = 12
 
 /** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
 export function randomRevealDelayMs(): number {
@@ -27,8 +27,16 @@ export const SHAKE_DELTA_THRESHOLD = 6
 export const SHAKE_START_MIN_DELTA = 0.45
 /** At least one frame must reach this delta (filters steady drift). */
 export const SHAKE_START_PEAK_DELTA = 1.1
-/** Cumulative energy required to start — tuned for a light shake. */
-export const SHAKE_START_ENERGY = 2.8
+/** Cumulative energy required to start — tuned for a deliberate shake burst. */
+export const SHAKE_START_ENERGY = 4.5
+/** Minimum motion frames in a burst before shake can start. */
+export const SHAKE_START_MIN_FRAMES = 4
+/** Minimum peaks (sharp motion frames) in a burst. */
+export const SHAKE_START_MIN_PEAKS = 2
+/** Burst must last at least this long (filters single-frame spikes). */
+export const SHAKE_START_MIN_BURST_MS = 120
+/** Burst must complete within this window (filters slow drift). */
+export const SHAKE_START_MAX_BURST_MS = 900
 export const SHAKE_START_DEBOUNCE_MS = 450
 /** shake.js-style speed threshold (lower = more sensitive). */
 export const SHAKE_SPEED_THRESHOLD = 3
@@ -205,17 +213,28 @@ export function computeShakeSpeed(
 export interface ShakeStartState {
   energy: number
   lastMotionAt: number
+  firstMotionAt: number
   lastTriggeredAt: number
   sawPeak: boolean
+  peakCount: number
+  motionFrames: number
 }
 
 export function createShakeStartState(): ShakeStartState {
-  return { energy: 0, lastMotionAt: 0, lastTriggeredAt: 0, sawPeak: false }
+  return {
+    energy: 0,
+    lastMotionAt: 0,
+    firstMotionAt: 0,
+    lastTriggeredAt: 0,
+    sawPeak: false,
+    peakCount: 0,
+    motionFrames: 0,
+  }
 }
 
 /**
- * Energy-based shake start — accumulates light motion over ~200–400ms so a gentle
- * shake triggers, while isolated sensor noise is unlikely to.
+ * Energy-based shake start — requires a short burst of deliberate motion
+ * (multiple frames + peaks). Single sensor spikes or orientation drift won't trigger.
  */
 export function evaluateShakeStart(
   delta: number,
@@ -228,18 +247,34 @@ export function evaluateShakeStart(
     const gap = now - next.lastMotionAt
     if (gap > 35) {
       next.energy *= Math.pow(0.6, gap / 35)
-      if (gap > 120) next.sawPeak = false
+    }
+    if (gap > SHAKE_START_MAX_BURST_MS) {
+      next.sawPeak = false
+      next.peakCount = 0
+      next.motionFrames = 0
+      next.firstMotionAt = 0
+      next.energy = 0
     }
   }
 
   if (delta >= SHAKE_START_MIN_DELTA) {
+    if (next.firstMotionAt === 0) next.firstMotionAt = now
     next.energy += delta
     next.lastMotionAt = now
-    if (delta >= SHAKE_START_PEAK_DELTA) next.sawPeak = true
+    next.motionFrames += 1
+    if (delta >= SHAKE_START_PEAK_DELTA) {
+      next.sawPeak = true
+      next.peakCount += 1
+    }
   }
 
+  const burstMs = next.firstMotionAt > 0 ? now - next.firstMotionAt : 0
   const triggered =
-    (next.sawPeak && next.energy >= SHAKE_START_ENERGY) &&
+    next.peakCount >= SHAKE_START_MIN_PEAKS &&
+    next.motionFrames >= SHAKE_START_MIN_FRAMES &&
+    next.energy >= SHAKE_START_ENERGY &&
+    burstMs >= SHAKE_START_MIN_BURST_MS &&
+    burstMs <= SHAKE_START_MAX_BURST_MS &&
     now - next.lastTriggeredAt >= SHAKE_START_DEBOUNCE_MS
 
   if (triggered) {
