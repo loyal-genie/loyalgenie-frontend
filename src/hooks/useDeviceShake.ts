@@ -10,6 +10,7 @@ import {
   requestMotionPermission,
   SHAKE_DELTA_THRESHOLD,
   SHAKE_IDLE_WARMUP_FRAMES,
+  SHAKE_IDLE_SETTLING_FRAMES,
   type MotionPermission,
   type ShakeStartState,
   type ShakeSpeedState,
@@ -42,12 +43,15 @@ export function useDeviceShake({
 }: UseDeviceShakeOptions) {
   const [permission, setPermission] = useState<MotionPermission>(initialMotionPermission)
   const [sensorsPrimed, setSensorsPrimed] = useState(false)
+  const [detectionLive, setDetectionLive] = useState(false)
+  const detectionLiveRef = useRef(false)
   const prevSampleRef = useRef<{ x: number; y: number; z: number } | null>(null)
   const orientPrevRef = useRef<{ beta: number; gamma: number; alpha: number } | null>(null)
   const startStateRef = useRef<ShakeStartState>(createShakeStartState())
   const speedStateRef = useRef<ShakeSpeedState>(createShakeSpeedState())
   const lastStartAtRef = useRef(0)
   const idleWarmupRef = useRef(0)
+  const idleSettlingRef = useRef(0)
   const listenIdleRef = useRef(listenIdle)
   const listenActiveRef = useRef(listenActive)
   const onShakeStartRef = useRef(onShakeStart)
@@ -64,7 +68,7 @@ export function useDeviceShake({
   onSensorPulseRef.current = onSensorPulse
 
   const tryStart = useCallback((now: number) => {
-    if (!listenIdleRef.current) return
+    if (!listenIdleRef.current || !detectionLiveRef.current) return
     lastStartAtRef.current = now
     startStateRef.current = createShakeStartState()
     speedStateRef.current = createShakeSpeedState()
@@ -107,15 +111,35 @@ export function useDeviceShake({
     const { delta, sample } = computeShakeDelta(e, prevSampleRef.current)
     prevSampleRef.current = sample
 
-    // Warmup: update baseline but skip shake evaluation
+    const now = Date.now()
+    const baselineOnly =
+      (listenIdleRef.current && idleWarmupRef.current > 0) ||
+      (listenIdleRef.current && idleSettlingRef.current > 0)
+
     if (listenIdleRef.current && idleWarmupRef.current > 0) {
       idleWarmupRef.current -= 1
+    } else if (listenIdleRef.current && idleSettlingRef.current > 0) {
+      idleSettlingRef.current -= 1
+    }
+
+    if (baselineOnly && sample) {
+      startStateRef.current = evaluateShakeStart(
+        sample,
+        now,
+        startStateRef.current,
+        { baselineOnly: true },
+      ).state
       return
+    }
+
+    if (listenIdleRef.current && !detectionLiveRef.current) {
+      detectionLiveRef.current = true
+      setDetectionLive(true)
     }
 
     let speed = 0
     if (sample) {
-      const speedResult = computeShakeSpeed(sample, Date.now(), speedStateRef.current)
+      const speedResult = computeShakeSpeed(sample, now, speedStateRef.current)
       speedStateRef.current = speedResult.state
       speed = speedResult.speed
     }
@@ -136,11 +160,14 @@ export function useDeviceShake({
   }, [handleMotion, handleOrientation])
 
   const resetMotionBaseline = useCallback(() => {
-    prevSampleRef.current = null       // clear so first post-warmup frame establishes baseline
+    prevSampleRef.current = null
     startStateRef.current = createShakeStartState()
     speedStateRef.current = createShakeSpeedState()
     lastStartAtRef.current = 0
     idleWarmupRef.current = SHAKE_IDLE_WARMUP_FRAMES
+    idleSettlingRef.current = SHAKE_IDLE_SETTLING_FRAMES
+    detectionLiveRef.current = false
+    setDetectionLive(false)
   }, [])
 
   const primeFromGesture = useCallback(() => {
@@ -190,6 +217,7 @@ export function useDeviceShake({
     ensurePermission,
     permission,
     sensorsPrimed,
+    detectionLive,
     primeFromGesture,
     armShakeDetection,
     resetMotionBaseline,

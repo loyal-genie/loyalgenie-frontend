@@ -1,18 +1,24 @@
 /** Haptics + motion helpers for Shake & Win */
 
 /** Visual progress ring span — result timing uses RESULT_DELAY_* instead. */
-export const SHAKE_DURATION_MS = 5000
+export const SHAKE_DURATION_MS = 12000
 export const CHARGE_MS = 300
 /** After shake triggers, keep shaking this long before reveal. */
-export const RESULT_DELAY_MIN_MS = 5000
-export const RESULT_DELAY_MAX_MS = 7000
+export const RESULT_DELAY_MIN_MS = 12000
+export const RESULT_DELAY_MAX_MS = 15000
 
 /**
  * Frames to skip after arming before evaluating shake-start.
- * At 100 Hz: 100 frames = 1 s.  At 60 Hz: 100 frames = 1.67 s.
- * Completely absorbs: PIN-tap vibration decay, SPA navigation animation, and grip-settling.
+ * At 100 Hz: 120 frames = 1.2 s.  At 60 Hz: 120 frames = 2 s.
+ * Absorbs PIN-tap vibration, navigation animation, and grip-settling.
  */
-export const SHAKE_IDLE_WARMUP_FRAMES = 100
+export const SHAKE_IDLE_WARMUP_FRAMES = 120
+
+/**
+ * After warmup, only update the gravity baseline — no scoring — for this many frames.
+ * Ensures the high-pass filter has converged before detection goes live.
+ */
+export const SHAKE_IDLE_SETTLING_FRAMES = 60
 
 /** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
 export function randomRevealDelayMs(): number {
@@ -28,52 +34,38 @@ export const SHAKE_START_DEBOUNCE_MS = 450
 export const INTENSITY_DECAY = 0.04
 
 /**
- * Leaky-bucket delta detection — the production approach from shake.js.
+ * High-pass + leaky-bucket shake detection (production approach).
  *
- * Each devicemotion frame: compute manhattan delta = |dx| + |dy| + |dz|.
- * If delta > THRESHOLD → increment score; otherwise decay score.
- * When score ≥ TARGET → deliberate shake confirmed.
+ * Problem with raw delta on accelerationIncludingGravity:
+ *   Tilting or re-gripping after PIN entry redistributes gravity across X/Y/Z.
+ *   Raw |dx|+|dy|+|dz| fires even when the phone is not being shaken.
  *
- * Why this is more robust than reversal counting:
- *  • Stateless per frame: score decays to 0 the moment motion stops.
- *    The reversal algorithm accumulated state from prior movements; this doesn't.
- *  • Immune to "stale state" bugs: single frames or brief jolts push score by 1
- *    and it immediately decays away — needs sustained motion to reach target.
- *  • No direction tracking: tilting (monotonic) only contributes 1–2 frames
- *    above threshold before it settles; score decays before reaching TARGET.
+ * Fix — high-pass filter via exponential moving average baseline:
+ *   baseline = EMA(sample)   tracks slow tilt / gravity drift
+ *   hp       = sample − baseline   isolates rapid oscillation (actual shake)
+ *   delta    = |hp − prevHp| manhattan sum across axes
  *
- * False-positive analysis (accelerationIncludingGravity, worst case):
- *  • Still (noise ≤ 0.3 m/s²/axis):  delta ≤ 0.9 < 3.0 → score = 0           ✓
- *  • Tilt 90° in 100 ms at 60 Hz:    delta ≈ 1.6 < 3.0 → score = 0           ✓
- *  • Walking vertical bounce 3 cm 2 Hz: delta ≈ 0.4 < 3.0 → score = 0        ✓
- *  • Vigorous walk footfall (3 frames ≥ 3.0): score peaks at 3 → decays < 5   ✓
- *  • Single hard jolt (15 m/s² for 3 frames): score = 3 → decays — never fires ✓
- *
- * True-positive analysis:
- *  • 1 cm shake at 5 Hz / 60 Hz: peak |dx| = 5.17 m/s² > 3.0; ~6/12 frames
- *    above threshold/period; net score +4.2/period → reaches 5.0 in ~238 ms   ✓
- *  • 1 cm shake at 5 Hz / 100 Hz: peak |dx| = 3.1 m/s² ≈ 3.0; threshold met
- *    briefly each period → reaches 5.0 in ~300 ms                              ✓
+ * Then leaky-bucket: delta > threshold → score += 1; else score -= 0.3.
+ * Trigger when score ≥ TARGET AND motion has persisted ≥ MIN_SHAKE_MS.
  */
 
-/** Minimum per-frame manhattan delta (m/s²) to increment the score.
- *  Derivation: peak |dx| for 1 cm at 5 Hz = A × 2πf / f_s.
- *  At 60 Hz = 5.17 m/s²; at 100 Hz = 3.10 m/s².
- *  Threshold 3.0 catches real shaking at both sample rates while staying above
- *  the tilt/walk noise floor (≤ 2 m/s²). */
-export const SHAKE_IDLE_DELTA_THRESHOLD = 3.0
+/** EMA weight for gravity baseline — higher = slower baseline = stronger high-pass. */
+export const SHAKE_BASELINE_ALPHA = 0.88
+
+/** Minimum per-frame high-pass manhattan delta (m/s²) to increment score. */
+export const SHAKE_IDLE_DELTA_THRESHOLD = 2.0
 
 /** Score added per above-threshold frame. */
 export const SHAKE_SCORE_INCREMENT = 1.0
 
 /** Score removed per below-threshold frame (leaky part). */
-export const SHAKE_SCORE_DECAY = 0.3
+export const SHAKE_SCORE_DECAY = 0.25
 
-/** Score required to confirm a shake.
- *  5 = needs ~5 consecutive high-delta frames (83 ms at 60 Hz) OR ~238 ms of
- *  sustained shaking. Walking footfalls create at most 3–4 consecutive frames
- *  → score peaks at 3–4 < 5 → never fires. */
-export const SHAKE_SCORE_TARGET = 5.0
+/** Score required to confirm a deliberate shake. */
+export const SHAKE_SCORE_TARGET = 6.0
+
+/** Motion must accumulate above threshold for at least this long before triggering. */
+export const MIN_SHAKE_ACCUMULATION_MS = 600
 
 /** shake.js-style speed threshold — kept for active-phase intensity feedback only. */
 export const SHAKE_SPEED_THRESHOLD = 3
@@ -247,84 +239,107 @@ export function computeShakeSpeed(
 }
 
 /**
- * Leaky-bucket shake detection state.
- * Score increments on high-delta frames, decays on low-delta frames.
- * Score reaching SHAKE_SCORE_TARGET means a deliberate sustained shake.
+ * High-pass leaky-bucket shake detection state.
  */
 export interface ShakeStartState {
-  prevX: number | null
-  prevY: number | null
-  prevZ: number | null
-  score: number           // leaky-bucket score: 0.0 → SHAKE_SCORE_TARGET
+  baselineX: number
+  baselineY: number
+  baselineZ: number
+  prevHpX: number | null
+  prevHpY: number | null
+  prevHpZ: number | null
+  score: number
+  burstStartAt: number
   lastTriggeredAt: number
+  initialized: boolean
 }
 
 export function createShakeStartState(): ShakeStartState {
   return {
-    prevX: null,
-    prevY: null,
-    prevZ: null,
+    baselineX: 0,
+    baselineY: 0,
+    baselineZ: 0,
+    prevHpX: null,
+    prevHpY: null,
+    prevHpZ: null,
     score: 0,
+    burstStartAt: 0,
     lastTriggeredAt: 0,
+    initialized: false,
   }
 }
 
+export interface EvaluateShakeStartOptions {
+  /** When true, only update the gravity baseline — no scoring (warmup / settling). */
+  baselineOnly?: boolean
+}
+
 /**
- * Leaky-bucket delta shake detector.
+ * High-pass leaky-bucket shake detector.
  *
- * Algorithm (identical to production shake.js + sustained-motion guard):
- *   1. delta = |x − prevX| + |y − prevY| + |z − prevZ|   (manhattan distance)
- *   2. if delta > SHAKE_IDLE_DELTA_THRESHOLD: score += INCREMENT
- *      else:                                               score -= DECAY
- *   3. score ≥ SHAKE_SCORE_TARGET → triggered
- *
- * The leaky-bucket means:
- *   • Score drains to 0 the instant motion stops — no stale state.
- *   • A single hard jolt (3 frames): score peaks at 3, immediately decays → never fires.
- *   • Sustained 1 cm shake at 5 Hz / 60 Hz: score reaches 5.0 in ~238 ms → fires.
- *
- * Works identically for both accelerationIncludingGravity (Android Chrome) and
- * acceleration/linear (iOS / modern Android) — the delta is always near zero
- * when the phone is truly still, regardless of orientation or gravity distribution.
- *
- * @param sample  Current accelerometer sample
- * @param now     Current timestamp in ms
- * @param state   Accumulated leaky-bucket state
+ * 1. baseline = EMA(sample) — tracks slow gravity drift / tilt
+ * 2. hp = sample − baseline — isolates rapid oscillation
+ * 3. delta = |hp − prevHp| manhattan sum
+ * 4. leaky bucket on delta
+ * 5. score ≥ TARGET AND burst age ≥ MIN_SHAKE_ACCUMULATION_MS → triggered
  */
 export function evaluateShakeStart(
   sample: { x: number; y: number; z: number },
   now: number,
   state: ShakeStartState,
+  options: EvaluateShakeStartOptions = {},
 ): { triggered: boolean; state: ShakeStartState } {
   const next: ShakeStartState = { ...state }
+  const alpha = SHAKE_BASELINE_ALPHA
 
-  // First frame — establish prev baseline, do not score
-  if (next.prevX === null || next.prevY === null || next.prevZ === null) {
-    next.prevX = sample.x
-    next.prevY = sample.y
-    next.prevZ = sample.z
+  if (!next.initialized) {
+    next.baselineX = sample.x
+    next.baselineY = sample.y
+    next.baselineZ = sample.z
+    next.initialized = true
     return { triggered: false, state: next }
   }
 
-  // Manhattan delta: total motion across all three axes per frame
+  next.baselineX = alpha * next.baselineX + (1 - alpha) * sample.x
+  next.baselineY = alpha * next.baselineY + (1 - alpha) * sample.y
+  next.baselineZ = alpha * next.baselineZ + (1 - alpha) * sample.z
+
+  const hpX = sample.x - next.baselineX
+  const hpY = sample.y - next.baselineY
+  const hpZ = sample.z - next.baselineZ
+
+  if (next.prevHpX === null) {
+    next.prevHpX = hpX
+    next.prevHpY = hpY
+    next.prevHpZ = hpZ
+    return { triggered: false, state: next }
+  }
+
   const delta =
-    Math.abs(sample.x - next.prevX) +
-    Math.abs(sample.y - next.prevY) +
-    Math.abs(sample.z - next.prevZ)
+    Math.abs(hpX - next.prevHpX) +
+    Math.abs(hpY - next.prevHpY) +
+    Math.abs(hpZ - next.prevHpZ)
 
-  next.prevX = sample.x
-  next.prevY = sample.y
-  next.prevZ = sample.z
+  next.prevHpX = hpX
+  next.prevHpY = hpY
+  next.prevHpZ = hpZ
 
-  // Leaky bucket: increment on real motion, decay on quiet frames
+  if (options.baselineOnly) {
+    return { triggered: false, state: next }
+  }
+
   if (delta > SHAKE_IDLE_DELTA_THRESHOLD) {
+    if (next.score <= 0) next.burstStartAt = now
     next.score = Math.min(SHAKE_SCORE_TARGET + 1, next.score + SHAKE_SCORE_INCREMENT)
   } else {
     next.score = Math.max(0, next.score - SHAKE_SCORE_DECAY)
+    if (next.score <= 0) next.burstStartAt = 0
   }
 
+  const burstAge = next.burstStartAt > 0 ? now - next.burstStartAt : 0
   const triggered =
     next.score >= SHAKE_SCORE_TARGET &&
+    burstAge >= MIN_SHAKE_ACCUMULATION_MS &&
     now - next.lastTriggeredAt >= SHAKE_START_DEBOUNCE_MS
 
   if (triggered) {

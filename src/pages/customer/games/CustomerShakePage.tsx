@@ -249,7 +249,7 @@ export function CustomerShakePage() {
 
   const onPhysicalShakeRef = useRef<(() => void) | null>(null)
 
-  const { ensurePermission, permission, primeFromGesture, armShakeDetection } = useDeviceShake({
+  const { ensurePermission, permission, primeFromGesture, armShakeDetection, detectionLive } = useDeviceShake({
     listenIdle:
       motionPlay &&
       shakeDetectionArmed &&
@@ -266,7 +266,7 @@ export function CustomerShakePage() {
     reducedMotion,
   })
 
-  /** Shake detected → 5–7s active shaking → reveal. */
+  /** Shake detected → 12–15s active shaking → reveal. */
   const beginPlayAfterShake = useCallback(() => {
     if (
       startingRef.current ||
@@ -291,13 +291,13 @@ export function CustomerShakePage() {
   }, [phase, shakeDetectionArmed, canPlay, playsLeft, playSession, playStateReady, kickOffPlay])
 
   const onPhysicalShake = useCallback(() => {
-    if (!motionPlay || phase !== 'idle' || !shakeDetectionArmed) return
+    if (!motionPlay || phase !== 'idle' || !shakeDetectionArmed || !detectionLive) return
     if (needsMotionPermissionPrompt() && permission !== 'granted') {
       setMotionHint('needed')
       return
     }
     beginPlayAfterShake()
-  }, [motionPlay, phase, shakeDetectionArmed, permission, beginPlayAfterShake])
+  }, [motionPlay, phase, shakeDetectionArmed, detectionLive, permission, beginPlayAfterShake])
 
   onPhysicalShakeRef.current = onPhysicalShake
 
@@ -425,13 +425,15 @@ export function CustomerShakePage() {
           : motionPlay
             ? motionHint === 'needed'
               ? 'Tap once to allow motion, then shake!'
-              : 'Shake your phone to start!'
+              : !detectionLive
+                ? 'Hold steady… get ready to shake!'
+                : 'Shake your phone to start!'
             : 'Tap or press spacebar to start!'
         : blockReason === 'daily_participant_limit' || blockReason === 'user_cap'
           ? 'Campaign is full — no new players today'
           : 'No plays left today'
       : 'Loading your play status…',
-    shaking: 'Keep shaking… result in a few seconds!',
+    shaking: 'Keep shaking… result in 12–15 seconds!',
     suspending: 'Revealing your reward…',
     revealing: won ? 'You won!' : '…',
     result: '',
@@ -616,10 +618,10 @@ export function CustomerShakePage() {
       >
         <p className="text-[9px] sm:text-xs text-white/30 leading-relaxed">
           {motionPlay
-            ? 'Shake to play · Result reveals in 5–7 seconds'
+            ? 'Shake to play · Result reveals in 12–15 seconds'
             : reducedMotion
-              ? 'Tap to play · Result in 5–7 seconds'
-              : 'Tap or spacebar (no motion) · Result in 5–7 seconds'}
+              ? 'Tap to play · Result in 12–15 seconds'
+              : 'Tap or spacebar (no motion) · Result in 12–15 seconds'}
         </p>
       </motion.div>
     </motion.div>
