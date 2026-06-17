@@ -301,7 +301,9 @@ export function CustomerShakePage() {
 
   onPhysicalShakeRef.current = onPhysicalShake
 
-  // Arm sensors immediately — game only starts when evaluateShakeStart detects a real shake.
+  // Arm shake detection as soon as play state is ready.
+  // The oscillation-reversal algorithm requires actual back-and-forth motion to trigger —
+  // tilting, picking up, or holding the phone still produces 0–1 reversals (needs 4).
   useEffect(() => {
     if (!motionPlay || !playStateReady || !canPlay) return
 
@@ -321,7 +323,7 @@ export function CustomerShakePage() {
     setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
   }, [motionPlay, playStateReady, canPlay, primeFromGesture, permission, armShakeDetection])
 
-  // iOS: one tap only when motion permission still required.
+  // iOS: one tap to grant DeviceMotion permission
   const handlePermissionTap = useCallback(() => {
     if (!motionPlay || phase !== 'idle' || motionHint !== 'needed') return
     primeFromGesture()
@@ -356,8 +358,7 @@ export function CustomerShakePage() {
       handlePermissionTap()
       return
     }
-
-    // Desktop / HTTP fallback — no accelerometer.
+    // Desktop / HTTP fallback — no accelerometer
     if (phase === 'idle') beginPlayAfterShake()
     else if (phase === 'shaking') {
       bumpIntensity(reducedMotion ? 0.25 : 0.16)

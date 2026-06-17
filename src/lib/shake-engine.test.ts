@@ -10,9 +10,10 @@ import {
   readMotionSample,
   RESULT_DELAY_MAX_MS,
   RESULT_DELAY_MIN_MS,
+  SHAKE_AXIS_DELTA_MIN,
+  SHAKE_IDLE_WARMUP_FRAMES,
+  SHAKE_MIN_REVERSALS,
   SHAKE_SPEED_THRESHOLD,
-  SHAKE_START_ENERGY,
-  SHAKE_START_MIN_DELTA,
 } from './shake-engine'
 import { orientationToMotionDelta } from './shake-motion-sensors'
 
@@ -83,48 +84,124 @@ describe('computeShakeDelta', () => {
   })
 })
 
-describe('evaluateShakeStart', () => {
-  it('does not trigger on a single tiny jitter', () => {
-    const result = evaluateShakeStart(SHAKE_START_MIN_DELTA - 0.2, 1_000, createShakeStartState())
+describe('evaluateShakeStart — oscillation/reversal algorithm', () => {
+  it('does not trigger on a single sample (no history yet)', () => {
+    const result = evaluateShakeStart({ x: 0, y: 0, z: 9.8 }, 1_000, createShakeStartState())
     expect(result.triggered).toBe(false)
-    expect(result.state.energy).toBe(0)
+    expect(result.state.reversals).toBe(0)
   })
 
-  it('triggers only on a sustained, firm deliberate shake burst', () => {
+  it('does not trigger on monotonic tilt — phone picked up from table', () => {
+    // x goes 0 → 1 → 2 → 3 → 4 (no direction reversal, just tilting)
     let state = createShakeStartState()
     let triggered = false
-    // Simulates: deliberate shake with strong peaks
-    const frames = [0.2, 2.8, 3.1, 2.5, 2.9, 3.2, 2.6, 2.2, 1.8]
     const t0 = 5_000
-
-    for (let i = 0; i < frames.length; i++) {
-      const result = evaluateShakeStart(frames[i], t0 + i * 35, state)
+    const samples = [
+      { x: 0, y: 0, z: 9.8 },
+      { x: 1.2, y: 0, z: 9.7 },
+      { x: 2.4, y: 0, z: 9.5 },
+      { x: 3.5, y: 0, z: 9.3 },
+      { x: 4.0, y: 0, z: 9.2 },
+      { x: 4.0, y: 0, z: 9.2 },
+    ]
+    for (let i = 0; i < samples.length; i++) {
+      const result = evaluateShakeStart(samples[i], t0 + i * 30, state)
       state = result.state
       if (result.triggered) triggered = true
     }
+    expect(triggered).toBe(false)
+    expect(state.reversals).toBeLessThan(SHAKE_MIN_REVERSALS)
+  })
 
+  it('does not trigger on slow idle drift / holding still', () => {
+    let state = createShakeStartState()
+    let triggered = false
+    const t0 = 5_000
+    // Tiny fluctuations below SHAKE_AXIS_DELTA_MIN threshold
+    const samples = [
+      { x: 0.1, y: 0.1, z: 9.8 },
+      { x: 0.2, y: 0.2, z: 9.8 },
+      { x: 0.1, y: 0.1, z: 9.8 },
+      { x: 0.0, y: 0.0, z: 9.8 },
+      { x: 0.1, y: 0.1, z: 9.8 },
+    ]
+    for (let i = 0; i < samples.length; i++) {
+      const result = evaluateShakeStart(samples[i], t0 + i * 30, state)
+      state = result.state
+      if (result.triggered) triggered = true
+    }
+    expect(triggered).toBe(false)
+  })
+
+  it('triggers on deliberate left-right shake (clear x-axis oscillation)', () => {
+    let state = createShakeStartState()
+    let triggered = false
+    const t0 = 10_000
+    // x oscillates: right → left → right → left — 4 reversals
+    const samples = [
+      { x: 0.0, y: 0, z: 9.8 },   // baseline
+      { x: 2.5, y: 0, z: 9.8 },   // right  → sign +
+      { x: -2.5, y: 0, z: 9.8 },  // left   → sign - (reversal 1)
+      { x: 2.5, y: 0, z: 9.8 },   // right  → sign + (reversal 2)
+      { x: -2.5, y: 0, z: 9.8 },  // left   → sign - (reversal 3)
+      { x: 2.5, y: 0, z: 9.8 },   // right  → sign + (reversal 4 → trigger)
+    ]
+    for (let i = 0; i < samples.length; i++) {
+      const result = evaluateShakeStart(samples[i], t0 + i * 50, state)
+      state = result.state
+      if (result.triggered) triggered = true
+    }
     expect(triggered).toBe(true)
   })
 
-  it('does not trigger on a single spike (sensor jump / navigation)', () => {
-    const result = evaluateShakeStart(SHAKE_START_ENERGY + 2, 10_000, createShakeStartState())
-    expect(result.triggered).toBe(false)
-  })
-
-  it('does not trigger on slow drift or light hand movement', () => {
+  it('triggers on up-down shake (y-axis oscillation)', () => {
     let state = createShakeStartState()
     let triggered = false
-    // Simulates: picking up phone, adjusting in hand (light, slow motion)
-    const frames = [0.3, 0.4, 0.35, 0.5, 0.2, 0.3]
-    const t0 = 5_000
-
-    for (let i = 0; i < frames.length; i++) {
-      const result = evaluateShakeStart(frames[i], t0 + i * 50, state)
+    const t0 = 15_000
+    const samples = [
+      { x: 0, y: 0.0, z: 9.8 },
+      { x: 0, y: 2.5, z: 9.8 },
+      { x: 0, y: -2.5, z: 9.8 },
+      { x: 0, y: 2.5, z: 9.8 },
+      { x: 0, y: -2.5, z: 9.8 },
+      { x: 0, y: 2.5, z: 9.8 },
+    ]
+    for (let i = 0; i < samples.length; i++) {
+      const result = evaluateShakeStart(samples[i], t0 + i * 50, state)
       state = result.state
       if (result.triggered) triggered = true
     }
+    expect(triggered).toBe(true)
+  })
 
-    expect(triggered).toBe(false)
+  it('resets reversal count after gap exceeds window', () => {
+    let state = createShakeStartState()
+    const t0 = 20_000
+    // 2 reversals
+    const samples1 = [
+      { x: 0, y: 0, z: 9.8 },
+      { x: 2.5, y: 0, z: 9.8 },
+      { x: -2.5, y: 0, z: 9.8 },
+      { x: 2.5, y: 0, z: 9.8 },
+    ]
+    for (let i = 0; i < samples1.length; i++) {
+      const result = evaluateShakeStart(samples1[i], t0 + i * 50, state)
+      state = result.state
+    }
+    expect(state.reversals).toBeGreaterThan(0)
+
+    // Big gap (>750ms) → state should reset
+    const result = evaluateShakeStart({ x: 0, y: 0, z: 9.8 }, t0 + 5_000, state)
+    expect(result.state.reversals).toBe(0)
+  })
+
+  it('SHAKE_AXIS_DELTA_MIN filters sensor noise below threshold', () => {
+    expect(SHAKE_AXIS_DELTA_MIN).toBeGreaterThan(0.4)
+    expect(SHAKE_AXIS_DELTA_MIN).toBeLessThan(2.0)
+  })
+
+  it('SHAKE_MIN_REVERSALS requires multiple direction changes', () => {
+    expect(SHAKE_MIN_REVERSALS).toBeGreaterThanOrEqual(3)
   })
 })
 
@@ -152,8 +229,8 @@ describe('randomRevealDelayMs', () => {
 })
 
 describe('SHAKE_IDLE_WARMUP_FRAMES', () => {
-  it('establishes a ~500ms baseline after PIN entry before evaluation', async () => {
-    const { SHAKE_IDLE_WARMUP_FRAMES } = await import('./shake-engine')
-    expect(SHAKE_IDLE_WARMUP_FRAMES).toBeGreaterThanOrEqual(40)
+  it('skips enough frames for sensor baseline to settle after arming', () => {
+    expect(SHAKE_IDLE_WARMUP_FRAMES).toBeGreaterThanOrEqual(15)
+    expect(SHAKE_IDLE_WARMUP_FRAMES).toBeLessThanOrEqual(60)
   })
 })

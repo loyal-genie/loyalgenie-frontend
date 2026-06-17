@@ -10,7 +10,6 @@ import {
   requestMotionPermission,
   SHAKE_DELTA_THRESHOLD,
   SHAKE_IDLE_WARMUP_FRAMES,
-  SHAKE_START_DEBOUNCE_MS,
   type MotionPermission,
   type ShakeStartState,
   type ShakeSpeedState,
@@ -66,20 +65,24 @@ export function useDeviceShake({
 
   const tryStart = useCallback((now: number) => {
     if (!listenIdleRef.current) return
-    if (now - lastStartAtRef.current < SHAKE_START_DEBOUNCE_MS) return
     lastStartAtRef.current = now
     startStateRef.current = createShakeStartState()
     speedStateRef.current = createShakeSpeedState()
     onShakeStartRef.current?.()
   }, [])
 
-  const processMotion = useCallback((delta: number, speed: number, fromOrientation = false) => {
+  const processMotion = useCallback((
+    sample: { x: number; y: number; z: number } | null,
+    delta: number,
+    speed: number,
+    fromOrientation = false,
+  ) => {
     const now = Date.now()
 
     if (listenIdleRef.current) {
-      // Idle start: accelerometer burst only — orientation drift must not auto-start.
-      if (!fromOrientation) {
-        const result = evaluateShakeStart(delta, now, startStateRef.current)
+      // Idle start: accelerometer reversal detection only — orientation drift must not auto-start.
+      if (!fromOrientation && sample) {
+        const result = evaluateShakeStart(sample, now, startStateRef.current)
         startStateRef.current = result.state
         if (result.triggered) tryStart(now)
       }
@@ -104,6 +107,7 @@ export function useDeviceShake({
     const { delta, sample } = computeShakeDelta(e, prevSampleRef.current)
     prevSampleRef.current = sample
 
+    // Warmup: update baseline but skip shake evaluation
     if (listenIdleRef.current && idleWarmupRef.current > 0) {
       idleWarmupRef.current -= 1
       return
@@ -116,15 +120,15 @@ export function useDeviceShake({
       speed = speedResult.speed
     }
 
-    if (delta > 0 || speed > 0) processMotion(delta, speed, false)
+    if (sample || delta > 0 || speed > 0) processMotion(sample, delta, speed, false)
   }, [processMotion])
 
   const handleOrientation = useCallback((e: DeviceOrientationEvent) => {
     onSensorPulseRef.current?.()
     const { delta, sample } = orientationToMotionDelta(e, orientPrevRef.current)
     orientPrevRef.current = sample
-    // Orientation is for active-phase feedback only — never starts the game while idle.
-    if (listenActiveRef.current && delta > 0) processMotion(delta, 0, true)
+    // Orientation only feeds active-phase intensity — never starts the game while idle.
+    if (listenActiveRef.current && delta > 0) processMotion(null, delta, 0, true)
   }, [processMotion])
 
   const wireHandlers = useCallback(() => {
@@ -132,6 +136,7 @@ export function useDeviceShake({
   }, [handleMotion, handleOrientation])
 
   const resetMotionBaseline = useCallback(() => {
+    prevSampleRef.current = null       // clear so first post-warmup frame establishes baseline
     startStateRef.current = createShakeStartState()
     speedStateRef.current = createShakeSpeedState()
     lastStartAtRef.current = 0

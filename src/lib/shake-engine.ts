@@ -8,11 +8,11 @@ export const RESULT_DELAY_MIN_MS = 5000
 export const RESULT_DELAY_MAX_MS = 7000
 
 /**
- * devicemotion frames to skip before evaluating shake-start (establishes baseline;
- * does not delay with a timer — only ignores the first N sensor readings).
- * At ~100 Hz device events: 50 frames ≈ 500ms baseline settle time.
+ * devicemotion frames to skip after arming (tap) before evaluating shake-start.
+ * At ~100 Hz: 25 frames ≈ 250ms. The tap itself provides a natural gesture boundary;
+ * warmup just lets the sample baseline settle after the touch event.
  */
-export const SHAKE_IDLE_WARMUP_FRAMES = 50
+export const SHAKE_IDLE_WARMUP_FRAMES = 25
 
 /** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
 export function randomRevealDelayMs(): number {
@@ -24,24 +24,31 @@ export function randomRevealDelayMs(): number {
 export const randomResultDelayMs = randomRevealDelayMs
 /** Active-phase spike threshold (intensity + haptics). */
 export const SHAKE_DELTA_THRESHOLD = 6
-/** Minimum per-frame delta that contributes to start energy. */
-export const SHAKE_START_MIN_DELTA = 0.45
-/** At least one frame must reach this delta (filters steady drift). */
-export const SHAKE_START_PEAK_DELTA = 1.1
-/** Cumulative energy required to start — tuned for a deliberate, firm shake. */
-export const SHAKE_START_ENERGY = 7.2
-/** Minimum motion frames in a burst before shake can start — requires sustained motion. */
-export const SHAKE_START_MIN_FRAMES = 8
-/** Minimum peaks (sharp motion frames) in a burst — filters gentle sway. */
-export const SHAKE_START_MIN_PEAKS = 4
-/** Burst must last at least this long (filters single-frame spikes). */
-export const SHAKE_START_MIN_BURST_MS = 180
-/** Burst must complete within this window (filters slow drift). */
-export const SHAKE_START_MAX_BURST_MS = 900
 export const SHAKE_START_DEBOUNCE_MS = 450
-/** shake.js-style speed threshold (lower = more sensitive). */
-export const SHAKE_SPEED_THRESHOLD = 3
 export const INTENSITY_DECAY = 0.04
+
+/**
+ * Oscillation-based shake detection constants.
+ *
+ * A real shake = rapid back-and-forth → multiple axis reversals in a short window.
+ * Tilting or adjusting grip = phone moves one direction and settles → 0–1 reversals.
+ *
+ * This is fundamentally more reliable than energy/delta accumulation because
+ * accelerationIncludingGravity shifts with gravity when you tilt, making any
+ * energy-based threshold ambiguous between "tilt" and "shake".
+ */
+
+/** Min per-frame change on a single axis (m/s²) to register a directional sample.
+ *  Filters sensor noise (<0.4) and slow drift, without requiring violent motion. */
+export const SHAKE_AXIS_DELTA_MIN = 0.8
+/** Number of axis direction-reversals required to confirm a shake.
+ *  4 reversals ≈ 2 full oscillations — clearly intentional. */
+export const SHAKE_MIN_REVERSALS = 4
+/** All reversals must occur within this window (ms). Deliberate shake bursts
+ *  happen in <500ms; idle handling / slow adjustment takes multiple seconds. */
+export const SHAKE_REVERSAL_WINDOW_MS = 750
+/** shake.js-style speed threshold — kept for active-phase intensity only. */
+export const SHAKE_SPEED_THRESHOLD = 3
 
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false
@@ -211,71 +218,101 @@ export function computeShakeSpeed(
   }
 }
 
+/**
+ * Oscillation-based shake start state.
+ * Tracks per-axis direction history to detect rapid back-and-forth reversal patterns.
+ */
 export interface ShakeStartState {
-  energy: number
-  lastMotionAt: number
-  firstMotionAt: number
+  prevX: number | null
+  prevY: number | null
+  lastSignX: number       // direction of last significant x change: -1 | 0 | +1
+  lastSignY: number       // direction of last significant y change: -1 | 0 | +1
+  reversals: number       // accumulated direction-reversal count
+  burstStartAt: number    // timestamp of first reversal in current burst (0 = none yet)
+  lastMotionAt: number    // last frame with significant axis motion
   lastTriggeredAt: number
-  sawPeak: boolean
-  peakCount: number
-  motionFrames: number
 }
 
 export function createShakeStartState(): ShakeStartState {
   return {
-    energy: 0,
+    prevX: null,
+    prevY: null,
+    lastSignX: 0,
+    lastSignY: 0,
+    reversals: 0,
+    burstStartAt: 0,
     lastMotionAt: 0,
-    firstMotionAt: 0,
     lastTriggeredAt: 0,
-    sawPeak: false,
-    peakCount: 0,
-    motionFrames: 0,
   }
 }
 
 /**
- * Energy-based shake start — requires a short burst of deliberate motion
- * (multiple frames + peaks). Single sensor spikes or orientation drift won't trigger.
+ * Oscillation-based shake detector.
+ *
+ * Counts direction reversals on X and Y axes per sensor frame.
+ * A deliberate shake produces 4+ reversals within ~750ms.
+ * Tilting, picking up, or adjusting grip produces 0–1 reversals.
+ *
+ * @param sample  Current accelerometer sample (accelerationIncludingGravity preferred)
+ * @param now     Current timestamp in ms
+ * @param state   Accumulated detection state (mutated into next)
  */
 export function evaluateShakeStart(
-  delta: number,
+  sample: { x: number; y: number; z: number },
   now: number,
   state: ShakeStartState,
 ): { triggered: boolean; state: ShakeStartState } {
   const next: ShakeStartState = { ...state }
 
-  if (next.lastMotionAt > 0) {
-    const gap = now - next.lastMotionAt
-    if (gap > 35) {
-      next.energy *= Math.pow(0.6, gap / 35)
-    }
-    if (gap > SHAKE_START_MAX_BURST_MS) {
-      next.sawPeak = false
-      next.peakCount = 0
-      next.motionFrames = 0
-      next.firstMotionAt = 0
-      next.energy = 0
-    }
+  // Burst expired — reset oscillation tracking
+  if (next.lastMotionAt > 0 && now - next.lastMotionAt > SHAKE_REVERSAL_WINDOW_MS) {
+    next.prevX = null
+    next.prevY = null
+    next.lastSignX = 0
+    next.lastSignY = 0
+    next.reversals = 0
+    next.burstStartAt = 0
   }
 
-  if (delta >= SHAKE_START_MIN_DELTA) {
-    if (next.firstMotionAt === 0) next.firstMotionAt = now
-    next.energy += delta
+  // First frame after arm/reset — record baseline, do not count
+  if (next.prevX === null || next.prevY === null) {
+    next.prevX = sample.x
+    next.prevY = sample.y
+    return { triggered: false, state: next }
+  }
+
+  const dx = sample.x - next.prevX
+  const dy = sample.y - next.prevY
+
+  // Check x-axis oscillation
+  if (Math.abs(dx) >= SHAKE_AXIS_DELTA_MIN) {
+    const signX = dx > 0 ? 1 : -1
+    if (next.lastSignX !== 0 && signX !== next.lastSignX) {
+      next.reversals += 1
+      if (next.burstStartAt === 0) next.burstStartAt = now
+    }
+    next.lastSignX = signX
     next.lastMotionAt = now
-    next.motionFrames += 1
-    if (delta >= SHAKE_START_PEAK_DELTA) {
-      next.sawPeak = true
-      next.peakCount += 1
-    }
   }
 
-  const burstMs = next.firstMotionAt > 0 ? now - next.firstMotionAt : 0
+  // Check y-axis oscillation
+  if (Math.abs(dy) >= SHAKE_AXIS_DELTA_MIN) {
+    const signY = dy > 0 ? 1 : -1
+    if (next.lastSignY !== 0 && signY !== next.lastSignY) {
+      next.reversals += 1
+      if (next.burstStartAt === 0) next.burstStartAt = now
+    }
+    next.lastSignY = signY
+    next.lastMotionAt = now
+  }
+
+  next.prevX = sample.x
+  next.prevY = sample.y
+
+  const burstAge = next.burstStartAt > 0 ? now - next.burstStartAt : Infinity
   const triggered =
-    next.peakCount >= SHAKE_START_MIN_PEAKS &&
-    next.motionFrames >= SHAKE_START_MIN_FRAMES &&
-    next.energy >= SHAKE_START_ENERGY &&
-    burstMs >= SHAKE_START_MIN_BURST_MS &&
-    burstMs <= SHAKE_START_MAX_BURST_MS &&
+    next.reversals >= SHAKE_MIN_REVERSALS &&
+    burstAge <= SHAKE_REVERSAL_WINDOW_MS &&
     now - next.lastTriggeredAt >= SHAKE_START_DEBOUNCE_MS
 
   if (triggered) {
