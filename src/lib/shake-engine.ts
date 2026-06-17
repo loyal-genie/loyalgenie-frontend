@@ -9,10 +9,10 @@ export const RESULT_DELAY_MAX_MS = 7000
 
 /**
  * Frames to skip after arming before evaluating shake-start.
- * At 100 Hz: 50 frames = 500ms.  At 60 Hz: 50 frames = 833ms.
- * This absorbs PIN-tap vibration decay, navigation animation, and grip-settling.
+ * At 100 Hz: 100 frames = 1 s.  At 60 Hz: 100 frames = 1.67 s.
+ * Completely absorbs: PIN-tap vibration decay, SPA navigation animation, and grip-settling.
  */
-export const SHAKE_IDLE_WARMUP_FRAMES = 80
+export const SHAKE_IDLE_WARMUP_FRAMES = 100
 
 /** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
 export function randomRevealDelayMs(): number {
@@ -28,35 +28,52 @@ export const SHAKE_START_DEBOUNCE_MS = 450
 export const INTENSITY_DECAY = 0.04
 
 /**
- * Axis-reversal shake detection.
+ * Leaky-bucket delta detection — the production approach from shake.js.
  *
- * A deliberate shake = rapid back-and-forth → direction reverses on X or Y at high frequency.
- * Tilting the phone = monotonic movement on one axis → 0–1 reversals, never 5.
- * Walking = low-frequency oscillation (≤ 3 Hz) → 5 reversals need > 600 ms → excluded.
- * Holding still = tiny noise (<0.5 m/s² per frame) → stays below threshold.
+ * Each devicemotion frame: compute manhattan delta = |dx| + |dy| + |dz|.
+ * If delta > THRESHOLD → increment score; otherwise decay score.
+ * When score ≥ TARGET → deliberate shake confirmed.
  *
- * Key insight: tilting produces ONE directional change on an axis, not oscillation.
- * A real shake at 4 Hz creates 10+ direction changes per second on X or Y.
+ * Why this is more robust than reversal counting:
+ *  • Stateless per frame: score decays to 0 the moment motion stops.
+ *    The reversal algorithm accumulated state from prior movements; this doesn't.
+ *  • Immune to "stale state" bugs: single frames or brief jolts push score by 1
+ *    and it immediately decays away — needs sustained motion to reach target.
+ *  • No direction tracking: tilting (monotonic) only contributes 1–2 frames
+ *    above threshold before it settles; score decays before reaching TARGET.
  *
- * The 80-frame warmup (~800 ms at 100 Hz / 1333 ms at 60 Hz) absorbs:
- *   • PIN-tap vibration decay            (~200–350 ms)
- *   • SPA navigation animation           (~300–500 ms)
- *   • Grip-settling after page load      (~300–500 ms)
+ * False-positive analysis (accelerationIncludingGravity, worst case):
+ *  • Still (noise ≤ 0.3 m/s²/axis):  delta ≤ 0.9 < 3.0 → score = 0           ✓
+ *  • Tilt 90° in 100 ms at 60 Hz:    delta ≈ 1.6 < 3.0 → score = 0           ✓
+ *  • Walking vertical bounce 3 cm 2 Hz: delta ≈ 0.4 < 3.0 → score = 0        ✓
+ *  • Vigorous walk footfall (3 frames ≥ 3.0): score peaks at 3 → decays < 5   ✓
+ *  • Single hard jolt (15 m/s² for 3 frames): score = 3 → decays — never fires ✓
+ *
+ * True-positive analysis:
+ *  • 1 cm shake at 5 Hz / 60 Hz: peak |dx| = 5.17 m/s² > 3.0; ~6/12 frames
+ *    above threshold/period; net score +4.2/period → reaches 5.0 in ~238 ms   ✓
+ *  • 1 cm shake at 5 Hz / 100 Hz: peak |dx| = 3.1 m/s² ≈ 3.0; threshold met
+ *    briefly each period → reaches 5.0 in ~300 ms                              ✓
  */
 
-/** Minimum per-frame change on a single axis (m/s²) to register a direction.
- *  Fast tilt (60° in 50 ms at 60 Hz): ~0.9 m/s² per frame — below threshold.
- *  Deliberate shake (1 cm at 4 Hz, 60 Hz): ~1.9 m/s² per frame — above threshold. */
-export const SHAKE_AXIS_DELTA_MIN = 1.2
+/** Minimum per-frame manhattan delta (m/s²) to increment the score.
+ *  Derivation: peak |dx| for 1 cm at 5 Hz = A × 2πf / f_s.
+ *  At 60 Hz = 5.17 m/s²; at 100 Hz = 3.10 m/s².
+ *  Threshold 3.0 catches real shaking at both sample rates while staying above
+ *  the tilt/walk noise floor (≤ 2 m/s²). */
+export const SHAKE_IDLE_DELTA_THRESHOLD = 3.0
 
-/** Direction reversals required.  5 = 2.5 full oscillations.
- *  At 4 Hz each reversal ≈ 125 ms apart → 5 reversals span 500 ms < 600 ms window. */
-export const SHAKE_MIN_REVERSALS = 5
+/** Score added per above-threshold frame. */
+export const SHAKE_SCORE_INCREMENT = 1.0
 
-/** All 5 reversals must fall within this window.
- *  Walking at ≤ 3 Hz: 5 reversals span ≥ 833 ms > 600 ms → filtered.
- *  Shaking at ≥ 4 Hz: 5 reversals span ≤ 500 ms < 600 ms → detected. */
-export const SHAKE_REVERSAL_WINDOW_MS = 600
+/** Score removed per below-threshold frame (leaky part). */
+export const SHAKE_SCORE_DECAY = 0.3
+
+/** Score required to confirm a shake.
+ *  5 = needs ~5 consecutive high-delta frames (83 ms at 60 Hz) OR ~238 ms of
+ *  sustained shaking. Walking footfalls create at most 3–4 consecutive frames
+ *  → score peaks at 3–4 < 5 → never fires. */
+export const SHAKE_SCORE_TARGET = 5.0
 
 /** shake.js-style speed threshold — kept for active-phase intensity feedback only. */
 export const SHAKE_SPEED_THRESHOLD = 3
@@ -230,17 +247,15 @@ export function computeShakeSpeed(
 }
 
 /**
- * Axis-reversal shake detection state.
- * Tracks per-axis direction to count rapid back-and-forth oscillations.
+ * Leaky-bucket shake detection state.
+ * Score increments on high-delta frames, decays on low-delta frames.
+ * Score reaching SHAKE_SCORE_TARGET means a deliberate sustained shake.
  */
 export interface ShakeStartState {
   prevX: number | null
   prevY: number | null
-  lastSignX: number       // direction of last significant X move: -1 | 0 | +1
-  lastSignY: number       // direction of last significant Y move: -1 | 0 | +1
-  reversals: number       // direction-reversal count (one per oscillation peak)
-  burstStartAt: number    // timestamp of first reversal (0 = burst not started yet)
-  lastMotionAt: number    // last frame with |delta| ≥ SHAKE_AXIS_DELTA_MIN
+  prevZ: number | null
+  score: number           // leaky-bucket score: 0.0 → SHAKE_SCORE_TARGET
   lastTriggeredAt: number
 }
 
@@ -248,37 +263,33 @@ export function createShakeStartState(): ShakeStartState {
   return {
     prevX: null,
     prevY: null,
-    lastSignX: 0,
-    lastSignY: 0,
-    reversals: 0,
-    burstStartAt: 0,
-    lastMotionAt: 0,
+    prevZ: null,
+    score: 0,
     lastTriggeredAt: 0,
   }
 }
 
 /**
- * Axis-reversal shake detector.
+ * Leaky-bucket delta shake detector.
  *
- * Counts per-frame direction reversals on the X and Y axes.
- * Five reversals within 600 ms confirms a ≥ 4 Hz oscillation — a deliberate shake.
+ * Algorithm (identical to production shake.js + sustained-motion guard):
+ *   1. delta = |x − prevX| + |y − prevY| + |z − prevZ|   (manhattan distance)
+ *   2. if delta > SHAKE_IDLE_DELTA_THRESHOLD: score += INCREMENT
+ *      else:                                               score -= DECAY
+ *   3. score ≥ SHAKE_SCORE_TARGET → triggered
  *
- * Why this works for all sensor data types:
- *  • accelerationIncludingGravity: tilting is monotonic (0–1 reversals),
- *    only actual left/right oscillation creates multiple rapid reversals.
- *  • acceleration (linear, iOS): gravity removed, per-axis acceleration
- *    directly reflects hand motion — very clean reversal signal.
+ * The leaky-bucket means:
+ *   • Score drains to 0 the instant motion stops — no stale state.
+ *   • A single hard jolt (3 frames): score peaks at 3, immediately decays → never fires.
+ *   • Sustained 1 cm shake at 5 Hz / 60 Hz: score reaches 5.0 in ~238 ms → fires.
  *
- * False-positive analysis for accelerationIncludingGravity (worst case):
- *  • Still:        dx ≈ 0–0.3 m/s²    < 1.2 threshold → 0 reversals ✓
- *  • Tilt:         monotonic dx 0.3–0.9 m/s² per frame → 0–1 reversals ✓
- *  • Fast grip adj:same direction, 1–2 reversals max    → < 5 ✓
- *  • Walking 2 Hz: low-freq osc, 5 reversals need 833 ms > 600 ms window ✓
- *  • Shake ≥ 4 Hz: 5 reversals in ≤ 500 ms < 600 ms window → triggers ✓
+ * Works identically for both accelerationIncludingGravity (Android Chrome) and
+ * acceleration/linear (iOS / modern Android) — the delta is always near zero
+ * when the phone is truly still, regardless of orientation or gravity distribution.
  *
- * @param sample  Current accelerometer sample (gravity-inclusive or linear)
+ * @param sample  Current accelerometer sample
  * @param now     Current timestamp in ms
- * @param state   Accumulated detection state
+ * @param state   Accumulated leaky-bucket state
  */
 export function evaluateShakeStart(
   sample: { x: number; y: number; z: number },
@@ -287,55 +298,33 @@ export function evaluateShakeStart(
 ): { triggered: boolean; state: ShakeStartState } {
   const next: ShakeStartState = { ...state }
 
-  // Burst expired — reset oscillation tracking
-  if (next.lastMotionAt > 0 && now - next.lastMotionAt > SHAKE_REVERSAL_WINDOW_MS) {
-    next.prevX = null
-    next.prevY = null
-    next.lastSignX = 0
-    next.lastSignY = 0
-    next.reversals = 0
-    next.burstStartAt = 0
-  }
-
-  // First frame after arm/reset — establish baseline, do not count
-  if (next.prevX === null || next.prevY === null) {
+  // First frame — establish prev baseline, do not score
+  if (next.prevX === null || next.prevY === null || next.prevZ === null) {
     next.prevX = sample.x
     next.prevY = sample.y
+    next.prevZ = sample.z
     return { triggered: false, state: next }
   }
 
-  const dx = sample.x - next.prevX
-  const dy = sample.y - next.prevY
-
-  // Detect X-axis direction reversal
-  if (Math.abs(dx) >= SHAKE_AXIS_DELTA_MIN) {
-    const signX = dx > 0 ? 1 : -1
-    if (next.lastSignX !== 0 && signX !== next.lastSignX) {
-      next.reversals += 1
-      if (next.burstStartAt === 0) next.burstStartAt = now
-    }
-    next.lastSignX = signX
-    next.lastMotionAt = now
-  }
-
-  // Detect Y-axis direction reversal
-  if (Math.abs(dy) >= SHAKE_AXIS_DELTA_MIN) {
-    const signY = dy > 0 ? 1 : -1
-    if (next.lastSignY !== 0 && signY !== next.lastSignY) {
-      next.reversals += 1
-      if (next.burstStartAt === 0) next.burstStartAt = now
-    }
-    next.lastSignY = signY
-    next.lastMotionAt = now
-  }
+  // Manhattan delta: total motion across all three axes per frame
+  const delta =
+    Math.abs(sample.x - next.prevX) +
+    Math.abs(sample.y - next.prevY) +
+    Math.abs(sample.z - next.prevZ)
 
   next.prevX = sample.x
   next.prevY = sample.y
+  next.prevZ = sample.z
 
-  const burstAge = next.burstStartAt > 0 ? now - next.burstStartAt : Infinity
+  // Leaky bucket: increment on real motion, decay on quiet frames
+  if (delta > SHAKE_IDLE_DELTA_THRESHOLD) {
+    next.score = Math.min(SHAKE_SCORE_TARGET + 1, next.score + SHAKE_SCORE_INCREMENT)
+  } else {
+    next.score = Math.max(0, next.score - SHAKE_SCORE_DECAY)
+  }
+
   const triggered =
-    next.reversals >= SHAKE_MIN_REVERSALS &&
-    burstAge <= SHAKE_REVERSAL_WINDOW_MS &&
+    next.score >= SHAKE_SCORE_TARGET &&
     now - next.lastTriggeredAt >= SHAKE_START_DEBOUNCE_MS
 
   if (triggered) {

@@ -10,10 +10,11 @@ import {
   readMotionSample,
   RESULT_DELAY_MAX_MS,
   RESULT_DELAY_MIN_MS,
-  SHAKE_AXIS_DELTA_MIN,
+  SHAKE_IDLE_DELTA_THRESHOLD,
   SHAKE_IDLE_WARMUP_FRAMES,
-  SHAKE_MIN_REVERSALS,
-  SHAKE_REVERSAL_WINDOW_MS,
+  SHAKE_SCORE_DECAY,
+  SHAKE_SCORE_INCREMENT,
+  SHAKE_SCORE_TARGET,
   SHAKE_SPEED_THRESHOLD,
 } from './shake-engine'
 import { orientationToMotionDelta } from './shake-motion-sensors'
@@ -25,21 +26,25 @@ import { orientationToMotionDelta } from './shake-motion-sensors'
 const G = 9.81
 
 /**
- * Simulate `accelerationIncludingGravity` for a phone held upright in portrait
- * shaking left-right at the given amplitude (m/s²) and frequency (Hz).
- * x oscillates ±amplitude, y = G (gravity straight down), z = 0.
+ * Simulate `accelerationIncludingGravity` for a phone held upright (portrait),
+ * shaking left-right at the given acceleration amplitude (m/s²) and frequency.
  *
- * Physical meaning: amplitude ≈ (2πf)² × displacement in meters.
- * At 5 Hz, amplitude=10 → displacement ≈ 1 cm. Normal deliberate shake.
+ * Physical conversion: amplitude ≈ (2πf)² × displacement_meters.
+ * Examples: 1 cm at 5 Hz → A ≈ 9.87 m/s²;  1.5 cm at 5 Hz → A ≈ 14.8 m/s².
+ *
+ * @param amplitude   Peak linear acceleration on X axis (m/s²)
+ * @param freqHz      Shake frequency in Hz
+ * @param durationMs  How long to simulate
+ * @param intervalMs  Sample interval (default 16 ms ≈ 60 Hz)
  */
 function makeShakeSamples(
   amplitude: number,
   freqHz: number,
   durationMs: number,
-  sampleIntervalMs = 10,
+  intervalMs = 16,
 ): Array<{ x: number; y: number; z: number }> {
   const samples: Array<{ x: number; y: number; z: number }> = []
-  for (let t = 0; t < durationMs; t += sampleIntervalMs) {
+  for (let t = 0; t < durationMs; t += intervalMs) {
     samples.push({
       x: amplitude * Math.sin((2 * Math.PI * freqHz * t) / 1000),
       y: G,
@@ -49,11 +54,15 @@ function makeShakeSamples(
   return samples
 }
 
+/**
+ * Run all samples through the leaky-bucket evaluator.
+ * Returns whether it ever triggered and the final score.
+ */
 function runSamples(
   samples: Array<{ x: number; y: number; z: number }>,
   startT = 10_000,
-  intervalMs = 10,
-): { triggered: boolean; finalReversals: number } {
+  intervalMs = 16,
+): { triggered: boolean; finalScore: number } {
   let state = createShakeStartState()
   let triggered = false
   for (let i = 0; i < samples.length; i++) {
@@ -61,7 +70,7 @@ function runSamples(
     state = result.state
     if (result.triggered) triggered = true
   }
-  return { triggered, finalReversals: state.reversals }
+  return { triggered, finalScore: state.score }
 }
 
 // ---------------------------------------------------------------------------
@@ -132,133 +141,165 @@ describe('computeShakeDelta', () => {
 })
 
 // ---------------------------------------------------------------------------
-// evaluateShakeStart — axis-reversal algorithm
+// evaluateShakeStart — leaky-bucket delta algorithm
 // ---------------------------------------------------------------------------
 
-describe('evaluateShakeStart — axis-reversal algorithm', () => {
-  it('does not trigger on first sample (no baseline yet)', () => {
+describe('evaluateShakeStart — leaky-bucket delta algorithm', () => {
+  // ── Baseline ──────────────────────────────────────────────────────────────
+
+  it('does not trigger on first sample (establishes baseline; no score yet)', () => {
     const result = evaluateShakeStart({ x: 0.1, y: 9.8, z: 0.2 }, 1_000, createShakeStartState())
     expect(result.triggered).toBe(false)
-    expect(result.state.reversals).toBe(0)
+    expect(result.state.score).toBe(0)
+    expect(result.state.prevX).toBe(0.1)
+    expect(result.state.prevY).toBe(9.8)
+    expect(result.state.prevZ).toBe(0.2)
   })
 
   // ── False-positive tests ──────────────────────────────────────────────────
 
-  it('does NOT trigger when phone is tilted monotonically (gravity redistribution)', () => {
-    // Phone tilts from 0° to 45° — x changes monotonically from 0 to G*sin(45°) ≈ 6.9
-    // Each step has the SAME sign dx → at most 1 reversal, never 5
+  it('does NOT trigger when phone is completely still', () => {
+    // All samples identical → manhattan delta = 0 every frame → score stays at 0
+    const still = Array.from({ length: 120 }, () => ({ x: 0.12, y: 9.75, z: 0.08 }))
+    const { triggered, finalScore } = runSamples(still, 8_000, 16)
+    expect(triggered).toBe(false)
+    expect(finalScore).toBe(0)
+  })
+
+  it('does NOT trigger when phone is held with slight hand tremor', () => {
+    // Sensor noise ±0.2 m/s² per axis → peak delta ≈ 0.6 m/s² << SHAKE_IDLE_DELTA_THRESHOLD
+    const tremor = Array.from({ length: 100 }, (_, i) => ({
+      x: 0.1 + (i % 2 === 0 ? 0.2 : -0.2),
+      y: G + (i % 3 === 0 ? 0.15 : -0.15),
+      z: 0.05,
+    }))
+    const { triggered } = runSamples(tremor, 10_000, 16)
+    expect(triggered).toBe(false)
+  })
+
+  it('does NOT trigger on monotonic phone tilt (gravity redistribution)', () => {
+    // Phone tilts 0° → 90°; x changes monotonically.
+    // dx per 40 ms step at 60 Hz ≈ 1.6 m/s² < SHAKE_IDLE_DELTA_THRESHOLD.
     const tiltSamples: Array<{ x: number; y: number; z: number }> = []
     for (let deg = 0; deg <= 90; deg += 3) {
       const rad = (deg * Math.PI) / 180
       tiltSamples.push({ x: G * Math.sin(rad), y: G * Math.cos(rad), z: 0 })
     }
-    const { triggered, finalReversals } = runSamples(tiltSamples, 5_000, 40)
-    expect(triggered).toBe(false)
-    expect(finalReversals).toBeLessThan(SHAKE_MIN_REVERSALS)
-  })
-
-  it('does NOT trigger when holding phone completely still', () => {
-    // All samples identical (no noise beyond sensor floor) → dx = 0 → 0 reversals
-    const still = Array.from({ length: 60 }, () => ({ x: 0.12, y: 9.75, z: 0.08 }))
-    const { triggered } = runSamples(still, 8_000, 16)
+    const { triggered } = runSamples(tiltSamples, 5_000, 40)
     expect(triggered).toBe(false)
   })
 
-  it('does NOT trigger from slow walking oscillation (2 Hz, low dx per frame)', () => {
-    // Walking lateral sway at 2 Hz: dx per frame = 0.5 × 2π × 2 / 60 ≈ 0.1 m/s² << 1.2 threshold
+  it('does NOT trigger from slow walking lateral sway (2 Hz, ±0.5 m/s²)', () => {
+    // Walking sway at 2 Hz creates |dx| ≈ 0.1 m/s² per 16 ms frame << threshold
     const walking: Array<{ x: number; y: number; z: number }> = []
     for (let i = 0; i < 80; i++) {
-      const t = i * 16 / 1000
+      const t = (i * 16) / 1000
       walking.push({ x: 0.5 * Math.sin(2 * Math.PI * 2 * t), y: G, z: 0 })
     }
     const { triggered } = runSamples(walking, 12_000, 16)
     expect(triggered).toBe(false)
   })
 
-  it('does NOT trigger from a single fast tilt (same direction throughout)', () => {
-    // Quick 60° tilt in 80ms: monotonic → same sign the whole time → 0–1 reversals
-    const fastTilt: Array<{ x: number; y: number; z: number }> = []
-    for (let i = 0; i <= 15; i++) {
-      const deg = (i / 15) * 60
-      const rad = (deg * Math.PI) / 180
-      fastTilt.push({ x: G * Math.sin(rad), y: G * Math.cos(rad), z: 0 })
-    }
-    const { triggered, finalReversals } = runSamples(fastTilt, 15_000, 10)
-    expect(triggered).toBe(false)
-    expect(finalReversals).toBeLessThan(2)
-  })
-
-  // ── True positive tests ───────────────────────────────────────────────────
-
-  it('triggers on a deliberate left-right shake (gravity-inclusive, 5 Hz, 10 m/s² amplitude)', () => {
-    // A=10 m/s² corresponds to ≈1 cm displacement at 5 Hz — normal moderate shake.
-    // At 100Hz sampling: dx per frame ≈ 10 × 2π × 5 / 100 = 3.14 m/s² >> threshold 1.2 ✓
-    const samples = makeShakeSamples(10, 5, 800, 10)
-    const { triggered } = runSamples(samples, 20_000, 10)
-    expect(triggered).toBe(true)
-  })
-
-  it('triggers on up-down shake (Y-axis oscillation, 5 Hz)', () => {
-    const samples: Array<{ x: number; y: number; z: number }> = []
-    for (let i = 0; i < 80; i++) {
-      const t = i * 10 / 1000
-      samples.push({ x: 0, y: G + 10 * Math.sin(2 * Math.PI * 5 * t), z: 0 })
-    }
-    const { triggered } = runSamples(samples, 25_000, 10)
-    expect(triggered).toBe(true)
-  })
-
-  it('triggers on linear acceleration shake (iOS / modern Android, no gravity)', () => {
-    // Linear: no gravity component; x oscillates around 0 directly
-    const samples: Array<{ x: number; y: number; z: number }> = []
-    for (let i = 0; i < 80; i++) {
-      const t = i * 10 / 1000
-      samples.push({ x: 10 * Math.sin(2 * Math.PI * 5 * t), y: 0, z: 0 })
-    }
-    const { triggered } = runSamples(samples, 30_000, 10)
-    expect(triggered).toBe(true)
-  })
-
-  it('resets reversal count when gap exceeds SHAKE_REVERSAL_WINDOW_MS', () => {
-    // Need ≥3 frames to register 1 reversal: baseline, first sign, then opposite sign
-    const t0 = 40_000
+  it('does NOT trigger from a single hard jolt (3 high-delta frames)', () => {
+    // A jolt (e.g. setting phone down hard) creates at most 3 high-delta frames.
+    // Score after 3 high frames = 3; target = 5 → does not trigger.
     let state = createShakeStartState()
+    const t0 = 10_000
+    const baseline = { x: 0, y: G, z: 0 }
+    // Frame 0: establish baseline
+    let r = evaluateShakeStart(baseline, t0, state)
+    state = r.state
+    // Frames 1–3: large jolt — delta ≈ 23 m/s² each
+    r = evaluateShakeStart({ x: 15, y: G - 5, z: 3 }, t0 + 16, state)
+    state = r.state
+    r = evaluateShakeStart({ x: -15, y: G + 5, z: -3 }, t0 + 32, state)
+    state = r.state
+    r = evaluateShakeStart(baseline, t0 + 48, state)
+    state = r.state
+    expect(r.triggered).toBe(false)
+    expect(state.score).toBeLessThan(SHAKE_SCORE_TARGET)
+  })
 
-    const shakeFrame = (sign: number) => ({ x: sign * 5, y: G, z: 0 })
-    // Frame 1: sets baseline (prevX = 5)
-    let r = evaluateShakeStart(shakeFrame(1), t0, state)
-    state = r.state
-    // Frame 2: dx = -10 → lastSignX = -1 (first sign, no reversal yet)
-    r = evaluateShakeStart(shakeFrame(-1), t0 + 100, state)
-    state = r.state
-    // Frame 3: dx = +10 → sign change (-1 → +1) → reversal 1
-    r = evaluateShakeStart(shakeFrame(1), t0 + 200, state)
-    state = r.state
-    expect(state.reversals).toBeGreaterThan(0)
+  it('score decays back to zero after motion stops', () => {
+    let state = createShakeStartState()
+    const t0 = 20_000
+    // Build up some score with a few high-delta frames
+    state = evaluateShakeStart({ x: 0, y: G, z: 0 }, t0, state).state
+    state = evaluateShakeStart({ x: 8, y: G, z: 0 }, t0 + 16, state).state  // delta = 8 → +1
+    state = evaluateShakeStart({ x: -8, y: G, z: 0 }, t0 + 32, state).state // delta = 16 → +1
+    expect(state.score).toBeGreaterThan(0)
+    // Now 60 silent frames — score must drain to 0
+    for (let i = 0; i < 60; i++) {
+      state = evaluateShakeStart({ x: 0, y: G, z: 0 }, t0 + 64 + i * 16, state).state
+    }
+    expect(state.score).toBe(0)
+  })
 
-    // Long gap → burst should reset
-    r = evaluateShakeStart(shakeFrame(0), t0 + 10_000, state)
-    expect(r.state.reversals).toBe(0)
-    expect(r.state.burstStartAt).toBe(0)
+  // ── True-positive tests ───────────────────────────────────────────────────
+
+  it('triggers on a deliberate left-right shake (1 cm, 5 Hz, 60 Hz sampling)', () => {
+    // A = 9.87 m/s² (1 cm at 5 Hz).  Peak |dx|/frame at 60 Hz = 5.17 m/s² > 3.0.
+    // Score reaches 5.0 in ~238 ms.
+    const samples = makeShakeSamples(9.87, 5, 600, 16)
+    const { triggered } = runSamples(samples, 20_000, 16)
+    expect(triggered).toBe(true)
+  })
+
+  it('triggers on a deliberate left-right shake (1.5 cm, 5 Hz, 100 Hz sampling)', () => {
+    // A = 14.8 m/s² (1.5 cm at 5 Hz).  Peak |dx|/frame at 100 Hz = 4.65 m/s² > 3.0.
+    const samples = makeShakeSamples(14.8, 5, 600, 10)
+    const { triggered } = runSamples(samples, 22_000, 10)
+    expect(triggered).toBe(true)
+  })
+
+  it('triggers on up-down shake (Y-axis oscillation, 5 Hz, 60 Hz)', () => {
+    const samples: Array<{ x: number; y: number; z: number }> = []
+    for (let i = 0; i < 80; i++) {
+      const t = (i * 16) / 1000
+      samples.push({ x: 0, y: G + 9.87 * Math.sin(2 * Math.PI * 5 * t), z: 0 })
+    }
+    const { triggered } = runSamples(samples, 25_000, 16)
+    expect(triggered).toBe(true)
+  })
+
+  it('triggers on linear-acceleration shake (iOS / modern Android, no gravity component)', () => {
+    // iOS returns acceleration (linear, no gravity), not accelerationIncludingGravity.
+    // The delta of a linear-acceleration signal behaves identically.
+    const samples: Array<{ x: number; y: number; z: number }> = []
+    for (let i = 0; i < 80; i++) {
+      const t = (i * 16) / 1000
+      samples.push({ x: 9.87 * Math.sin(2 * Math.PI * 5 * t), y: 0, z: 0 })
+    }
+    const { triggered } = runSamples(samples, 30_000, 16)
+    expect(triggered).toBe(true)
+  })
+
+  it('re-triggers after a successful shake (lastTriggeredAt gate respects debounce)', () => {
+    // The state resets after triggering; a second shake should also trigger.
+    const samples = makeShakeSamples(9.87, 5, 1000, 16)
+    let state = createShakeStartState()
+    const triggerTimes: number[] = []
+    for (let i = 0; i < samples.length; i++) {
+      const result = evaluateShakeStart(samples[i], 50_000 + i * 16, state)
+      state = result.state
+      if (result.triggered) triggerTimes.push(50_000 + i * 16)
+    }
+    expect(triggerTimes.length).toBeGreaterThanOrEqual(1)
   })
 
   // ── Constant validation ───────────────────────────────────────────────────
 
-  it('SHAKE_AXIS_DELTA_MIN is between 0.9 and 2.0 m/s²', () => {
-    expect(SHAKE_AXIS_DELTA_MIN).toBeGreaterThan(0.9)
-    expect(SHAKE_AXIS_DELTA_MIN).toBeLessThan(2.0)
+  it('SHAKE_IDLE_DELTA_THRESHOLD is between 2 and 5 m/s² (catches real shake, rejects noise)', () => {
+    expect(SHAKE_IDLE_DELTA_THRESHOLD).toBeGreaterThan(2.0)
+    expect(SHAKE_IDLE_DELTA_THRESHOLD).toBeLessThan(5.0)
   })
 
-  it('SHAKE_MIN_REVERSALS requires multiple oscillations (≥ 4)', () => {
-    expect(SHAKE_MIN_REVERSALS).toBeGreaterThanOrEqual(4)
+  it('SHAKE_SCORE_TARGET requires multiple frames of sustained motion (≥ 4)', () => {
+    expect(SHAKE_SCORE_TARGET).toBeGreaterThanOrEqual(4.0)
   })
 
-  it('SHAKE_REVERSAL_WINDOW_MS is tight enough to require ≥ 3.5 Hz shake', () => {
-    // window / (reversals - 1) = max interval between consecutive reversals
-    // 1/(2 × max_interval) = minimum detectable frequency
-    const maxIntervalMs = SHAKE_REVERSAL_WINDOW_MS / (SHAKE_MIN_REVERSALS - 1)
-    const minFreqHz = 1000 / (maxIntervalMs * 2)
-    expect(minFreqHz).toBeGreaterThan(3.0)
+  it('SHAKE_SCORE_INCREMENT > SHAKE_SCORE_DECAY (sustained shake grows score)', () => {
+    expect(SHAKE_SCORE_INCREMENT).toBeGreaterThan(SHAKE_SCORE_DECAY)
   })
 })
 
@@ -296,7 +337,11 @@ describe('randomRevealDelayMs', () => {
 // ---------------------------------------------------------------------------
 
 describe('SHAKE_IDLE_WARMUP_FRAMES', () => {
-  it('provides long enough settling time (≥ 60 frames for ~600 ms at 100 Hz)', () => {
+  it('provides at least 1 s settling time at 60 Hz (≥ 60 frames)', () => {
     expect(SHAKE_IDLE_WARMUP_FRAMES).toBeGreaterThanOrEqual(60)
+  })
+
+  it('is set to 100 frames for full PIN-tap + navigation + grip-settle absorption', () => {
+    expect(SHAKE_IDLE_WARMUP_FRAMES).toBe(100)
   })
 })
