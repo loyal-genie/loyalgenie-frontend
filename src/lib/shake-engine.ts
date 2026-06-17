@@ -7,6 +7,12 @@ export const CHARGE_MS = 300
 export const RESULT_DELAY_MIN_MS = 5000
 export const RESULT_DELAY_MAX_MS = 7000
 
+/**
+ * After the shake page loads, ignore motion for this long while the sensor
+ * baseline settles (PIN entry / navigation often causes false shake triggers).
+ */
+export const SHAKE_DETECTION_ARM_DELAY_MS = 1200
+
 /** Uniform random delay in [RESULT_DELAY_MIN_MS, RESULT_DELAY_MAX_MS]. */
 export function randomRevealDelayMs(): number {
   const span = RESULT_DELAY_MAX_MS - RESULT_DELAY_MIN_MS

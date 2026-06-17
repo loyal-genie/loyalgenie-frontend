@@ -30,6 +30,7 @@ import {
   needsMotionPermissionPrompt,
   prefersReducedMotion,
   randomRevealDelayMs,
+  SHAKE_DETECTION_ARM_DELAY_MS,
   vibrate,
 } from '@/lib/shake-engine'
 
@@ -61,6 +62,7 @@ export function CustomerShakePage() {
   const [attempts, setAttempts] = useState<{ used: number; total: number } | null>(null)
   const [error, setError] = useState('')
   const [playStateReady, setPlayStateReady] = useState(false)
+  const [shakeDetectionArmed, setShakeDetectionArmed] = useState(false)
 
   const shakeStartRef = useRef<number | null>(null)
   const sequenceStartRef = useRef<number | null>(null)
@@ -75,6 +77,7 @@ export function CustomerShakePage() {
   const apiReadyRef = useRef(false)
   const latestWonRef = useRef(false)
   const revealingRef = useRef(false)
+  const armTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const customerId = getUser()?.userId
   const playSession = campaignId ? getPlaySession(campaignId) : null
@@ -248,9 +251,10 @@ export function CustomerShakePage() {
 
   const onPhysicalShakeRef = useRef<(() => void) | null>(null)
 
-  const { ensurePermission, permission, primeFromGesture } = useDeviceShake({
+  const { ensurePermission, permission, primeFromGesture, armShakeDetection } = useDeviceShake({
     listenIdle:
       motionPlay &&
+      shakeDetectionArmed &&
       phase === 'idle' &&
       playStateReady &&
       canPlay &&
@@ -269,6 +273,7 @@ export function CustomerShakePage() {
     if (
       startingRef.current ||
       phase !== 'idle' ||
+      !shakeDetectionArmed ||
       !playStateReady ||
       !canPlay ||
       playsLeft === null ||
@@ -285,20 +290,53 @@ export function CustomerShakePage() {
     setPhase('shaking')
     hapticCharge()
     startingRef.current = false
-  }, [phase, canPlay, playsLeft, playSession, playStateReady, kickOffPlay])
+  }, [phase, shakeDetectionArmed, canPlay, playsLeft, playSession, playStateReady, kickOffPlay])
 
   const onPhysicalShake = useCallback(() => {
-    if (!motionPlay || phase !== 'idle') return
+    if (!motionPlay || phase !== 'idle' || !shakeDetectionArmed) return
     if (needsMotionPermissionPrompt() && permission !== 'granted') {
       setMotionHint('needed')
       return
     }
     beginPlayAfterShake()
-  }, [motionPlay, phase, permission, beginPlayAfterShake])
+  }, [motionPlay, phase, shakeDetectionArmed, permission, beginPlayAfterShake])
 
   onPhysicalShakeRef.current = onPhysicalShake
 
-  // Auto-prime sensors (PIN taps count as user gesture) — shake works immediately, no tap on this screen.
+  const clearArmTimer = useCallback(() => {
+    if (armTimerRef.current) {
+      clearTimeout(armTimerRef.current)
+      armTimerRef.current = null
+    }
+  }, [])
+
+  /**
+   * Wait for sensor baseline to settle after PIN entry / navigation, then arm
+   * shake detection so only a deliberate shake starts the 5–7s reveal sequence.
+   */
+  const scheduleShakeDetectionArm = useCallback(() => {
+    clearArmTimer()
+    setShakeDetectionArmed(false)
+
+    if (!motionPlay || !playStateReady || !canPlay) return
+    if (needsMotionPermissionPrompt() && permission !== 'granted') return
+
+    armTimerRef.current = setTimeout(() => {
+      armTimerRef.current = null
+      armShakeDetection()
+      setShakeDetectionArmed(true)
+      setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
+    }, SHAKE_DETECTION_ARM_DELAY_MS)
+  }, [
+    motionPlay,
+    playStateReady,
+    canPlay,
+    permission,
+    clearArmTimer,
+    armShakeDetection,
+  ])
+
+  // Keep sensors attached from PIN gesture, but do not arm detection until grace elapses.
   useEffect(() => {
     if (!motionPlay || !playStateReady || !canPlay) return
 
@@ -307,22 +345,35 @@ export function CustomerShakePage() {
       primeFromGesture()
     }
 
+    scheduleShakeDetectionArm()
+
     if (needsMotionPermissionPrompt() && permission !== 'granted') {
       setMotionHint('needed')
-    } else {
-      setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
     }
-  }, [motionPlay, playStateReady, canPlay, primeFromGesture, permission])
+
+    return () => clearArmTimer()
+  }, [
+    motionPlay,
+    playStateReady,
+    canPlay,
+    primeFromGesture,
+    permission,
+    scheduleShakeDetectionArm,
+    clearArmTimer,
+  ])
 
   // iOS: one tap only when motion permission still required.
   const handlePermissionTap = useCallback(() => {
     if (!motionPlay || phase !== 'idle' || motionHint !== 'needed') return
     primeFromGesture()
     void ensurePermission().then(perm => {
-      if (perm === 'granted') setMotionHint(sensorPulseRef.current ? 'live' : 'ready')
-      else setMotionHint('needed')
+      if (perm === 'granted') {
+        scheduleShakeDetectionArm()
+      } else {
+        setMotionHint('needed')
+      }
     })
-  }, [motionPlay, phase, motionHint, primeFromGesture, ensurePermission])
+  }, [motionPlay, phase, motionHint, primeFromGesture, ensurePermission, scheduleShakeDetectionArm])
 
   useEffect(() => {
     if (motionPlay) return
@@ -365,12 +416,15 @@ export function CustomerShakePage() {
     sequenceStartRef.current = null
     resultDeadlineRef.current = null
     clearPlayTimers()
+    clearArmTimer()
+    setShakeDetectionArmed(false)
     setIntensity(0)
     setShakeProgress(0)
     setPhase('idle')
     setWon(false)
     sensorPulseRef.current = false
     setMotionHint('ready')
+    scheduleShakeDetectionArm()
   }
 
   if (campaignLoading || stateLoading) {
@@ -409,7 +463,9 @@ export function CustomerShakePage() {
           : motionPlay
             ? motionHint === 'needed'
               ? 'Tap once to allow motion, then shake!'
-              : 'Shake your phone to start!'
+              : !shakeDetectionArmed
+                ? 'Hold steady… get ready to shake!'
+                : 'Shake your phone to start!'
             : 'Tap or press spacebar to start!'
         : blockReason === 'daily_participant_limit' || blockReason === 'user_cap'
           ? 'Campaign is full — no new players today'

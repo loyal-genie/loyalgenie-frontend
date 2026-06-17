@@ -17,7 +17,6 @@ import {
 } from '@/lib/shake-engine'
 import {
   armFromUserGesture,
-  isMotionSensorAttached,
   motionPermissionOk,
   orientationToMotionDelta,
   setMotionSensorHandlers,
@@ -56,7 +55,8 @@ export function useDeviceShake({
   const onShakeSpikeRef = useRef(onShakeSpike)
   const onSensorPulseRef = useRef(onSensorPulse)
 
-  listenIdleRef.current = listenIdle && (sensorsPrimed || isMotionSensorAttached())
+  // Require explicit arm — PIN page may attach sensors but must not start detection yet.
+  listenIdleRef.current = listenIdle && sensorsPrimed
   listenActiveRef.current = listenActive
   onShakeStartRef.current = onShakeStart
   onIntensityRef.current = onIntensity
@@ -125,11 +125,26 @@ export function useDeviceShake({
     setMotionSensorHandlers(handleMotion, handleOrientation, () => onSensorPulseRef.current?.())
   }, [handleMotion, handleOrientation])
 
+  const resetMotionBaseline = useCallback(() => {
+    prevSampleRef.current = null
+    orientPrevRef.current = null
+    startStateRef.current = createShakeStartState()
+    speedStateRef.current = createShakeSpeedState()
+    lastStartAtRef.current = 0
+  }, [])
+
   const primeFromGesture = useCallback(() => {
     armFromUserGesture()
     wireHandlers()
-    setSensorsPrimed(true)
   }, [wireHandlers])
+
+  /** Reset sensor baseline and enable shake-start detection. */
+  const armShakeDetection = useCallback(() => {
+    armFromUserGesture()
+    wireHandlers()
+    resetMotionBaseline()
+    setSensorsPrimed(true)
+  }, [wireHandlers, resetMotionBaseline])
 
   const ensurePermission = useCallback(async (): Promise<MotionPermission> => {
     if (permission === 'granted' || permission === 'unsupported') {
@@ -161,5 +176,12 @@ export function useDeviceShake({
     }
   }, [listenIdle, listenActive])
 
-  return { ensurePermission, permission, sensorsPrimed, primeFromGesture }
+  return {
+    ensurePermission,
+    permission,
+    sensorsPrimed,
+    primeFromGesture,
+    armShakeDetection,
+    resetMotionBaseline,
+  }
 }

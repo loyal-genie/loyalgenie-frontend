@@ -164,3 +164,11 @@ describe('randomRevealDelayMs', () => {
     }
   })
 })
+
+describe('SHAKE_DETECTION_ARM_DELAY_MS', () => {
+  it('allows baseline to settle after PIN navigation', async () => {
+    const { SHAKE_DETECTION_ARM_DELAY_MS } = await import('./shake-engine')
+    expect(SHAKE_DETECTION_ARM_DELAY_MS).toBeGreaterThanOrEqual(800)
+    expect(SHAKE_DETECTION_ARM_DELAY_MS).toBeLessThanOrEqual(2000)
+  })
+})
