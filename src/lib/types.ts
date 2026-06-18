@@ -1,4 +1,4 @@
-export type MechanicType = 'shake' | 'stamp' | 'spin' | 'dice' | 'lottery'
+export type MechanicType = 'shake' | 'stamp' | 'check-in-loyalty' | 'spin' | 'dice' | 'lottery'
 export type CampaignStatus = 'active' | 'draft' | 'ended' | 'paused'
 export type RewardType = 'single' | 'range'
 
@@ -21,7 +21,7 @@ export interface Campaign {
   currentUsers: number
   playsPerUser: number
   rewards: Reward[]
-  config: ShakeConfig | StampConfig | SpinConfig | DiceConfig | LotteryConfig
+  config: ShakeConfig | StampConfig | CheckInLoyaltyConfig | SpinConfig | DiceConfig | LotteryConfig
   pin: string
   pinExpiresAt: number
   participations: number
@@ -44,6 +44,12 @@ export interface StampConfig {
   bigRewardPosition: number
   surpriseReward: Reward
   bigReward: Reward
+}
+
+export interface CheckInLoyaltyConfig {
+  type: 'check-in-loyalty'
+  pointsPerCheckIn: number
+  milestones: { name: string; icon: string; pointsThreshold: number }[]
 }
 
 export interface SpinConfig {

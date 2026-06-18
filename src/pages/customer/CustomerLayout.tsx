@@ -2,7 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 
 export function CustomerLayout() {
   const { pathname } = useLocation()
-  const isGameRoute = pathname.includes('/customer/games/')
+  const isGameRoute = pathname.includes('/customer/games/') || pathname.includes('/customer/check-in')
 
   return (
     <div className={`min-h-dvh flex justify-center ${isGameRoute ? 'bg-[#0D0B1E]' : 'bg-gray-50'}`}>

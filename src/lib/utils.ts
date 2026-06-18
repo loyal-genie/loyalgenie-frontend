@@ -14,6 +14,7 @@ export function getMechanicLabel(mechanic: MechanicType): string {
   const map: Record<MechanicType, string> = {
     shake: 'Shake & Win',
     stamp: 'Stamp Card',
+    'check-in-loyalty': 'Check-in Loyalty',
     spin: 'Spin a Wheel',
     dice: 'Roll a Dice',
     lottery: 'Lottery',
@@ -25,6 +26,7 @@ export function getMechanicEmoji(mechanic: MechanicType | string): string {
   const map: Record<string, string> = {
     shake: '🤳',
     stamp: '🎯',
+    'check-in-loyalty': '⭐',
     spin: '🎡',
     dice: '🎲',
     lottery: '🎟️',
@@ -37,6 +39,7 @@ export function getMechanicColor(mechanic: MechanicType): string {
   const map: Record<MechanicType, string> = {
     shake: '#EC4899',
     stamp: '#F59E0B',
+    'check-in-loyalty': '#7C3AED',
     spin: '#06B6D4',
     dice: '#22C55E',
     lottery: '#8B5CF6',
@@ -78,6 +81,7 @@ export function capPercent(current: number, cap: number): number {
 
 export const MECHANIC_META: Record<MechanicType, { label: string; badgeBg: string; badgeText: string; cardFrom: string; cardTo: string; emoji: string }> = {
   stamp: { label: 'STAMP', badgeBg: '#FEF3C7', badgeText: '#92400E', cardFrom: '#F59E0B', cardTo: '#D97706', emoji: '🧾' },
+  'check-in-loyalty': { label: 'LOYALTY', badgeBg: '#EDE9FE', badgeText: '#5B21B6', cardFrom: '#7C3AED', cardTo: '#4C1D95', emoji: '⭐' },
   spin: { label: 'SPIN A WHEEL', badgeBg: '#EDE9FE', badgeText: '#5B21B6', cardFrom: '#7C3AED', cardTo: '#4C1D95', emoji: '🎡' },
   shake: { label: 'SCRATCH', badgeBg: '#DBEAFE', badgeText: '#1E40AF', cardFrom: '#3B82F6', cardTo: '#1D4ED8', emoji: '🃏' },
   dice: { label: 'MYSTERY BOX', badgeBg: '#FCE7F3', badgeText: '#9D174D', cardFrom: '#BE185D', cardTo: '#831843', emoji: '📦' },

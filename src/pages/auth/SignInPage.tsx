@@ -7,7 +7,7 @@ import { type AuthAudience } from '@/components/auth/AuthRoleToggle'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
-import { signInBusiness, signInCustomer, getApiErrorMessage } from '@/lib/api'
+import { signInBusiness, signInCustomer, fetchCheckInPrompt, getApiErrorMessage } from '@/lib/api'
 import { setSession } from '@/lib/auth'
 
 interface BusinessSignInForm {
@@ -57,7 +57,7 @@ export function SignInPage() {
 
   const customerMutation = useMutation({
     mutationFn: (data: CustomerSignInForm) => signInCustomer(data.email, data.password),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setSession(data.token, {
         userId: data.userId,
         email: data.email,
@@ -65,7 +65,20 @@ export function SignInPage() {
         name: data.name,
         phone: data.phone,
       })
-      navigate(from.startsWith('/customer') ? from : '/customer', { replace: true })
+      if (from.startsWith('/customer') && from !== '/customer') {
+        navigate(from, { replace: true })
+        return
+      }
+      try {
+        const prompt = await fetchCheckInPrompt()
+        if (prompt.hasPendingCheckIn && prompt.campaignId) {
+          navigate(`/customer/check-in?campaign=${prompt.campaignId}`, { replace: true })
+          return
+        }
+      } catch {
+        // fall through to default home
+      }
+      navigate('/customer', { replace: true })
     },
     onError: (err) => {
       const msg = getApiErrorMessage(err, 'Invalid email or password. Please try again.')

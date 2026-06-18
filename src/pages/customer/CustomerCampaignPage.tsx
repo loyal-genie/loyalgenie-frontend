@@ -8,6 +8,7 @@ import {
   verifyCampaignPin,
   fetchPlayState,
   fetchStampState,
+  fetchLoyaltyState,
   fetchAuthSession,
   getApiErrorMessage,
 } from '@/lib/api'
@@ -76,6 +77,13 @@ export function CustomerCampaignPage() {
     staleTime: 0,
   })
 
+  const { data: loyaltyState } = useQuery({
+    queryKey: ['loyalty-state', id, serverSession?.userId],
+    queryFn: () => fetchLoyaltyState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'check-in-loyalty',
+    staleTime: 0,
+  })
+
   const verifyMutation = useMutation({
     mutationFn: (enteredPin: string) => {
       if (!getToken()) {
@@ -87,6 +95,8 @@ export function CustomerCampaignPage() {
       setPlaySession(id!, data.playSessionToken)
       if (campaign?.mechanic === 'stamp') {
         navigate(`/customer/games/stamp?campaign=${id}&collect=1`)
+      } else if (campaign?.mechanic === 'check-in-loyalty') {
+        navigate(`/customer/check-in?campaign=${id}`)
       } else {
         navigate(`/customer/games/shake?campaign=${id}`)
       }
@@ -103,6 +113,7 @@ export function CustomerCampaignPage() {
 
   const color = campaign ? getMechanicColor(campaign.mechanic as 'shake') : '#7C3AED'
   const isStamp = campaign?.mechanic === 'stamp'
+  const isLoyalty = campaign?.mechanic === 'check-in-loyalty'
 
   const handleBack = () => {
     if (campaign?.businessId) {
@@ -214,6 +225,19 @@ export function CustomerCampaignPage() {
             <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               <span className="text-xs font-bold text-amber-200">{campaign.winRatePercent}% chance to win!</span>
+            </div>
+          )}
+          {campaign.mechanic === 'check-in-loyalty' && loyaltyState && (
+            <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-purple-400/15 border border-purple-400/30">
+              <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+              <span className="text-xs font-bold text-purple-200">
+                {loyaltyState.loyaltyPoints} pts · +{loyaltyState.pointsPerCheckIn} per check-in
+              </span>
+            </div>
+          )}
+          {campaign.mechanic === 'check-in-loyalty' && loyaltyState?.checkedInToday && (
+            <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">
+              <span className="text-xs font-bold text-white/80">Checked in today ✓</span>
             </div>
           )}
           {campaign.mechanic === 'stamp' && stampState && (
@@ -370,14 +394,14 @@ export function CustomerCampaignPage() {
             {verifyMutation.isPending ? (
               <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Verifying…</span>
             ) : pin.length === 3 ? (
-              isStamp ? `Collect Stamp ${getMechanicEmoji(campaign.mechanic)}` : `Let's Shake! ${getMechanicEmoji(campaign.mechanic)}`
+              isStamp ? `Collect Stamp ${getMechanicEmoji(campaign.mechanic)}` : isLoyalty ? `Check In ${getMechanicEmoji(campaign.mechanic)}` : `Let's Shake! ${getMechanicEmoji(campaign.mechanic)}`
             ) : (
               'Enter 3-digit PIN'
             )}
           </motion.button>
 
           <p className="text-center text-[10px] text-white/30 mt-4">
-            {isStamp ? 'PIN rotates daily at midnight' : 'PIN refreshes every 2 min on staff screen'}
+            {isStamp ? 'PIN rotates daily at midnight' : isLoyalty ? 'PIN refreshes every 2 min on staff screen' : 'PIN refreshes every 2 min on staff screen'}
           </p>
         </motion.div>
       </div>

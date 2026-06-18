@@ -76,9 +76,20 @@ export function VendorDashboardPage() {
           <h1 className="text-2xl font-extrabold text-v-text">Good morning, {businessName} ☕</h1>
           <p className="text-v-text-2 text-sm mt-1">{todayLabel} · {activeCamps.length} campaigns running · {n} customers</p>
         </div>
-        <Link to="/vendor/campaigns/create">
-          <Button variant="primary"><Plus className="w-4 h-4" /> New Campaign</Button>
-        </Link>
+        <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+          {activeCamps.filter(c => c.mechanic === 'check-in-loyalty').slice(0, 1).map(c => (
+            <div key={c.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-200 bg-purple-50">
+              <div className="text-right hidden sm:block">
+                <p className="text-[10px] font-bold text-v-purple uppercase tracking-wider">Staff PIN</p>
+                <p className="text-[9px] text-v-text-3">Refreshes every 2 min</p>
+              </div>
+              <LivePIN campaignId={c.id} active={c.status === 'active'} compact />
+            </div>
+          ))}
+          <Link to="/vendor/campaigns/create">
+            <Button variant="primary"><Plus className="w-4 h-4" /> New Campaign</Button>
+          </Link>
+        </div>
       </motion.div>
 
       <motion.div variants={fadeUp(1)} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 gap-4">

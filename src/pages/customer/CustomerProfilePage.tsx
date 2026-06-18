@@ -1,16 +1,31 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { LogOut } from 'lucide-react'
+import { LogOut, Star, Gift, ChevronRight } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { BottomNav } from '@/components/customer/bottom-nav'
 import { Button } from '@/components/ui/button'
-import { business } from '@/lib/mock-data'
-import { getMechanicEmoji, formatDate, formatRelativeTime } from '@/lib/utils'
+import { formatDate, formatRelativeTime } from '@/lib/utils'
 import { clearSession } from '@/lib/auth'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
+import { fetchCustomerLoyaltyProfile, fetchCustomerRewards } from '@/lib/api'
 
 export function CustomerProfilePage() {
   const navigate = useNavigate()
   const { customer, displayName, displayPhone, displayEmail } = useCustomerSession()
+
+  const { data: loyaltyProfiles = [] } = useQuery({
+    queryKey: ['customer-loyalty-profile'],
+    queryFn: fetchCustomerLoyaltyProfile,
+  })
+
+  const { data: rewards = [] } = useQuery({
+    queryKey: ['customer-rewards'],
+    queryFn: fetchCustomerRewards,
+  })
+
+  const totalLoyaltyPoints = loyaltyProfiles.reduce((s, p) => s + p.loyaltyPoints, 0)
+  const totalVisits = loyaltyProfiles.reduce((s, p) => s + p.totalCheckIns, 0)
+  const pendingRewards = rewards.filter(r => r.status === 'pending')
 
   function handleSignOut() {
     clearSession()
@@ -37,9 +52,9 @@ export function CustomerProfilePage() {
           className="grid grid-cols-3 gap-2 mb-6"
         >
           {[
-            { label: 'Visits',  value: customer.totalVisits,   icon: '📅' },
-            { label: 'Games',   value: customer.gamesPlayed,   icon: '🎮' },
-            { label: 'Rewards', value: customer.rewardsEarned, icon: '🎁' },
+            { label: 'Loyalty Pts', value: totalLoyaltyPoints || customer.totalVisits, icon: '⭐' },
+            { label: 'Check-ins',   value: totalVisits || customer.totalVisits,         icon: '📅' },
+            { label: 'Rewards',     value: rewards.length || customer.rewardsEarned,    icon: '🎁' },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl p-3 text-center border border-gray-100 shadow-sm">
               <div className="text-2xl mb-1">{s.icon}</div>
@@ -49,60 +64,124 @@ export function CustomerProfilePage() {
           ))}
         </motion.div>
 
-        {/* Business info */}
+        {/* Loyalty points by business */}
+        {loyaltyProfiles.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="mb-5"
+          >
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5 text-purple-500" /> Loyalty Points
+            </h2>
+            <div className="space-y-2">
+              {loyaltyProfiles.map(profile => (
+                <div key={profile.campaignId} className="bg-white rounded-2xl p-4 border border-purple-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{profile.businessName}</p>
+                      <p className="text-[10px] text-gray-400">{profile.campaignName}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-purple-700">{profile.loyaltyPoints}</p>
+                      <p className="text-[9px] text-gray-400">{profile.totalCheckIns} check-ins</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {profile.milestones.map(m => (
+                      <div key={m.name} className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg ${m.unlocked ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-400'}`}>
+                        <span>{m.icon}</span>
+                        <span className="flex-1 font-medium">{m.name}</span>
+                        <span className="text-[10px]">{m.pointsThreshold} pts</span>
+                        {m.unlocked && m.awarded && (
+                          <span className="text-[9px] font-bold text-green-600">Unlocked</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Redeemable rewards */}
+        {pendingRewards.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.14 }}
+            className="mb-5"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Gift className="w-3.5 h-3.5 text-amber-500" /> Ready to Redeem
+              </h2>
+              <Link to="/customer/wallet" className="text-[10px] font-semibold text-purple-600 flex items-center gap-0.5">
+                Wallet <ChevronRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {pendingRewards.slice(0, 3).map(r => (
+                <div key={r.id} className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-3 flex items-center gap-3 border border-amber-200">
+                  <span className="text-2xl">{r.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-gray-900 truncate">{r.reward}</p>
+                    <p className="text-[10px] text-gray-500">{r.campaignName}</p>
+                  </div>
+                  <span className="text-[9px] font-mono font-bold text-amber-700 bg-white px-2 py-1 rounded-lg">{r.code}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-2 text-center">Show code at counter — staff verifies redemption</p>
+          </motion.div>
+        )}
+
+        {/* Business info - only if no loyalty data */}
+        {loyaltyProfiles.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
           className="bg-white rounded-2xl p-4 mb-5 border border-gray-100 shadow-sm"
         >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-xl">
-              {business.logo}
-            </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900">{business.name}</p>
-              <p className="text-xs text-gray-500">{business.category}</p>
-            </div>
-          </div>
-          <div className="text-xs text-gray-400 leading-relaxed">{business.hours}</div>
+          <p className="text-sm text-gray-500 text-center py-2">Check in at participating stores to earn loyalty points!</p>
         </motion.div>
+        )}
 
-        {/* Recent activity */}
+        {/* Recent activity - from rewards */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Recent Activity</h2>
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Recent Rewards</h2>
           <div className="space-y-2">
-            {customer.gameHistory.map((g, i) => (
+            {rewards.length > 0 ? rewards.slice(0, 5).map((r, i) => (
               <motion.div
-                key={g.id}
+                key={r.id}
                 initial={{ opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.06 + 0.2 }}
                 className="bg-white rounded-xl p-3 flex items-center gap-3 border border-gray-100 shadow-sm"
               >
                 <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-lg shrink-0">
-                  {getMechanicEmoji(g.mechanic)}
+                  {r.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-gray-900 truncate">{g.campaignName}</p>
-                  <p className="text-[10px] text-gray-400">{formatRelativeTime(g.playedAt)}</p>
+                  <p className="text-xs font-semibold text-gray-900 truncate">{r.reward}</p>
+                  <p className="text-[10px] text-gray-400">{formatRelativeTime(r.earnedAt)}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  {g.won ? (
-                    <>
-                      <p className="text-[10px] font-bold text-amber-600">Won!</p>
-                      <p className="text-[9px] text-gray-400">{g.reward}</p>
-                    </>
-                  ) : (
-                    <p className="text-[10px] text-gray-400">No win</p>
-                  )}
+                  <p className={`text-[10px] font-bold ${r.status === 'pending' ? 'text-amber-600' : 'text-green-600'}`}>
+                    {r.status === 'pending' ? 'Pending' : 'Redeemed'}
+                  </p>
                 </div>
               </motion.div>
-            ))}
+            )) : customer.gameHistory.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4">No activity yet</p>
+            ) : null}
           </div>
         </motion.div>
 

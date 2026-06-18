@@ -21,6 +21,7 @@ import { CustomerPage } from '@/pages/customer/CustomerPage'
 import { CustomerDiscoverPage } from '@/pages/customer/CustomerDiscoverPage'
 import { CustomerWalletPage } from '@/pages/customer/CustomerWalletPage'
 import { CustomerProfilePage } from '@/pages/customer/CustomerProfilePage'
+import { CustomerCheckInPage } from '@/pages/customer/CustomerCheckInPage'
 import { CustomerBusinessPage } from '@/pages/customer/CustomerBusinessPage'
 import { CustomerCampaignPage } from '@/pages/customer/CustomerCampaignPage'
 import { CustomerShakePage } from '@/pages/customer/games/CustomerShakePage'
@@ -84,6 +85,7 @@ export function App() {
           <Route path="discover" element={<CustomerDiscoverPage />} />
           <Route path="wallet" element={<CustomerWalletPage />} />
           <Route path="profile" element={<CustomerProfilePage />} />
+          <Route path="check-in" element={<CustomerCheckInPage />} />
           <Route path="business/:id" element={<CustomerBusinessPage />} />
           <Route path="campaigns/:id" element={<CustomerCampaignPage />} />
           <Route path="games/shake" element={<CustomerShakePage />} />

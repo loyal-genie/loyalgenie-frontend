@@ -294,6 +294,15 @@ export interface StampCampaignStatsDto {
   } | null
 }
 
+export interface LoyaltyCampaignStatsDto {
+  enrolled: number
+  totalCheckIns: number
+  avgLoyaltyPoints: number
+  totalRewardsIssued: number
+  milestones: { name: string; pointsThreshold: number; unlockCount: number }[]
+  checkInConfig: { pointsPerCheckIn: number } | null
+}
+
 export interface CampaignDto {
   id: string
   businessId: string
@@ -317,6 +326,7 @@ export interface CampaignDto {
   rewardsClaimed: number
   redeemedCount: number
   stampStats?: StampCampaignStatsDto | null
+  loyaltyStats?: LoyaltyCampaignStatsDto | null
 }
 
 export interface CreateShakeCampaignPayload {
@@ -352,7 +362,17 @@ export interface CreateStampCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateStampCampaignPayload
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload
+
+export interface CreateCheckInLoyaltyCampaignPayload {
+  name: string
+  mechanic: 'check-in-loyalty'
+  startDate: string
+  endDate: string
+  userCap: number
+  checkInConfig: { pointsPerCheckIn: number }
+  milestones: { name: string; description?: string; icon: string; pointsThreshold: number }[]
+}
 
 export interface BusinessWithCampaigns {
   id: string
@@ -558,6 +578,77 @@ export async function executeStamp(campaignId: string, playSessionToken: string)
 
 export async function fetchCustomerRewards() {
   const { data } = await api.get<{ success: boolean; data: CustomerRewardDto[] }>('/campaigns/customer/rewards')
+  return data.data
+}
+
+export interface LoyaltyState {
+  campaignId: string
+  mechanic: 'check-in-loyalty'
+  enrolled: boolean
+  loyaltyPoints: number
+  totalCheckIns: number
+  pointsPerCheckIn: number
+  canCheckInToday: boolean
+  checkedInToday: boolean
+  milestones: { id: string; name: string; icon: string; pointsThreshold: number; unlocked: boolean; redeemed: boolean }[]
+  nextMilestone: { name: string; pointsThreshold: number; pointsNeeded: number } | null
+  userCap: number
+  currentUsers: number
+  campaignName: string
+  businessId: string
+  businessName: string
+}
+
+export interface CheckInResult {
+  enrolled: boolean
+  pointsEarned: number
+  loyaltyPoints: number
+  totalCheckIns: number
+  checkedInToday: boolean
+  milestonesUnlocked: { name: string; icon: string; code: string }[]
+}
+
+export interface CheckInPrompt {
+  hasPendingCheckIn: boolean
+  campaignId?: string
+  campaignName?: string
+  businessId?: string
+  businessName?: string
+  loyaltyPoints?: number
+  pointsPerCheckIn?: number
+  enrolled?: boolean
+}
+
+export interface CustomerLoyaltyProfile {
+  campaignId: string
+  campaignName: string
+  businessId: string
+  businessName: string
+  loyaltyPoints: number
+  totalCheckIns: number
+  milestones: { name: string; icon: string; pointsThreshold: number; unlocked: boolean; awarded: boolean }[]
+}
+
+export async function fetchCheckInPrompt() {
+  const { data } = await api.get<{ success: boolean; data: CheckInPrompt }>('/campaigns/customer/check-in-prompt')
+  return data.data
+}
+
+export async function fetchCustomerLoyaltyProfile() {
+  const { data } = await api.get<{ success: boolean; data: CustomerLoyaltyProfile[] }>('/campaigns/customer/loyalty-profile')
+  return data.data
+}
+
+export async function fetchLoyaltyState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: LoyaltyState }>(`/campaigns/${campaignId}/loyalty-state`)
+  return data.data
+}
+
+export async function executeCheckIn(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{ success: boolean; data: CheckInResult }>(
+    `/campaigns/${campaignId}/check-in`,
+    { playSessionToken },
+  )
   return data.data
 }
 
