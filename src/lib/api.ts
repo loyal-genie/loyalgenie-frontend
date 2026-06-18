@@ -216,22 +216,23 @@ export async function fetchBusinessBySlug(slug: string) {
 
 export function getApiErrorMessage(err: unknown, fallback: string) {
   if (axios.isAxiosError(err)) {
-    if (err.response?.status === 401) {
-      const body = err.response.data as { error?: string } | undefined
-      if (body?.error && !['Authentication required', 'Invalid or expired token'].includes(body.error)) {
-        return body.error
-      }
-      return 'Your session expired. Please sign in again.'
-    }
-    if (err.response?.status === 404) {
-      return '404: Service endpoint not found'
-    }
     const body = err.response?.data as { error?: string; details?: Record<string, string[]> } | undefined
     if (body?.details) {
       const first = Object.values(body.details).flat()[0]
       if (first) return first
     }
-    if (body?.error) return body.error
+    if (body?.error) {
+      const isGenericSession401 =
+        err.response?.status === 401 &&
+        ['Authentication required', 'Invalid or expired token'].includes(body.error)
+      if (!isGenericSession401) return body.error
+    }
+    if (err.response?.status === 401) {
+      return 'Your session expired. Please sign in again.'
+    }
+    if (err.response?.status === 404) {
+      return '404: Service endpoint not found'
+    }
   }
   return fallback
 }
