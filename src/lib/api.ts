@@ -521,6 +521,7 @@ export interface CampaignPin {
   expiresAt: string
   secondsRemaining: number
   cycleSeconds: number
+  verifyGraceSeconds?: number
 }
 
 export async function fetchCampaigns() {

@@ -37,9 +37,10 @@ export function useCampaignPin(id: string | undefined, enabled = true) {
     staleTime: 0,
     refetchInterval: (query) => {
       const remaining = query.state.data?.secondsRemaining ?? 0
-      if (remaining <= 0) return 1500
-      if (remaining <= 5) return 2000
-      if (remaining <= 20) return 5000
+      if (remaining <= 0) return 1000
+      if (remaining <= 3) return 1000
+      if (remaining <= 15) return 2000
+      if (remaining <= 30) return 5000
       return 10000
     },
   })
