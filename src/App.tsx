@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { HomePage } from '@/pages/HomePage'
 import { DemoLauncherPage } from '@/pages/DemoLauncherPage'
 import { SignInPage } from '@/pages/auth/SignInPage'
-import { SignUpPage } from '@/pages/auth/SignUpPage'
 import { BusinessSignInPage } from '@/pages/auth/BusinessSignInPage'
 import { BusinessSignUpPage } from '@/pages/auth/BusinessSignUpPage'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
@@ -40,7 +39,7 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/demo" element={<DemoLauncherPage />} />
         <Route path="/signin" element={<SignInPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/signup" element={<Navigate to="/signin" replace />} />
         <Route path="/business/signin" element={<BusinessSignInPage />} />
         <Route path="/business/signup" element={<BusinessSignUpPage />} />
         <Route path="/business/forgot-password" element={<ForgotPasswordPage />} />
@@ -75,7 +74,7 @@ export function App() {
         </Route>
 
         <Route path="/customer/signin" element={<Navigate to="/signin" replace />} />
-        <Route path="/customer/signup" element={<Navigate to="/signup" replace />} />
+        <Route path="/customer/signup" element={<Navigate to="/signin" replace />} />
         <Route
           path="/customer"
           element={

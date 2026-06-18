@@ -83,30 +83,57 @@ export async function signUpBusiness(email: string, password: string) {
   return data.data
 }
 
-export async function sendOtp(phone: string, purpose: 'signin' | 'signup') {
-  await api.post('/auth/otp/send', { phone, purpose })
+export async function sendOtp(phone: string) {
+  await api.post('/auth/otp/send', { phone })
 }
 
-export async function signInCustomer(phone: string, otp: string) {
-  const { data } = await api.post<{ success: boolean; data: AuthUser }>(
-    '/auth/customer/signin',
+export interface CustomerOtpLoginResult {
+  isNewUser: boolean
+  profileToken?: string
+  phone?: string
+  token?: string
+  userId?: string
+  email?: string
+  name?: string
+  role?: 'customer'
+}
+
+export async function loginCustomerWithOtp(phone: string, otp: string) {
+  const { data } = await api.post<{ success: boolean; data: CustomerOtpLoginResult }>(
+    '/auth/customer/otp-login',
     { phone, otp },
   )
   return data.data
 }
 
-export async function signUpCustomer(payload: {
+export async function completeCustomerProfile(payload: {
+  profileToken: string
   name: string
-  phone: string
+  gender: 'male' | 'female' | 'other'
   dateOfBirth: string
   email?: string
-  otp: string
 }) {
-  const { data } = await api.post<{ success: boolean; data: AuthUser }>(
-    '/auth/customer/signup',
+  const { data } = await api.post<{ success: boolean; data: AuthUser & { isNewUser: boolean } }>(
+    '/auth/customer/complete-profile',
     payload,
   )
   return data.data
+}
+
+/** @deprecated use loginCustomerWithOtp */
+export async function signInCustomer(phone: string, otp: string) {
+  const result = await loginCustomerWithOtp(phone, otp)
+  if (result.isNewUser || !result.token) {
+    throw new Error('Account not found. Complete your profile to continue.')
+  }
+  return {
+    token: result.token,
+    userId: result.userId!,
+    email: result.email ?? '',
+    name: result.name,
+    phone: result.phone,
+    role: 'customer' as const,
+  }
 }
 
 export interface AuthSession {

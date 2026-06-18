@@ -129,7 +129,7 @@ export function HeroSection() {
           className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 max-w-sm sm:max-w-none mx-auto sm:mx-0"
           style={{ opacity: 1 }}
         >
-          <Link to="/signup" className="btn-gold text-sm sm:text-[15px] !py-3 !px-6 sm:!px-7 no-underline w-full sm:w-auto justify-center">
+          <Link to="/signin" className="btn-gold text-sm sm:text-[15px] !py-3 !px-6 sm:!px-7 no-underline w-full sm:w-auto justify-center">
             Join & Win Rewards
           </Link>
           <a href="#how-it-works" className="btn-outline text-sm sm:text-[15px] !py-3 !px-6 sm:!px-7 w-full sm:w-auto justify-center">
