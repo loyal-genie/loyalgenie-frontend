@@ -4,7 +4,6 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MapPin, Sparkles, Delete, Loader2, Gift, Star } from 'lucide-react'
 import {
-  fetchCheckInPrompt,
   fetchLoyaltyState,
   verifyCampaignPin,
   executeCheckIn,
@@ -30,13 +29,7 @@ export function CustomerCheckInPage() {
     milestonesUnlocked: { name: string; icon: string; code: string }[]
   } | null>(null)
 
-  const { data: prompt, isLoading: promptLoading } = useQuery({
-    queryKey: ['check-in-prompt'],
-    queryFn: fetchCheckInPrompt,
-    staleTime: 0,
-  })
-
-  const campaignId = campaignParam ?? prompt?.campaignId ?? null
+  const campaignId = campaignParam
 
   const { data: loyaltyState, isLoading: stateLoading } = useQuery({
     queryKey: ['loyalty-state', campaignId],
@@ -72,14 +65,17 @@ export function CustomerCheckInPage() {
 
   const handleSplashComplete = useCallback(() => {
     setPhase('done')
-    navigate('/customer', { replace: true })
-  }, [navigate])
+    const dest = loyaltyState?.businessId
+      ? `/customer/business/${loyaltyState.businessId}`
+      : '/customer'
+    navigate(dest, { replace: true })
+  }, [navigate, loyaltyState?.businessId])
 
   useEffect(() => {
-    if (!promptLoading && !campaignId) {
+    if (!campaignId) {
       navigate('/customer', { replace: true })
     }
-  }, [promptLoading, campaignId, navigate])
+  }, [campaignId, navigate])
 
   useEffect(() => {
     if (pin.length === 3 && phase === 'pin' && !verifyMutation.isPending) {
@@ -88,7 +84,7 @@ export function CustomerCheckInPage() {
     }
   }, [pin, phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (promptLoading || stateLoading || !campaignId || !loyaltyState) {
+  if (stateLoading || !campaignId || !loyaltyState) {
     return (
       <div className="min-h-dvh flex items-center justify-center customer-game-bg">
         <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
@@ -104,11 +100,11 @@ export function CustomerCheckInPage() {
         <p className="text-sm text-white/60 mb-6">You have {loyaltyState.loyaltyPoints} loyalty points</p>
         <button
           type="button"
-          onClick={() => navigate('/customer', { replace: true })}
+          onClick={() => navigate(loyaltyState.businessId ? `/customer/business/${loyaltyState.businessId}` : '/customer', { replace: true })}
           className="px-6 py-3 rounded-2xl font-bold text-sm border-0 cursor-pointer"
           style={{ background: 'linear-gradient(135deg, #7C3AED, #F5C518)', color: '#1A0545' }}
         >
-          Go to Dashboard
+          Back to {loyaltyState.businessName}
         </button>
       </div>
     )
@@ -201,10 +197,10 @@ export function CustomerCheckInPage() {
 
               <button
                 type="button"
-                onClick={() => navigate('/customer', { replace: true })}
+                onClick={() => navigate(loyaltyState.businessId ? `/customer/business/${loyaltyState.businessId}` : '/customer', { replace: true })}
                 className="mt-4 text-xs text-white/40 bg-transparent border-0 cursor-pointer hover:text-white/60"
               >
-                Skip for now
+                Back to cafe
               </button>
             </motion.div>
           )}

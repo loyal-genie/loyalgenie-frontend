@@ -1,12 +1,80 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, MapPin, Loader2, Sparkles } from 'lucide-react'
+import { ArrowLeft, MapPin, Loader2, Sparkles, Star } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { BottomNav } from '@/components/customer/bottom-nav'
 import { MECHANIC_META, getMechanicEmoji, getMechanicLabel } from '@/lib/utils'
 import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
+import { fetchLoyaltyState } from '@/lib/api'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   Cafe: '☕', Restaurant: '🍝', Salon: '✂️', Gym: '🏋️', Jewellery: '💎',
+}
+
+function LoyaltyCampaignCard({
+  campaign,
+  index,
+}: {
+  campaign: { id: string; name: string; endDate: string }
+  index: number
+}) {
+  const meta = MECHANIC_META['check-in-loyalty']
+  const { data: state, isLoading } = useQuery({
+    queryKey: ['loyalty-state', campaign.id],
+    queryFn: () => fetchLoyaltyState(campaign.id),
+  })
+
+  const checkedInToday = state?.checkedInToday ?? false
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 + index * 0.08 }}
+      className="bg-white rounded-3xl overflow-hidden border border-purple-100 shadow-[0_4px_20px_rgba(124,58,237,0.08)]"
+    >
+      <div
+        className="relative h-32 flex items-end p-4"
+        style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, ${meta.cardTo})` }}
+      >
+        <span
+          className="absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm"
+          style={{ background: meta.badgeBg, color: meta.badgeText }}
+        >
+          {getMechanicLabel('check-in-loyalty')}
+        </span>
+        <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white">
+          {isLoading ? '…' : state ? `${state.loyaltyPoints} pts` : 'Earn points'}
+        </span>
+        <div className="absolute bottom-3 right-4 text-3xl drop-shadow">⭐</div>
+      </div>
+      <div className="p-5">
+        <h3 className="text-base font-extrabold text-gray-900 mb-1">{campaign.name}</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          {state ? `+${state.pointsPerCheckIn} pts per check-in` : 'Daily check-in loyalty'} · ends {campaign.endDate}
+        </p>
+        {state?.nextMilestone && !checkedInToday && (
+          <p className="text-[11px] text-purple-600 font-semibold mb-3 flex items-center gap-1">
+            <Star className="w-3 h-3" />
+            {state.nextMilestone.pointsNeeded} pts to {state.nextMilestone.name}
+          </p>
+        )}
+        {checkedInToday ? (
+          <div className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold bg-green-50 text-green-700 border border-green-200">
+            ✓ Checked in today · {state?.loyaltyPoints} pts
+          </div>
+        ) : (
+          <Link
+            to={`/customer/check-in?campaign=${campaign.id}`}
+            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold text-white no-underline transition-transform active:scale-[0.98]"
+            style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, #F5C518)`, boxShadow: `0 8px 24px ${meta.cardFrom}40`, color: '#1A0545' }}
+          >
+            Check In & Earn Points ⭐
+          </Link>
+        )}
+      </div>
+    </motion.div>
+  )
 }
 
 export function CustomerBusinessPage() {
@@ -34,6 +102,8 @@ export function CustomerBusinessPage() {
 
   const emoji = CATEGORY_EMOJI[biz.businessType] ?? '🏪'
   const color = biz.brandColor
+  const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
+  const otherCampaigns = biz.campaigns.filter(c => c.mechanic !== 'check-in-loyalty')
 
   return (
     <div className="min-h-dvh bg-[#f8f6ff] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
@@ -90,7 +160,10 @@ export function CustomerBusinessPage() {
           <p className="text-sm text-gray-400 text-center py-12 bg-white rounded-2xl">No active campaigns right now.</p>
         ) : (
           <div className="space-y-4">
-            {biz.campaigns.map((c, i) => {
+            {loyaltyCampaigns.map((c, i) => (
+              <LoyaltyCampaignCard key={c.id} campaign={c} index={i} />
+            ))}
+            {otherCampaigns.map((c, i) => {
               const meta = MECHANIC_META[c.mechanic as keyof typeof MECHANIC_META] ?? MECHANIC_META.shake
               const isStamp = c.mechanic === 'stamp'
               const isPlayable = c.mechanic === 'shake' || isStamp
@@ -99,7 +172,7 @@ export function CustomerBusinessPage() {
                   key={c.id}
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 + i * 0.08 }}
+                  transition={{ delay: 0.1 + (loyaltyCampaigns.length + i) * 0.08 }}
                   className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
                 >
                   <div

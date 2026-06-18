@@ -9,7 +9,6 @@ import {
   sendOtp,
   loginCustomerWithOtp,
   completeCustomerProfile,
-  fetchCheckInPrompt,
   getApiErrorMessage,
 } from '@/lib/api'
 import { setSession } from '@/lib/auth'
@@ -45,21 +44,8 @@ export function SignInPage() {
     ?? (fromQuery && fromQuery.startsWith('/') ? fromQuery : null)
     ?? '/customer'
 
-  async function goToCustomerHome() {
-    if (from.startsWith('/customer') && from !== '/customer') {
-      navigate(from, { replace: true })
-      return
-    }
-    try {
-      const prompt = await fetchCheckInPrompt()
-      if (prompt.hasPendingCheckIn && prompt.campaignId) {
-        navigate(`/customer/check-in?campaign=${prompt.campaignId}`, { replace: true })
-        return
-      }
-    } catch {
-      // fall through
-    }
-    navigate('/customer', { replace: true })
+  function goToCustomerHome() {
+    navigate(from.startsWith('/customer') ? from : '/customer', { replace: true })
   }
 
   function saveSession(data: { token: string; userId: string; email: string; name?: string; phone?: string }) {

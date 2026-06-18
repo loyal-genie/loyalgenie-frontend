@@ -16,9 +16,11 @@ function BusinessCard({ biz, index }: { biz: BusinessWithCampaigns; index: numbe
   const emoji = CATEGORY_EMOJI[biz.businessType] ?? '🏪'
   const shakeCampaigns = biz.campaigns.filter(c => c.mechanic === 'shake')
   const stampCampaigns = biz.campaigns.filter(c => c.mechanic === 'stamp')
-  const badgeCampaigns = [...stampCampaigns, ...shakeCampaigns].slice(0, 2)
+  const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
+  const badgeCampaigns = [...loyaltyCampaigns, ...stampCampaigns, ...shakeCampaigns].slice(0, 2)
   const topWinRate = Math.max(...shakeCampaigns.map(c => c.winRatePercent), 0)
   const hasStamp = stampCampaigns.length > 0
+  const hasLoyalty = loyaltyCampaigns.length > 0
 
   return (
     <motion.div
@@ -61,6 +63,10 @@ function BusinessCard({ biz, index }: { biz: BusinessWithCampaigns; index: numbe
               {topWinRate > 0 ? (
                 <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
                   Up to {topWinRate}% win
+                </span>
+              ) : hasLoyalty ? (
+                <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
+                  Check-in loyalty
                 </span>
               ) : hasStamp ? (
                 <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
@@ -140,7 +146,7 @@ export function CustomerPage() {
           </div>
           <div>
             <p className="text-sm font-bold text-gray-900">How to play</p>
-            <p className="text-xs text-gray-500">Pick a vendor → enter staff PIN → shake to win!</p>
+            <p className="text-xs text-gray-500">Pick a vendor → check in or enter staff PIN to play!</p>
           </div>
         </motion.div>
 
