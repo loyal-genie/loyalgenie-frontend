@@ -77,7 +77,7 @@ export function CustomerShakePage() {
   const latestWonRef = useRef(false)
   const revealingRef = useRef(false)
 
-  const customerId = getUser()?.userId
+  const customerId = getUser('customer')?.userId
   const playSession = campaignId ? getPlaySession(campaignId) : null
   const queryClient = useQueryClient()
 

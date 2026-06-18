@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, role = 'business' }: ProtectedRouteProps) {
   const location = useLocation()
-  const user = getUser()
+  const user = getUser(role)
 
   if (!isSessionValidForRole(role)) {
     const signInPath = role === 'customer' ? '/signin' : '/business/signin'

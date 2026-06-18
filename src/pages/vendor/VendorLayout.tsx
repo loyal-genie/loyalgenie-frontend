@@ -26,7 +26,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   const handleSignOut = () => {
     if (onNavigate) onNavigate() // Close mobile menu drawer if open
-    clearSession()               // Clears local storage keys
+    clearSession('business')
     navigate('/')                // Redirects user to landing/home page
   }
 

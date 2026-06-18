@@ -45,7 +45,7 @@ export function CustomerCampaignPage() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
 
-  const localSessionOk = isSessionValidForRole('customer') && Boolean(getToken())
+  const localSessionOk = isSessionValidForRole('customer') && Boolean(getToken('customer'))
 
   const { data: serverSession, isLoading: sessionLoading, isError: sessionError } = useQuery({
     queryKey: ['auth-session', 'customer'],
@@ -86,7 +86,7 @@ export function CustomerCampaignPage() {
 
   const verifyMutation = useMutation({
     mutationFn: (enteredPin: string) => {
-      if (!getToken()) {
+      if (!getToken('customer')) {
         return Promise.reject(new Error('NOT_AUTHENTICATED'))
       }
       return verifyCampaignPin(id!, enteredPin)

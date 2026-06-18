@@ -77,7 +77,7 @@ function validateStep(step: number, form: FormData): Record<string, string> {
 
 export function OnboardingPage() {
   const navigate = useNavigate()
-  const user = getUser()
+  const user = getUser('business')
 
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormData>(() => ({
@@ -134,8 +134,8 @@ export function OnboardingPage() {
           role: 'business',
           onboarded: true,
         })
-      } else if (user && getToken()) {
-        setSession(getToken()!, { ...user, role: 'business', onboarded: true })
+      } else if (user && getToken('business')) {
+        setSession(getToken('business')!, { ...user, role: 'business', onboarded: true })
       }
       setQrResult(data)
       setStep(formStepsTotal)

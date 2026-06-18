@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { clearSession, getToken } from './auth'
+import { clearSession, getActiveAuthRole, getToken } from './auth'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
 
@@ -9,7 +9,8 @@ export const api = axios.create({
 })
 
 function attachAuthHeader(config: import('axios').InternalAxiosRequestConfig) {
-  const token = getToken()
+  const role = getActiveAuthRole()
+  const token = role ? getToken(role) : getToken()
   if (token) {
     if (typeof config.headers.set === 'function') {
       config.headers.set('Authorization', `Bearer ${token}`)
@@ -45,8 +46,9 @@ api.interceptors.response.use(
       const onAuthPage = path.startsWith('/signin') || path.startsWith('/signup') || path.startsWith('/forgot-password') || path.startsWith('/business/')
       if (!onAuthPage) {
         handling401 = true
-        const isCustomerRoute = path.startsWith('/customer')
-        clearSession()
+        const role = getActiveAuthRole(path)
+        const isCustomerRoute = role === 'customer'
+        clearSession(role ?? undefined)
         const params = new URLSearchParams({ reason: 'session_expired' })
         window.location.assign(isCustomerRoute ? `/signin?${params.toString()}` : `/business/signin?${params.toString()}`)
       }
@@ -541,7 +543,7 @@ export async function fetchPublicCampaign(id: string) {
 }
 
 export async function verifyCampaignPin(campaignId: string, pin: string) {
-  const token = getToken()
+  const token = getToken('customer')
   if (!token) {
     const err = new Error('NOT_AUTHENTICATED')
     throw err

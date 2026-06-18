@@ -13,7 +13,7 @@ interface VendorPageHeaderProps {
 
 export function VendorPageHeader({ title, subtitle, actions }: VendorPageHeaderProps) {
   const navigate = useNavigate()
-  const user = getUser()
+  const user = getUser('business')
   const { data: profile } = useBusinessProfile()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -29,7 +29,7 @@ export function VendorPageHeader({ title, subtitle, actions }: VendorPageHeaderP
   }, [])
 
   function handleSignOut() {
-    clearSession()
+    clearSession('business')
     navigate('/business/signin')
   }
 

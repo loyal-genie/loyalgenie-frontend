@@ -3,7 +3,7 @@ import { customers } from '@/lib/mock-data'
 import type { Customer } from '@/lib/types'
 
 export function useCustomerSession() {
-  const session = getUser()
+  const session = getUser('customer')
   const customer: Customer =
     customers.find((c) => c.email.toLowerCase() === session?.email?.toLowerCase()) ?? customers[0]
   const displayName = session?.name ?? customer.name

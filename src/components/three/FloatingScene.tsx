@@ -338,6 +338,9 @@ function SceneCanvas() {
           e.preventDefault()
           setContextLost(true)
         })
+        canvas.addEventListener('webglcontextrestored', () => {
+          setContextLost(false)
+        })
       }}
     >
       <ambientLight intensity={0.4} />

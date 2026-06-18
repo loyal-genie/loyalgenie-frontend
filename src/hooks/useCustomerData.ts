@@ -10,7 +10,7 @@ export function useBusinessesWithCampaigns() {
 }
 
 export function useCustomerRewards() {
-  const session = getUser()
+  const session = getUser('customer')
   return useQuery({
     queryKey: ['customer-rewards'],
     queryFn: fetchCustomerRewards,

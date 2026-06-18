@@ -28,7 +28,7 @@ export function CustomerProfilePage() {
   const pendingRewards = rewards.filter(r => r.status === 'pending')
 
   function handleSignOut() {
-    clearSession()
+    clearSession('customer')
     navigate('/signin', { replace: true })
   }
 
