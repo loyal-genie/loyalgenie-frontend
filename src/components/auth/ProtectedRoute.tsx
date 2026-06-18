@@ -11,14 +11,15 @@ export function ProtectedRoute({ children, role = 'business' }: ProtectedRoutePr
   const user = getUser()
 
   if (!isSessionValidForRole(role)) {
+    const signInPath = role === 'customer' ? '/signin' : '/business/signin'
     const params = new URLSearchParams()
-    params.set('role', role)
     if (user && user.role !== role) {
       params.set('reason', 'wrong_role')
     } else if (user) {
       params.set('reason', 'session_expired')
     }
-    return <Navigate to={`/signin?${params.toString()}`} state={{ from: location }} replace />
+    const qs = params.toString()
+    return <Navigate to={qs ? `${signInPath}?${qs}` : signInPath} state={{ from: location }} replace />
   }
 
   return <>{children}</>

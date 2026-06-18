@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { AuthShell } from '@/components/auth/AuthShell'
-import { type AuthAudience } from '@/components/auth/AuthRoleToggle'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -17,23 +16,20 @@ interface ForgotForm {
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const role = (searchParams.get('role') === 'customer' ? 'customer' : 'business') as AuthAudience
   const [done, setDone] = useState(false)
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<ForgotForm>()
 
   const mutation = useMutation({
-    mutationFn: ({ email, password }: ForgotForm) => resetPasswordByEmail(role, email, password),
+    mutationFn: ({ email, password }: ForgotForm) => resetPasswordByEmail(email, password),
     onSuccess: () => setDone(true),
   })
 
   return (
     <AuthShell
       title="Reset password"
-      subtitle="Enter your account email and choose a new password."
-      audience={role}
-      onAudienceChange={() => {}}
+      subtitle="Enter your business email and choose a new password."
+      audience="business"
       showRoleToggle={false}
     >
       {done ? (
@@ -41,7 +37,7 @@ export function ForgotPasswordPage() {
           <p className="text-sm text-v-text-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-4">
             Your password has been updated. You can sign in with your new password.
           </p>
-          <Button variant="primary" className="w-full" onClick={() => navigate(`/signin?role=${role}`, { replace: true })}>
+          <Button variant="primary" className="w-full" onClick={() => navigate('/business/signin', { replace: true })}>
             Go to sign in
           </Button>
         </div>
@@ -52,12 +48,12 @@ export function ForgotPasswordPage() {
             className="space-y-5"
           >
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Business email</Label>
               <Input
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder={role === 'customer' ? 'you@email.com' : 'you@yourbusiness.com'}
+                placeholder="you@yourbusiness.com"
                 {...register('email', { required: 'Email is required' })}
               />
               {errors.email && (
@@ -106,7 +102,7 @@ export function ForgotPasswordPage() {
 
           <p className="text-sm text-v-text-2 mt-6 text-center">
             Remember your password?{' '}
-            <Link to={`/signin?role=${role}`} className="text-v-purple font-semibold hover:underline">
+            <Link to="/business/signin" className="text-v-purple font-semibold hover:underline">
               Sign in
             </Link>
           </p>
@@ -115,3 +111,6 @@ export function ForgotPasswordPage() {
     </AuthShell>
   )
 }
+
+/** @deprecated use ForgotPasswordPage at /business/forgot-password */
+export const BusinessForgotPasswordPage = ForgotPasswordPage

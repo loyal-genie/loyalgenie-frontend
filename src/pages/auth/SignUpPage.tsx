@@ -1,57 +1,54 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useForm, Controller } from 'react-hook-form'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { Check } from 'lucide-react'
 import { AuthShell } from '@/components/auth/AuthShell'
-import { type AuthAudience } from '@/components/auth/AuthRoleToggle'
+import { OtpInput } from '@/components/auth/OtpInput'
+import { PhoneInput } from '@/components/auth/PhoneInput'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
-import { PasswordInput } from '@/components/ui/password-input'
-import { signUpBusiness, signUpCustomer, getApiErrorMessage } from '@/lib/api'
+import { sendOtp, signUpCustomer, getApiErrorMessage } from '@/lib/api'
 import { setSession } from '@/lib/auth'
 
-interface BusinessAccountForm {
+interface SignUpForm {
+  name: string
+  dateOfBirth: string
   email: string
-  password: string
-  confirmPassword: string
+  phone: string
 }
 
-interface CustomerAccountForm {
-  name: string
-  phone: string
-  email: string
-  password: string
-  confirmPassword: string
-}
+type Step = 'details' | 'otp'
 
 export function SignUpPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const initialRole = (searchParams.get('role') === 'customer' ? 'customer' : 'business') as AuthAudience
-  const [audience, setAudience] = useState<AuthAudience>(initialRole)
+  const [step, setStep] = useState<Step>('details')
+  const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
+  const [savedDetails, setSavedDetails] = useState<SignUpForm | null>(null)
 
-  const businessForm = useForm<BusinessAccountForm>()
-  const customerForm = useForm<CustomerAccountForm>()
-
-  const businessMutation = useMutation({
-    mutationFn: ({ email, password }: BusinessAccountForm) => signUpBusiness(email, password),
-    onSuccess: (data) => {
-      setSession(data.token, {
-        userId: data.userId,
-        email: data.email,
-        role: 'business',
-        onboarded: false,
-      })
-      navigate('/onboarding')
-    },
-    onError: (err) => setError(getApiErrorMessage(err, 'Could not create account. Email may already be in use.')),
+  const form = useForm<SignUpForm>({
+    defaultValues: { name: '', dateOfBirth: '', email: '', phone: '' },
   })
 
-  const customerMutation = useMutation({
-    mutationFn: ({ name, phone, email, password }: CustomerAccountForm) =>
-      signUpCustomer({ name, phone, email, password }),
+  const sendMutation = useMutation({
+    mutationFn: (phone: string) => sendOtp(phone, 'signup'),
+    onSuccess: () => {
+      setError('')
+      setStep('otp')
+      setOtp('')
+    },
+    onError: (err) => setError(getApiErrorMessage(err, 'Could not send OTP. Please try again.')),
+  })
+
+  const signUpMutation = useMutation({
+    mutationFn: (details: SignUpForm) =>
+      signUpCustomer({
+        name: details.name,
+        phone: details.phone,
+        dateOfBirth: details.dateOfBirth,
+        email: details.email.trim() || undefined,
+        otp,
+      }),
     onSuccess: (data) => {
       setSession(data.token, {
         userId: data.userId,
@@ -60,198 +57,159 @@ export function SignUpPage() {
         name: data.name,
         phone: data.phone,
       })
-      navigate('/customer')
+      navigate('/customer', { replace: true })
     },
-    onError: (err) => setError(getApiErrorMessage(err, 'Could not create account. Email or phone may already be in use.')),
+    onError: (err) => setError(getApiErrorMessage(err, 'Could not create account. Please try again.')),
   })
 
-  const isPending = businessMutation.isPending || customerMutation.isPending
+  const isPending = sendMutation.isPending || signUpMutation.isPending
+
+  function onSubmitDetails(data: SignUpForm) {
+    if (data.phone.length !== 10) {
+      setError('Enter a valid 10-digit mobile number')
+      return
+    }
+    setError('')
+    setSavedDetails(data)
+    sendMutation.mutate(data.phone)
+  }
 
   return (
     <AuthShell
       title="Create your account"
-      subtitle={
-        audience === 'business'
-          ? 'Step 1 of 2 — set your login credentials, then complete business onboarding'
-          : 'Join LoyalGenie and start winning rewards at your favourite spots'
-      }
-      audience={audience}
-      onAudienceChange={(role) => {
-        setAudience(role)
-        setError('')
-      }}
+      subtitle="Join LoyalGenie and start winning rewards at your favourite spots"
+      showRoleToggle={false}
     >
-      {audience === 'customer' ? (
-        <>
-          <form
-            onSubmit={customerForm.handleSubmit((d) => {
-              setError('')
-              customerMutation.mutate(d)
-            })}
-            className="space-y-5"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="name">Full name</Label>
-              <Input
-                id="name"
-                type="text"
-                autoComplete="name"
-                placeholder="Priya Sharma"
-                {...customerForm.register('name', { required: 'Name is required', minLength: 2 })}
-              />
-              {customerForm.formState.errors.name && (
-                <p className="text-xs text-v-danger">{customerForm.formState.errors.name.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Mobile number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                autoComplete="tel"
-                placeholder="+91 98765 43210"
-                {...customerForm.register('phone', { required: 'Phone is required', minLength: 10 })}
-              />
-              {customerForm.formState.errors.phone && (
-                <p className="text-xs text-v-danger">{customerForm.formState.errors.phone.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="customer-email">Email</Label>
-              <Input
-                id="customer-email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@email.com"
-                {...customerForm.register('email', { required: 'Email is required' })}
-              />
-              {customerForm.formState.errors.email && (
-                <p className="text-xs text-v-danger">{customerForm.formState.errors.email.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="customer-password">Password</Label>
-              <PasswordInput
-                id="customer-password"
-                autoComplete="new-password"
-                placeholder="Min 8 characters"
-                {...customerForm.register('password', { required: true, minLength: 8 })}
-              />
-              {customerForm.formState.errors.password?.type === 'minLength' && (
-                <p className="text-xs text-v-danger">Password must be at least 8 characters</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="customer-confirm">Confirm password</Label>
-              <PasswordInput
-                id="customer-confirm"
-                autoComplete="new-password"
-                {...customerForm.register('confirmPassword', {
-                  required: true,
-                  validate: (v) => v === customerForm.watch('password') || 'Passwords do not match',
-                })}
-              />
-              {customerForm.formState.errors.confirmPassword && (
-                <p className="text-xs text-v-danger">{customerForm.formState.errors.confirmPassword.message}</p>
-              )}
-            </div>
-
-            {error && (
-              <p className="text-sm text-v-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
+      {step === 'details' ? (
+        <form onSubmit={form.handleSubmit(onSubmitDetails)} className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full name</Label>
+            <Input
+              id="name"
+              type="text"
+              autoComplete="name"
+              placeholder="Priya Sharma"
+              {...form.register('name', { required: 'Name is required', minLength: 2 })}
+            />
+            {form.formState.errors.name && (
+              <p className="text-xs text-v-danger">{form.formState.errors.name.message}</p>
             )}
-
-            <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
-              {isPending ? 'Creating account...' : 'Create account & explore →'}
-            </Button>
-          </form>
-
-          <p className="text-sm text-v-text-2 mt-6 text-center">
-            Already have an account?{' '}
-            <Link to="/signin?role=customer" className="text-v-purple font-semibold hover:underline">Sign in</Link>
-          </p>
-        </>
-      ) : (
-        <>
-          <div className="flex items-center gap-3 mb-6 p-4 rounded-xl bg-v-purple/5 border border-v-purple/15">
-            <div className="w-8 h-8 rounded-full bg-v-purple text-white flex items-center justify-center text-sm font-bold shrink-0">1</div>
-            <div className="text-sm text-v-text-2">
-              <span className="font-semibold text-v-text">Account credentials</span>
-              <span className="block text-xs mt-0.5">You&apos;ll use this email and password to sign in to your dashboard.</span>
-            </div>
-            <Check className="w-4 h-4 text-v-purple ml-auto shrink-0 opacity-40" />
           </div>
 
-          <form
-            onSubmit={businessForm.handleSubmit((d) => {
-              setError('')
-              businessMutation.mutate(d)
-            })}
-            className="space-y-5"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="email">Business email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@yourbusiness.com"
-                {...businessForm.register('email', { required: 'Email is required' })}
-              />
-              {businessForm.formState.errors.email && (
-                <p className="text-xs text-v-danger">{businessForm.formState.errors.email.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <PasswordInput
-                id="password"
-                autoComplete="new-password"
-                placeholder="Min 8 characters"
-                {...businessForm.register('password', { required: true, minLength: 8 })}
-              />
-              {businessForm.formState.errors.password?.type === 'minLength' && (
-                <p className="text-xs text-v-danger">Password must be at least 8 characters</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
-              <PasswordInput
-                id="confirmPassword"
-                autoComplete="new-password"
-                {...businessForm.register('confirmPassword', {
-                  required: true,
-                  validate: (v) => v === businessForm.watch('password') || 'Passwords do not match',
-                })}
-              />
-              {businessForm.formState.errors.confirmPassword && (
-                <p className="text-xs text-v-danger">{businessForm.formState.errors.confirmPassword.message}</p>
-              )}
-            </div>
-
-            {error && (
-              <p className="text-sm text-v-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
+          <div className="space-y-2">
+            <Label htmlFor="dob">Date of birth</Label>
+            <Input
+              id="dob"
+              type="date"
+              max={new Date().toISOString().slice(0, 10)}
+              {...form.register('dateOfBirth', { required: 'Date of birth is required' })}
+            />
+            {form.formState.errors.dateOfBirth && (
+              <p className="text-xs text-v-danger">{form.formState.errors.dateOfBirth.message}</p>
             )}
+          </div>
 
-            <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
-              {isPending ? 'Creating account...' : 'Continue to onboarding →'}
-            </Button>
-          </form>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Mobile number</Label>
+            <Controller
+              name="phone"
+              control={form.control}
+              rules={{ required: 'Phone is required', minLength: 10 }}
+              render={({ field }) => (
+                <PhoneInput
+                  id="phone"
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={isPending}
+                />
+              )}
+            />
+            {form.formState.errors.phone && (
+              <p className="text-xs text-v-danger">{form.formState.errors.phone.message}</p>
+            )}
+          </div>
 
-          <p className="text-sm text-v-text-2 mt-6 text-center">
-            Already have an account?{' '}
-            <Link to="/signin" className="text-v-purple font-semibold hover:underline">Sign in</Link>
+          <div className="space-y-2">
+            <Label htmlFor="email">
+              Email <span className="text-v-text-2 font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@email.com"
+              {...form.register('email', {
+                validate: (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'Enter a valid email',
+              })}
+            />
+            {form.formState.errors.email && (
+              <p className="text-xs text-v-danger">{form.formState.errors.email.message}</p>
+            )}
+          </div>
+
+          {error && (
+            <p className="text-sm text-v-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
+          )}
+
+          <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
+            {sendMutation.isPending ? 'Sending OTP...' : 'Verify mobile & continue →'}
+          </Button>
+        </form>
+      ) : (
+        <div className="space-y-5">
+          <p className="text-sm text-v-text-2 text-center">
+            OTP sent to{' '}
+            <span className="font-semibold text-v-text">
+              +91 {savedDetails?.phone.replace(/(\d{5})(\d{5})/, '$1 $2')}
+            </span>
           </p>
-        </>
+
+          <div className="space-y-2">
+            <Label className="text-center block">Enter 6-digit OTP</Label>
+            <OtpInput value={otp} onChange={setOtp} disabled={isPending} />
+          </div>
+
+          {error && (
+            <p className="text-sm text-v-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
+          )}
+
+          <Button
+            type="button"
+            variant="primary"
+            className="w-full"
+            disabled={isPending || otp.length !== 6 || !savedDetails}
+            onClick={() => {
+              setError('')
+              if (savedDetails) signUpMutation.mutate(savedDetails)
+            }}
+          >
+            {signUpMutation.isPending ? 'Creating account...' : 'Create account & explore →'}
+          </Button>
+
+          <div className="flex items-center justify-between text-sm">
+            <button
+              type="button"
+              className="text-v-purple font-semibold hover:underline bg-transparent border-0 cursor-pointer"
+              onClick={() => { setStep('details'); setOtp(''); setError('') }}
+            >
+              Edit details
+            </button>
+            <button
+              type="button"
+              className="text-v-text-2 hover:text-v-purple font-medium bg-transparent border-0 cursor-pointer disabled:opacity-50"
+              disabled={sendMutation.isPending || !savedDetails}
+              onClick={() => savedDetails && sendMutation.mutate(savedDetails.phone)}
+            >
+              {sendMutation.isPending ? 'Sending...' : 'Resend OTP'}
+            </button>
+          </div>
+        </div>
       )}
+
+      <p className="text-sm text-v-text-2 mt-6 text-center">
+        Already have an account?{' '}
+        <Link to="/signin" className="text-v-purple font-semibold hover:underline">Sign in</Link>
+      </p>
     </AuthShell>
   )
 }
-
-/** @deprecated use SignUpPage */
-export const BusinessSignUpPage = SignUpPage

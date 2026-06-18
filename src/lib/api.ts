@@ -42,14 +42,13 @@ api.interceptors.response.use(
   (error) => {
     if (isAuthFailure401(error) && !handling401) {
       const path = window.location.pathname
-      const onAuthPage = path.startsWith('/signin') || path.startsWith('/signup') || path.startsWith('/forgot-password')
+      const onAuthPage = path.startsWith('/signin') || path.startsWith('/signup') || path.startsWith('/forgot-password') || path.startsWith('/business/')
       if (!onAuthPage) {
         handling401 = true
         const isCustomerRoute = path.startsWith('/customer')
         clearSession()
         const params = new URLSearchParams({ reason: 'session_expired' })
-        if (isCustomerRoute) params.set('role', 'customer')
-        window.location.assign(`/signin?${params.toString()}`)
+        window.location.assign(isCustomerRoute ? `/signin?${params.toString()}` : `/business/signin?${params.toString()}`)
       }
     }
     return Promise.reject(error)
@@ -82,10 +81,14 @@ export async function signUpBusiness(email: string, password: string) {
   return data.data
 }
 
-export async function signInCustomer(email: string, password: string) {
+export async function sendOtp(phone: string, purpose: 'signin' | 'signup') {
+  await api.post('/auth/otp/send', { phone, purpose })
+}
+
+export async function signInCustomer(phone: string, otp: string) {
   const { data } = await api.post<{ success: boolean; data: AuthUser }>(
     '/auth/customer/signin',
-    { email, password },
+    { phone, otp },
   )
   return data.data
 }
@@ -93,8 +96,9 @@ export async function signInCustomer(email: string, password: string) {
 export async function signUpCustomer(payload: {
   name: string
   phone: string
-  email: string
-  password: string
+  dateOfBirth: string
+  email?: string
+  otp: string
 }) {
   const { data } = await api.post<{ success: boolean; data: AuthUser }>(
     '/auth/customer/signup',
@@ -117,8 +121,8 @@ export async function fetchAuthSession() {
   return data.data
 }
 
-export async function resetPasswordByEmail(role: 'business' | 'customer', email: string, password: string) {
-  await api.post(`/auth/${role}/forgot-password`, { email, password })
+export async function resetPasswordByEmail(email: string, password: string) {
+  await api.post('/auth/business/forgot-password', { email, password })
 }
 
 /** Matches backend `onboardingSchema` in backend/src/services/onboarding.ts */

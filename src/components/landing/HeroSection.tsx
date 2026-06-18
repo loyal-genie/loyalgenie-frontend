@@ -130,7 +130,7 @@ export function HeroSection() {
           style={{ opacity: 1 }}
         >
           <Link to="/signup" className="btn-gold text-sm sm:text-[15px] !py-3 !px-6 sm:!px-7 no-underline w-full sm:w-auto justify-center">
-            Add to Your Counter — Free
+            Join & Win Rewards
           </Link>
           <a href="#how-it-works" className="btn-outline text-sm sm:text-[15px] !py-3 !px-6 sm:!px-7 w-full sm:w-auto justify-center">
             See How It Works
@@ -138,7 +138,9 @@ export function HeroSection() {
         </div>
         <p className="mt-5 sm:mt-6 text-sm text-[#8b7db5]">
           Already have an account?{' '}
-          <Link to="/signin" className="text-gold font-semibold hover:underline">Sign in to dashboard</Link>
+          <Link to="/signin" className="text-gold font-semibold hover:underline">Sign in</Link>
+          {' · '}
+          <Link to="/business/signin" className="text-gold font-semibold hover:underline">For business</Link>
         </p>
       </div>
 

@@ -29,7 +29,7 @@ export function CustomerProfilePage() {
 
   function handleSignOut() {
     clearSession()
-    navigate('/signin?role=customer', { replace: true })
+    navigate('/signin', { replace: true })
   }
 
   return (

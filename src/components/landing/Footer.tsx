@@ -4,7 +4,7 @@ const footerLinks = [
   { label: 'How It Works', href: '#how-it-works' },
   { label: 'Mechanics', href: '#mechanics' },
   { label: 'For Business', href: '#for-business' },
-  { label: 'Sign Up', href: '/signup', isRoute: true },
+  { label: 'Business Sign In', href: '/business/signin', isRoute: true },
 ]
 
 export function Footer() {
@@ -33,7 +33,7 @@ export function Footer() {
         {footerLinks.map((link) =>
           link.isRoute ? (
             <Link
-              key={link.label}
+              key={link.href}
               to={link.href}
               className="text-muted text-sm no-underline hover:text-white transition-colors"
             >
@@ -41,7 +41,7 @@ export function Footer() {
             </Link>
           ) : (
             <a
-              key={link.label}
+              key={link.href}
               href={link.href}
               className="text-muted text-sm no-underline hover:text-white transition-colors"
             >

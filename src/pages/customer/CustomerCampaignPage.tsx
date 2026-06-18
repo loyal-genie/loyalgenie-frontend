@@ -159,7 +159,7 @@ export function CustomerCampaignPage() {
         </p>
         <button
           type="button"
-          onClick={() => navigate(`/signin?role=customer&reason=session_expired&from=/customer/campaigns/${id}`)}
+          onClick={() => navigate(`/signin?reason=session_expired&from=/customer/campaigns/${id}`)}
           className="px-6 py-3 rounded-2xl font-bold text-sm border-0 cursor-pointer"
           style={{ background: 'linear-gradient(135deg, #7C3AED, #F5C518)', color: '#1A0545' }}
         >

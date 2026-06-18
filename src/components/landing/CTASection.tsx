@@ -21,11 +21,11 @@ export function CTASection() {
           <span>✦ Free 30-day trial</span>
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center max-w-sm sm:max-w-none mx-auto">
-          <Link to="/signup" className="btn-gold text-sm sm:text-[17px] !py-3.5 sm:!py-4 !px-8 sm:!px-10 no-underline w-full sm:w-auto justify-center">
+          <Link to="/business/signup" className="btn-gold text-sm sm:text-[17px] !py-3.5 sm:!py-4 !px-8 sm:!px-10 no-underline w-full sm:w-auto justify-center">
             Get Your Free Standee →
           </Link>
-          <Link to="/signin" className="btn-outline text-sm sm:text-[17px] !py-3.5 sm:!py-4 w-full sm:w-auto justify-center no-underline">
-            Sign In to Dashboard
+          <Link to="/business/signin" className="btn-outline text-sm sm:text-[17px] !py-3.5 sm:!py-4 w-full sm:w-auto justify-center no-underline">
+            Business Sign In
           </Link>
         </div>
       </div>

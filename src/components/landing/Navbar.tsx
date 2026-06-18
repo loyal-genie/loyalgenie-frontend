@@ -83,10 +83,10 @@ export function Navbar() {
             Sign In
           </Link>
           <Link
-            to="/signup"
+            to="/business/signin"
             className="btn-gold text-xs sm:text-sm no-underline !py-2 !px-4 sm:!px-5"
           >
-            Sign Up
+            For Business
           </Link>
         </div>
 
@@ -134,11 +134,11 @@ export function Navbar() {
                 Sign In
               </Link>
               <Link
-                to="/signup"
+                to="/business/signin"
                 onClick={closeMenu}
                 className="btn-gold text-sm w-full no-underline justify-center"
               >
-                Sign Up
+                For Business
               </Link>
             </div>
           </div>

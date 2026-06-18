@@ -30,7 +30,7 @@ export function VendorPageHeader({ title, subtitle, actions }: VendorPageHeaderP
 
   function handleSignOut() {
     clearSession()
-    navigate('/signin')
+    navigate('/business/signin')
   }
 
   const displayName = profile?.name ?? 'Business'
