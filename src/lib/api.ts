@@ -67,20 +67,38 @@ export interface AuthUser {
   onboarded?: boolean
 }
 
-export async function signInBusiness(email: string, password: string) {
-  const { data } = await api.post<{ success: boolean; data: AuthUser }>(
-    '/auth/business/signin',
-    { email, password },
+export async function sendBusinessEmailOtp(email: string) {
+  await api.post('/auth/business/otp/send', { email })
+}
+
+export interface BusinessOtpLoginResult {
+  token?: string
+  userId?: string
+  email?: string
+  role?: 'business'
+  onboarded?: boolean
+  isNewUser?: boolean
+  businessId?: string
+}
+
+export type BusinessAuthIntent = 'signin' | 'signup'
+
+export async function loginBusinessWithEmailOtp(email: string, otp: string, intent: BusinessAuthIntent = 'signin') {
+  const { data } = await api.post<{ success: boolean; data: BusinessOtpLoginResult }>(
+    '/auth/business/otp-login',
+    { email, otp, intent },
   )
   return data.data
 }
 
-export async function signUpBusiness(email: string, password: string) {
-  const { data } = await api.post<{ success: boolean; data: AuthUser }>(
-    '/auth/business/signup',
-    { email, password },
-  )
-  return data.data
+/** @deprecated use loginBusinessWithEmailOtp */
+export async function signInBusiness(_email: string, _password: string) {
+  throw new Error('Password sign in is no longer supported. Use email OTP.')
+}
+
+/** @deprecated use loginBusinessWithEmailOtp */
+export async function signUpBusiness(_email: string, _password: string) {
+  throw new Error('Password sign up is no longer supported. Use email OTP.')
 }
 
 export async function sendOtp(phone: string) {
@@ -150,8 +168,9 @@ export async function fetchAuthSession() {
   return data.data
 }
 
-export async function resetPasswordByEmail(email: string, password: string) {
-  await api.post('/auth/business/forgot-password', { email, password })
+/** @deprecated password reset replaced by email OTP sign in */
+export async function resetPasswordByEmail(_email: string, _password: string) {
+  throw new Error('Password reset is no longer supported. Sign in with email OTP.')
 }
 
 /** Matches backend `onboardingSchema` in backend/src/services/onboarding.ts */
@@ -164,7 +183,6 @@ export interface OnboardingPayload {
   mobile: string
   whatsapp?: string
   email: string
-  password?: string
   city: string
   pincode?: string
   landmark?: string
