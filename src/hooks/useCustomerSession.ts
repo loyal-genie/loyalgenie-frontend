@@ -17,7 +17,7 @@ export function useCustomerSession() {
     displayPhone,
     displayEmail,
     firstName: displayName.split(' ')[0],
-    activeRewards: customer.rewards.filter((r) => r.status === 'pending'),
+    activeRewards: customer.rewards.filter((r) => r.status === 'earned' || r.status === 'pending'),
     redeemedRewards: customer.rewards.filter((r) => r.status === 'redeemed'),
   }
 }

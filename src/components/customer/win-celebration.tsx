@@ -103,7 +103,7 @@ export function WinCelebration({ reward, emoji = '🎁', code, onClose, closeLab
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-1 text-glow-gold leading-tight px-2">
             {reward}
           </h2>
-          <p className="text-xs sm:text-sm text-white/60 mb-4 sm:mb-5">Added to your wallet</p>
+          <p className="text-xs sm:text-sm text-white/60 mb-4 sm:mb-5">Saved to your wallet — redeem anytime</p>
 
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}

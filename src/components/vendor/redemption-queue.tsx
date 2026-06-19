@@ -69,7 +69,7 @@ export function RedemptionQueue() {
                       <span className="text-sm font-bold text-v-text truncate">{item.customerName}</span>
                       <span className="text-[10px] text-v-text-3 shrink-0 flex items-center gap-1">
                         <Clock className="w-2.5 h-2.5" />
-                        {formatRelativeTime(item.earnedAt)}
+                        {formatRelativeTime(item.requestedAt ?? item.earnedAt)}
                       </span>
                     </div>
                     <p className="text-xs font-semibold mt-0.5" style={{ color: '#D97706' }}>

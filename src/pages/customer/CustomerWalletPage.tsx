@@ -1,16 +1,26 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bell, Loader2 } from 'lucide-react'
+import { Bell, Loader2, CheckCircle2 } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
+import { Button } from '@/components/ui/button'
 import { MECHANIC_META, formatDate } from '@/lib/utils'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
-import { useCustomerRewards } from '@/hooks/useCustomerData'
+import { useCustomerRewards, useRequestRedemption } from '@/hooks/useCustomerData'
 import type { CustomerRewardDto } from '@/lib/api'
 
 type Tab = 'active' | 'history'
 
 function ActiveRewardCard({ reward }: { reward: CustomerRewardDto }) {
   const meta = MECHANIC_META[reward.mechanic as keyof typeof MECHANIC_META] ?? MECHANIC_META.shake
+  const requestRedemption = useRequestRedemption()
+  const [requested, setRequested] = useState(false)
+  const isQueued = reward.status === 'pending' || requested
+
+  const handleRedeem = () => {
+    requestRedemption.mutate(reward.id, {
+      onSuccess: () => setRequested(true),
+    })
+  }
 
   return (
     <motion.div
@@ -35,6 +45,29 @@ function ActiveRewardCard({ reward }: { reward: CustomerRewardDto }) {
         <h3 className="text-sm font-bold text-gray-900 mb-1">{reward.reward}</h3>
         <span className="font-mono text-[10px] bg-gray-100 px-2 py-0.5 rounded text-gray-600">{reward.code}</span>
         <p className="text-[10px] text-gray-400 mt-2">Earned {formatDate(reward.earnedAt.slice(0, 10))}</p>
+
+        <div className="mt-3">
+          {isQueued ? (
+            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200">
+              <CheckCircle2 className="w-4 h-4" />
+              Show this code at the counter — staff will confirm
+            </div>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full"
+              disabled={requestRedemption.isPending}
+              onClick={handleRedeem}
+            >
+              {requestRedemption.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                'Redeem Now'
+              )}
+            </Button>
+          )}
+        </div>
       </div>
     </motion.div>
   )
@@ -70,7 +103,7 @@ export function CustomerWalletPage() {
   const { firstName } = useCustomerSession()
   const { data: rewards = [], isLoading } = useCustomerRewards()
 
-  const activeRewards = rewards.filter(r => r.status === 'pending')
+  const activeRewards = rewards.filter(r => r.status === 'earned' || r.status === 'pending')
   const historyRewards = rewards.filter(r => r.status === 'redeemed')
   const shown = tab === 'active' ? activeRewards : historyRewards
 

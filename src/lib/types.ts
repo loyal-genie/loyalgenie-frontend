@@ -115,7 +115,8 @@ export interface CustomerReward {
   mechanic: MechanicType
   reward: string
   earnedAt: string
-  status: 'pending' | 'redeemed'
+  status: 'earned' | 'pending' | 'redeemed'
+  requestedAt?: string
   redeemedAt?: string
   code: string
 }

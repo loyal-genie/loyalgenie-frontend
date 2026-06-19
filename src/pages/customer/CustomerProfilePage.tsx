@@ -18,7 +18,9 @@ export function CustomerProfilePage() {
     queryFn: fetchCustomerRewards,
   })
 
-  const pendingRewards = rewards.filter(r => r.status === 'pending')
+  const earnedRewards = rewards.filter(r => r.status === 'earned')
+  const queuedRewards = rewards.filter(r => r.status === 'pending')
+  const redeemableRewards = [...queuedRewards, ...earnedRewards]
   const redeemedRewards = rewards.filter(r => r.status === 'redeemed')
 
   function handleSignOut() {
@@ -58,7 +60,7 @@ export function CustomerProfilePage() {
         </motion.div>
 
         {/* Redeemable rewards */}
-        {pendingRewards.length > 0 && (
+        {redeemableRewards.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -67,25 +69,31 @@ export function CustomerProfilePage() {
           >
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Gift className="w-3.5 h-3.5 text-amber-500" /> Ready to Redeem
+                <Gift className="w-3.5 h-3.5 text-amber-500" /> Your Rewards
               </h2>
               <Link to="/customer/wallet" className="text-[10px] font-semibold text-purple-600 flex items-center gap-0.5">
                 Wallet <ChevronRight className="w-3 h-3" />
               </Link>
             </div>
             <div className="space-y-2">
-              {pendingRewards.slice(0, 3).map(r => (
+              {redeemableRewards.slice(0, 3).map(r => (
                 <div key={r.id} className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-3 flex items-center gap-3 border border-amber-200">
                   <span className="text-2xl">{r.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-gray-900 truncate">{r.reward}</p>
                     <p className="text-[10px] text-gray-500">{r.campaignName}</p>
                   </div>
-                  <span className="text-[9px] font-mono font-bold text-amber-700 bg-white px-2 py-1 rounded-lg">{r.code}</span>
+                  <span className={`text-[9px] font-bold px-2 py-1 rounded-lg shrink-0 ${
+                    r.status === 'pending'
+                      ? 'text-amber-700 bg-white'
+                      : 'text-purple-700 bg-white'
+                  }`}>
+                    {r.status === 'pending' ? 'At counter' : 'Tap to redeem'}
+                  </span>
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-gray-400 mt-2 text-center">Show code at counter — staff verifies redemption</p>
+            <p className="text-[10px] text-gray-400 mt-2 text-center">Tap Redeem in Wallet when you&apos;re ready — redeem anytime</p>
           </motion.div>
         )}
 
@@ -113,8 +121,12 @@ export function CustomerProfilePage() {
                   <p className="text-[10px] text-gray-400">{formatRelativeTime(r.earnedAt)}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className={`text-[10px] font-bold ${r.status === 'pending' ? 'text-amber-600' : 'text-green-600'}`}>
-                    {r.status === 'pending' ? 'Pending' : 'Redeemed'}
+                  <p className={`text-[10px] font-bold ${
+                    r.status === 'redeemed' ? 'text-green-600'
+                    : r.status === 'pending' ? 'text-amber-600'
+                    : 'text-purple-600'
+                  }`}>
+                    {r.status === 'redeemed' ? 'Redeemed' : r.status === 'pending' ? 'At counter' : 'In wallet'}
                   </p>
                 </div>
               </motion.div>

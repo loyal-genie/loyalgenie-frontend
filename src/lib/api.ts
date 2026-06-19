@@ -532,7 +532,8 @@ export interface CustomerRewardDto {
   reward: string
   icon: string
   earnedAt: string
-  status: string
+  status: 'earned' | 'pending' | 'redeemed'
+  requestedAt?: string
   redeemedAt?: string
   code: string
 }
@@ -652,6 +653,10 @@ export async function fetchCustomerRewards() {
   return data.data
 }
 
+export async function requestRewardRedemption(rewardId: string) {
+  await api.post(`/campaigns/customer/rewards/${rewardId}/request-redemption`)
+}
+
 export interface LoyaltyState {
   campaignId: string
   mechanic: 'check-in-loyalty'
@@ -749,7 +754,8 @@ export interface VendorCustomerDetail extends VendorCustomerSummary {
     reward: string
     icon: string
     earnedAt: string
-    status: 'pending' | 'redeemed'
+    status: 'earned' | 'pending' | 'redeemed'
+    requestedAt?: string
     redeemedAt?: string
     code: string
   }[]
@@ -801,6 +807,7 @@ export interface VendorRedemptionItem {
   campaignName: string
   mechanic: string
   earnedAt: string
+  requestedAt?: string
   code: string
 }
 

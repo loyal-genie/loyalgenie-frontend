@@ -189,7 +189,7 @@ export const customers: Customer[] = [
     status: 'active',
     rewards: [
       { id: 'cr1', campaignId: 'camp-1', campaignName: 'Weekend Spin Fiesta', mechanic: 'spin', reward: 'Free Coffee', earnedAt: '2026-06-12T14:30:00Z', status: 'redeemed', redeemedAt: '2026-06-12T14:45:00Z', code: 'PRIYA-SF-001' },
-      { id: 'cr2', campaignId: 'camp-3', campaignName: 'Monsoon Shake & Win', mechanic: 'shake', reward: '₹30 Off', earnedAt: '2026-06-13T11:00:00Z', status: 'pending', code: 'PRIYA-SW-002' },
+      { id: 'cr2', campaignId: 'camp-3', campaignName: 'Monsoon Shake & Win', mechanic: 'shake', reward: '₹30 Off', earnedAt: '2026-06-13T11:00:00Z', status: 'earned', code: 'PRIYA-SW-002' },
     ],
     gameHistory: [
       { id: 'gh1', campaignId: 'camp-1', campaignName: 'Weekend Spin Fiesta', mechanic: 'spin', playedAt: '2026-06-12T14:30:00Z', won: true, reward: 'Free Coffee' },

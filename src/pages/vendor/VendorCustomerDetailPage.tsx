@@ -97,6 +97,18 @@ function buildCampaignActivity(customer: VendorCustomerDetail) {
   return { active: all.filter(c => c.status === 'active'), previous: all.filter(c => c.status !== 'active') }
 }
 
+function rewardStatusLabel(status: string) {
+  if (status === 'earned') return 'In wallet'
+  if (status === 'pending') return 'Awaiting pickup'
+  return 'Redeemed'
+}
+
+function rewardStatusStyle(status: string) {
+  if (status === 'redeemed') return 'bg-v-surface-3 text-v-text-3'
+  if (status === 'pending') return 'bg-amber-50 text-amber-700 border border-amber-200'
+  return 'bg-v-surface-2 text-v-text-2 border border-v-border'
+}
+
 function buildRedemption(customer: VendorCustomerDetail) {
   const pending = customer.rewards.filter(r => r.status === 'pending')
   const redeemed = customer.rewards.filter(r => r.status === 'redeemed')
@@ -592,13 +604,17 @@ export function VendorCustomerDetailPage() {
               ) : (
                 <div className="space-y-2.5">
                   {customer.rewards.map(r => (
-                    <div key={r.id} className={`p-3.5 rounded-xl border transition-all ${r.status === 'redeemed' ? 'border-v-border bg-v-surface-2 opacity-60' : 'border-amber-200 bg-amber-50'}`}>
+                    <div key={r.id} className={`p-3.5 rounded-xl border transition-all ${
+                      r.status === 'redeemed' ? 'border-v-border bg-v-surface-2 opacity-60'
+                      : r.status === 'pending' ? 'border-amber-200 bg-amber-50'
+                      : 'border-v-border bg-v-surface-2'
+                    }`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="text-sm font-bold text-v-text">{r.reward}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${r.status === 'redeemed' ? 'bg-v-surface-3 text-v-text-3' : 'bg-emerald-50 text-v-success border border-emerald-200'}`}>
-                              {r.status}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${rewardStatusStyle(r.status)}`}>
+                              {rewardStatusLabel(r.status)}
                             </span>
                           </div>
                           <p className="text-xs text-v-text-3">{r.campaignName}</p>
