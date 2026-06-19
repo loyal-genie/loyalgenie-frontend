@@ -1089,7 +1089,7 @@ export function VendorCampaignCreatePage() {
                 <p className="text-xs text-v-text-3 mb-2">A PIN will be auto-generated on launch</p>
                 <div className="text-4xl font-black tracking-[0.3em] text-v-border-b">···</div>
                 <p className="text-xs text-v-text-3 mt-2">
-                  {isStamp ? 'Rotates daily at midnight · Campaign-level' : isLoyalty ? 'Rotates every 120 seconds · Staff PIN in dashboard' : 'Rotates every 120 seconds · Campaign-level'}
+                  {isStamp ? 'Rotates every 120 seconds · Staff PIN in dashboard' : isLoyalty ? 'Rotates every 120 seconds · Staff PIN in dashboard' : 'Rotates every 120 seconds · Campaign-level'}
                 </p>
               </Card>
 

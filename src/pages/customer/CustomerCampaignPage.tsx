@@ -63,14 +63,14 @@ export function CustomerCampaignPage() {
     enabled: Boolean(id),
   })
 
-  const { data: playState } = useQuery({
+  const { data: playState, isLoading: playStateLoading } = useQuery({
     queryKey: ['play-state', id, serverSession?.userId],
     queryFn: () => fetchPlayState(id!),
     enabled: Boolean(id) && authReady && campaign?.mechanic === 'shake',
     staleTime: 0,
   })
 
-  const { data: stampState } = useQuery({
+  const { data: stampState, isLoading: stampStateLoading } = useQuery({
     queryKey: ['stamp-state', id, serverSession?.userId],
     queryFn: () => fetchStampState(id!),
     enabled: Boolean(id) && authReady && campaign?.mechanic === 'stamp',
@@ -177,11 +177,70 @@ export function CustomerCampaignPage() {
     )
   }
 
+  const stateStillLoading =
+    (campaign?.mechanic === 'shake' && playStateLoading)
+    || (campaign?.mechanic === 'stamp' && stampStateLoading)
+
+  if (stateStillLoading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center customer-game-bg">
+        <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
+      </div>
+    )
+  }
+
   if (!campaign) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center px-5 text-center customer-game-bg">
         <p className="text-white font-semibold mb-4">Campaign not available</p>
         <button type="button" onClick={() => navigate('/customer')} className="text-purple-300 text-sm border-0 bg-transparent cursor-pointer">← Back home</button>
+      </div>
+    )
+  }
+
+  const shakeBlocked = campaign.mechanic === 'shake' && playState && !playState.canPlay
+  const stampBlocked = campaign.mechanic === 'stamp' && stampState && (
+    stampState.cardComplete
+    || stampState.status === 'expired'
+    || (stampState.enrolled && !stampState.canCollectToday)
+    || (!stampState.enrolled && !stampState.enrollmentOpen)
+  )
+
+  if (shakeBlocked || stampBlocked) {
+    const title = shakeBlocked
+      ? playState!.blockReason === 'no_plays_remaining'
+        ? 'All plays used today!'
+        : 'Cannot play right now'
+      : stampState!.cardComplete
+        ? 'Stamp card complete!'
+        : stampState!.status === 'expired'
+          ? 'Stamp card expired'
+          : stampState!.enrolled && !stampState!.canCollectToday
+            ? 'Stamp already collected today!'
+            : 'Enrollment closed'
+    const detail = shakeBlocked
+      ? playState!.message
+      : stampState!.cardComplete
+        ? `You collected all ${stampState!.totalStamps} stamps`
+        : stampState!.enrolled && !stampState!.canCollectToday
+          ? `${stampState!.stampsCollected}/${stampState!.totalStamps} stamps · come back tomorrow`
+          : stampState!.status === 'expired'
+            ? 'The claim window for this card has ended'
+            : 'No spots left to join this stamp card'
+
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center px-6 text-center customer-game-bg">
+        <div className="text-5xl mb-4">{stampBlocked && stampState!.cardComplete ? '🏆' : '✅'}</div>
+        <h1 className="text-xl font-extrabold text-white mb-2">{title}</h1>
+        <p className="text-sm text-white/60 mb-6">{detail}</p>
+        <button
+          type="button"
+          onClick={handleBack}
+          className="px-6 py-3 rounded-2xl font-bold text-sm border-0 cursor-pointer"
+          style={{ background: 'linear-gradient(135deg, #7C3AED, #F5C518)', color: '#1A0545' }}
+        >
+          Back to vendor
+        </button>
       </div>
     )
   }
@@ -401,7 +460,7 @@ export function CustomerCampaignPage() {
           </motion.button>
 
           <p className="text-center text-[10px] text-white/30 mt-4">
-            {isStamp ? 'PIN rotates daily at midnight' : isLoyalty ? 'PIN refreshes every 2 min on staff screen' : 'PIN refreshes every 2 min on staff screen'}
+            {isStamp ? 'PIN refreshes every 2 min on staff screen' : isLoyalty ? 'PIN refreshes every 2 min on staff screen' : 'PIN refreshes every 2 min on staff screen'}
           </p>
         </motion.div>
       </div>

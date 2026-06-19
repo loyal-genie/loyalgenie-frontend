@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, MapPin, Loader2, Sparkles, Star } from 'lucide-react'
@@ -5,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { BottomNav } from '@/components/customer/bottom-nav'
 import { MECHANIC_META, getMechanicEmoji, getMechanicLabel } from '@/lib/utils'
 import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
-import { fetchLoyaltyState } from '@/lib/api'
+import { fetchLoyaltyState, fetchPlayState, fetchStampState } from '@/lib/api'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   Cafe: '☕', Restaurant: '🍝', Salon: '✂️', Gym: '🏋️', Jewellery: '💎',
@@ -77,6 +78,174 @@ function LoyaltyCampaignCard({
   )
 }
 
+function StatusBanner({
+  children,
+  variant = 'success',
+}: {
+  children: ReactNode
+  variant?: 'success' | 'warning' | 'muted'
+}) {
+  const styles = {
+    success: 'bg-green-50 text-green-700 border-green-200',
+    warning: 'bg-amber-50 text-amber-800 border-amber-200',
+    muted: 'bg-gray-50 text-gray-600 border-gray-200',
+  }
+  return (
+    <div className={`flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold border ${styles[variant]}`}>
+      {children}
+    </div>
+  )
+}
+
+function ShakeCampaignCard({
+  campaign,
+  index,
+}: {
+  campaign: { id: string; name: string; endDate: string; winRatePercent?: number; playsPerDay?: number }
+  index: number
+}) {
+  const meta = MECHANIC_META.shake
+  const { data: playState, isLoading } = useQuery({
+    queryKey: ['play-state', campaign.id],
+    queryFn: () => fetchPlayState(campaign.id),
+  })
+
+  const blocked = Boolean(playState && !playState.canPlay)
+  const quotaUsed = playState?.blockReason === 'no_plays_remaining'
+  const campaignFull = playState?.blockReason === 'daily_participant_limit' || playState?.blockReason === 'user_cap'
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 + index * 0.08 }}
+      className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
+    >
+      <div
+        className="relative h-32 flex items-end p-4"
+        style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, ${meta.cardTo})` }}
+      >
+        <span
+          className="absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm"
+          style={{ background: meta.badgeBg, color: meta.badgeText }}
+        >
+          {getMechanicLabel('shake')}
+        </span>
+        <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white">
+          {campaign.winRatePercent}% win chance
+        </span>
+        <div className="absolute bottom-3 right-4 text-3xl drop-shadow">{getMechanicEmoji('shake')}</div>
+      </div>
+      <div className="p-5">
+        <h3 className="text-base font-extrabold text-gray-900 mb-1">{campaign.name}</h3>
+        <p className="text-xs text-gray-500 mb-4">
+          {campaign.playsPerDay ?? 1} play per day · ends {campaign.endDate}
+        </p>
+        {blocked ? (
+          <StatusBanner variant={quotaUsed ? 'success' : campaignFull ? 'warning' : 'muted'}>
+            {quotaUsed
+              ? `✓ All plays used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
+              : playState!.message}
+          </StatusBanner>
+        ) : (
+          <Link
+            to={`/customer/campaigns/${campaign.id}`}
+            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold text-white no-underline transition-transform active:scale-[0.98]"
+            style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, ${meta.cardTo})`, boxShadow: `0 8px 24px ${meta.cardFrom}40` }}
+          >
+            Enter PIN & Play {getMechanicEmoji('shake')}
+          </Link>
+        )}
+        {isLoading && !playState && (
+          <p className="text-center text-[10px] text-gray-400 mt-2">Checking play status…</p>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
+function StampCampaignCard({
+  campaign,
+  index,
+}: {
+  campaign: { id: string; name: string; endDate: string }
+  index: number
+}) {
+  const meta = MECHANIC_META.stamp
+  const { data: stampState, isLoading } = useQuery({
+    queryKey: ['stamp-state', campaign.id],
+    queryFn: () => fetchStampState(campaign.id),
+  })
+
+  const collectedToday = Boolean(
+    stampState?.enrolled && !stampState.canCollectToday && !stampState.cardComplete,
+  )
+  const cardComplete = Boolean(stampState?.cardComplete)
+  const cardExpired = stampState?.status === 'expired'
+  const enrollmentClosed = Boolean(stampState && !stampState.enrolled && !stampState.enrollmentOpen)
+  const blocked = collectedToday || cardComplete || cardExpired || enrollmentClosed
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 + index * 0.08 }}
+      className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
+    >
+      <div
+        className="relative h-32 flex items-end p-4"
+        style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, ${meta.cardTo})` }}
+      >
+        <span
+          className="absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm"
+          style={{ background: meta.badgeBg, color: meta.badgeText }}
+        >
+          {getMechanicLabel('stamp')}
+        </span>
+        <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white">
+          Surprise + big rewards
+        </span>
+        <div className="absolute bottom-3 right-4 text-3xl drop-shadow">{getMechanicEmoji('stamp')}</div>
+      </div>
+      <div className="p-5">
+        <h3 className="text-base font-extrabold text-gray-900 mb-1">{campaign.name}</h3>
+        <p className="text-xs text-gray-500 mb-4">
+          1 stamp per day · ends {campaign.endDate}
+        </p>
+        {stampState?.enrolled && !blocked && (
+          <p className="text-[11px] text-amber-700 font-semibold mb-3">
+            {stampState.stampsCollected}/{stampState.totalStamps} stamps collected
+          </p>
+        )}
+        {blocked ? (
+          <StatusBanner
+            variant={collectedToday || cardComplete ? 'success' : enrollmentClosed ? 'warning' : 'muted'}
+          >
+            {collectedToday
+              ? `✓ Stamp collected today · ${stampState!.stampsCollected}/${stampState!.totalStamps}`
+              : cardComplete
+                ? `✓ Card complete · ${stampState!.stampsCollected}/${stampState!.totalStamps}`
+                : cardExpired
+                  ? 'Your stamp card has expired'
+                  : 'Enrollment closed — no spots left'}
+          </StatusBanner>
+        ) : (
+          <Link
+            to={`/customer/campaigns/${campaign.id}`}
+            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold text-white no-underline transition-transform active:scale-[0.98]"
+            style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, ${meta.cardTo})`, boxShadow: `0 8px 24px ${meta.cardFrom}40` }}
+          >
+            Enter PIN & Collect Stamp {getMechanicEmoji('stamp')}
+          </Link>
+        )}
+        {isLoading && !stampState && (
+          <p className="text-center text-[10px] text-gray-400 mt-2">Checking stamp status…</p>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
 export function CustomerBusinessPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -103,7 +272,11 @@ export function CustomerBusinessPage() {
   const emoji = CATEGORY_EMOJI[biz.businessType] ?? '🏪'
   const color = biz.brandColor
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
-  const otherCampaigns = biz.campaigns.filter(c => c.mechanic !== 'check-in-loyalty')
+  const shakeCampaigns = biz.campaigns.filter(c => c.mechanic === 'shake')
+  const stampCampaigns = biz.campaigns.filter(c => c.mechanic === 'stamp')
+  const otherCampaigns = biz.campaigns.filter(
+    c => c.mechanic !== 'check-in-loyalty' && c.mechanic !== 'shake' && c.mechanic !== 'stamp',
+  )
 
   return (
     <div className="min-h-dvh bg-[#f8f6ff] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
@@ -163,16 +336,24 @@ export function CustomerBusinessPage() {
             {loyaltyCampaigns.map((c, i) => (
               <LoyaltyCampaignCard key={c.id} campaign={c} index={i} />
             ))}
+            {shakeCampaigns.map((c, i) => (
+              <ShakeCampaignCard key={c.id} campaign={c} index={loyaltyCampaigns.length + i} />
+            ))}
+            {stampCampaigns.map((c, i) => (
+              <StampCampaignCard
+                key={c.id}
+                campaign={c}
+                index={loyaltyCampaigns.length + shakeCampaigns.length + i}
+              />
+            ))}
             {otherCampaigns.map((c, i) => {
               const meta = MECHANIC_META[c.mechanic as keyof typeof MECHANIC_META] ?? MECHANIC_META.shake
-              const isStamp = c.mechanic === 'stamp'
-              const isPlayable = c.mechanic === 'shake' || isStamp
               return (
                 <motion.div
                   key={c.id}
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 + (loyaltyCampaigns.length + i) * 0.08 }}
+                  transition={{ delay: 0.1 + (loyaltyCampaigns.length + shakeCampaigns.length + stampCampaigns.length + i) * 0.08 }}
                   className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
                 >
                   <div
@@ -185,27 +366,12 @@ export function CustomerBusinessPage() {
                     >
                       {getMechanicLabel(c.mechanic as 'shake')}
                     </span>
-                    <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white">
-                      {isStamp ? 'Surprise + big rewards' : `${c.winRatePercent}% win chance`}
-                    </span>
                     <div className="absolute bottom-3 right-4 text-3xl drop-shadow">{getMechanicEmoji(c.mechanic)}</div>
                   </div>
                   <div className="p-5">
                     <h3 className="text-base font-extrabold text-gray-900 mb-1">{c.name}</h3>
-                    <p className="text-xs text-gray-500 mb-4">
-                      {isStamp ? '1 stamp per day' : `${c.playsPerDay ?? 1} play per day`} · ends {c.endDate}
-                    </p>
-                    {isPlayable ? (
-                      <Link
-                        to={`/customer/campaigns/${c.id}`}
-                        className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold text-white no-underline transition-transform active:scale-[0.98]"
-                        style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, ${meta.cardTo})`, boxShadow: `0 8px 24px ${meta.cardFrom}40` }}
-                      >
-                        {isStamp ? 'Enter PIN & Collect Stamp' : `Enter PIN & Play`} {getMechanicEmoji(c.mechanic)}
-                      </Link>
-                    ) : (
-                      <span className="block text-center text-xs text-gray-400 py-3">Coming soon</span>
-                    )}
+                    <p className="text-xs text-gray-500 mb-4">ends {c.endDate}</p>
+                    <span className="block text-center text-xs text-gray-400 py-3">Coming soon</span>
                   </div>
                 </motion.div>
               )

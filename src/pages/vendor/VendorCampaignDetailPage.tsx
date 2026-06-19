@@ -192,9 +192,9 @@ export function VendorCampaignDetailPage() {
           <Card className="p-6 flex flex-col items-center">
             <h3 className="text-sm font-bold text-v-text mb-1">Live Staff PIN</h3>
             <p className="text-xs text-v-text-3 mb-4 text-center">
-              {isStamp ? 'Rotates daily at midnight · Active during claim window' : 'Show this PIN to customers at the counter'}
+              {isStamp ? 'Rotates every 2 min · Active during claim window' : 'Show this PIN to customers at the counter'}
             </p>
-            <LivePIN campaignId={campaign.id} active={pinActive} daily={isStamp} />
+            <LivePIN campaignId={campaign.id} active={pinActive} />
             {!pinActive && (
               <p className="text-xs text-v-text-3 mt-2">PIN inactive — campaign ended</p>
             )}
