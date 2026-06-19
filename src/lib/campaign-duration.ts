@@ -75,3 +75,11 @@ export function durationModeToDays(mode: DurationMode): number {
   if (mode === '3m') return 90
   return 30
 }
+
+/** Map stored claim-period days back to the nearest duration preset. */
+export function inferClaimDurationMode(days: number): DurationMode {
+  for (const mode of ['today', '7d', '14d', '1m', '2m', '3m'] as DurationMode[]) {
+    if (durationModeToDays(mode) === days) return mode
+  }
+  return '1m'
+}

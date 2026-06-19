@@ -133,7 +133,7 @@ export function VendorLayout() {
         <SidebarContent />
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-auto">
+      <main className="flex-1 min-w-0 overflow-auto vendor-scroll">
         <Outlet />
       </main>
     </div>

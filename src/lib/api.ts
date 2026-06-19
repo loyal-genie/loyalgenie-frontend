@@ -343,6 +343,8 @@ export interface StampCampaignStatsDto {
     prefillStamps: number
     surpriseRange: [number, number]
     bigRange: [number, number]
+    surpriseMode?: 'single' | 'pool'
+    bigMode?: 'single' | 'pool'
   } | null
 }
 
@@ -566,7 +568,23 @@ export interface UpdateCampaignPayload {
   playsPerDay?: number
   winRatePercent?: number
   status?: 'active' | 'paused' | 'ended'
-  rewards?: { id?: string; name: string; description?: string; icon: string; sharePercent: number }[]
+  rewards?:
+    | { id?: string; name: string; description?: string; icon: string; sharePercent: number }[]
+    | {
+        surprise: { id?: string; name: string; description?: string; icon: string; winPercent: number }[]
+        big: { id?: string; name: string; description?: string; icon: string; winPercent: number }[]
+      }
+  claimPeriodDays?: number
+  stampConfig?: {
+    totalStamps: number
+    prefillStamps: number
+    surpriseRange: [number, number]
+    bigRange: [number, number]
+    surpriseMode: 'single' | 'pool'
+    bigMode: 'single' | 'pool'
+  }
+  checkInConfig?: { pointsPerCheckIn: number }
+  milestones?: { id?: string; name: string; description?: string; icon: string; pointsThreshold: number }[]
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {

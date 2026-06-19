@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { getMechanicLabel, getMechanicEmoji, getMechanicColor } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/api'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
+import { RewardPoolEditor, RewardModeToggle, SingleRewardInput, PercentInput, newRewardEntry, type RewardEntry, type RewardMode } from '@/components/vendor/RewardPoolEditor'
 import { computeCreateDates, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
 import { todayInCampaignTz } from '@/lib/campaign-dates'
 import type { MechanicType } from '@/lib/types'
@@ -25,8 +26,6 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
 const STEPS = ['Mechanic', 'Basics', 'Game Config', 'Review']
 const SPIN_COLORS = ['#7C3AED', '#EC4899', '#F59E0B', '#06B6D4', '#22C55E', '#F43F5E', '#8B5CF6', '#10B981']
 const ICONS = ['🎁', '☕', '🧁', '🥪', '🍰', '🏷️', '🎉', '🍳', '👑', '🎫', '🎟️', '💰']
-
-// ── Duration ──────────────────────────────────────────────────────────────────
 
 const DURATION_ALL: { key: DurationMode; label: string; sub: string }[] = [
   { key: 'today',  label: 'Today',    sub: 'Right now'  },
@@ -48,113 +47,6 @@ function fmtDate(iso: string) { return fmtCampaignDate(iso) }
 function fmtTime(t: string) { const [h, m] = t.split(':').map(Number); const ap = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ap}` }
 function computeDates(mode: DurationMode, cs: string, ce: string) {
   return computeCreateDates(mode, cs, ce)
-}
-
-// ── Shared reward pool types ───────────────────────────────────────────────────
-interface RewardEntry { id: string; name: string; description: string; icon: string; probability: number }
-function newReward(): RewardEntry { return { id: Math.random().toString(36).slice(2), name: '', description: '', icon: '🎁', probability: 10 } }
-type RewardMode = 'single' | 'pool'
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function ProbabilityBar({ entries, shareMode }: { entries: { name: string; probability: number; id: string }[]; shareMode?: boolean }) {
-  const total = entries.reduce((s, r) => s + r.probability, 0)
-  const noWin = Math.max(0, 100 - total)
-  const over = total > 100
-  return (
-    <div className="mt-3">
-      <div className="flex items-center justify-between mb-1.5 text-xs text-v-text-2">
-        <span>{shareMode ? 'Share breakdown' : 'Probability breakdown'}</span>
-        <span className={over ? 'text-v-danger font-bold' : total === 100 ? 'text-v-success font-bold' : ''}>{total}% {shareMode ? 'of winners allocated' : 'allocated'}</span>
-      </div>
-      <div className="flex h-2.5 rounded-full overflow-hidden bg-v-border gap-px">
-        {entries.filter(r => r.probability > 0).map((r, i) => (
-          <div key={r.id} className="h-full transition-all" style={{ width: `${Math.min(r.probability, 100)}%`, background: `hsl(${(i * 53) % 360}, 65%, 55%)` }} />
-        ))}
-        {noWin > 0 && !over && <div className="h-full bg-gray-200" style={{ width: `${noWin}%` }} />}
-      </div>
-      <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] text-v-text-3">
-        {entries.filter(r => r.name).map((r, i) => (
-          <span key={r.id} className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full" style={{ background: `hsl(${(i * 53) % 360}, 65%, 55%)`, display: 'inline-block' }} />
-            {r.name} ({r.probability}%)
-          </span>
-        ))}
-        {noWin > 0 && !over && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />No win ({noWin}%)</span>}
-      </div>
-      {over && (
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-v-danger bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" />Total exceeds 100% — reduce probabilities.
-        </div>
-      )}
-    </div>
-  )
-}
-
-function RewardPool({ rewards, setRewards, compact, shareMode }: { rewards: RewardEntry[]; setRewards: (r: RewardEntry[]) => void; compact?: boolean; shareMode?: boolean }) {
-  const update = (id: string, field: keyof RewardEntry, value: string | number) =>
-    setRewards(rewards.map(r => r.id === id ? { ...r, [field]: value } : r))
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <span className="text-[11px] font-semibold text-v-text-2 uppercase tracking-wider">
-            {shareMode ? 'Reward Distribution — among winners' : 'Rewards Pool'}
-          </span>
-          {shareMode && <p className="text-[10px] text-v-text-3 mt-0.5">Shares should add up to 100% — how wins are split across reward types.</p>}
-        </div>
-        <Button variant="secondary" size="sm" onClick={() => setRewards([...rewards, newReward()])}>
-          <Plus className="w-3 h-3" /> Add
-        </Button>
-      </div>
-      <div className="space-y-2">
-        {rewards.map(r => (
-          <div key={r.id} className="p-3 bg-white border border-v-border rounded-xl">
-            <div className="flex items-start gap-2">
-              <select value={r.icon} onChange={e => update(r.id, 'icon', e.target.value)} className="text-lg bg-transparent border-none focus:outline-none cursor-pointer pt-0.5">
-                {ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
-              </select>
-              <div className="flex-1 space-y-1.5">
-                <input className="w-full bg-v-surface-2 border border-v-border rounded-lg px-2.5 py-1.5 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Reward name" value={r.name} onChange={e => update(r.id, 'name', e.target.value)} />
-                {!compact && <input className="w-full bg-v-surface-2 border border-v-border rounded-lg px-2.5 py-1.5 text-xs text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Description (optional)" value={r.description} onChange={e => update(r.id, 'description', e.target.value)} />}
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-v-text-3 shrink-0">{shareMode ? 'Share:' : 'Win %:'}</span>
-                  <input type="range" min={1} max={100} value={r.probability} onChange={e => update(r.id, 'probability', Number(e.target.value))} className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-v-purple [&::-webkit-slider-thumb]:cursor-pointer" style={{ accentColor: '#7C3AED' }} />
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <input type="number" min={1} max={100} value={r.probability} onChange={e => update(r.id, 'probability', Math.min(100, Math.max(1, Number(e.target.value))))} className="w-11 bg-white border border-v-border rounded-lg px-1.5 py-1 text-xs text-v-text text-center focus:outline-none focus:border-v-purple" />
-                    <span className="text-xs text-v-text-2">%</span>
-                  </div>
-                </div>
-              </div>
-              <button onClick={() => setRewards(rewards.filter(x => x.id !== r.id))} className="p-1 rounded-lg text-v-text-3 hover:text-v-danger hover:bg-red-50 transition-colors mt-0.5">
-                <Trash2 className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        ))}
-        {rewards.length === 0 && <div className="text-center py-4 text-v-text-3 text-xs border-2 border-dashed border-v-border rounded-xl">No rewards yet — click Add</div>}
-      </div>
-      {rewards.length > 0 && <ProbabilityBar entries={rewards} shareMode={shareMode} />}
-    </div>
-  )
-}
-
-function RewardModeToggle({ mode, onChange }: { mode: RewardMode; onChange: (m: RewardMode) => void }) {
-  return (
-    <div className="flex rounded-lg border border-v-border overflow-hidden bg-v-surface-2 p-0.5 gap-0.5">
-      {(['single', 'pool'] as RewardMode[]).map(m => (
-        <button key={m} onClick={() => onChange(m)} className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${mode === m ? 'bg-white text-v-text shadow-sm' : 'text-v-text-3 hover:text-v-text-2'}`}>
-          {m === 'single' ? 'Single Reward' : 'Reward Pool'}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function SingleRewardInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <input className="w-full bg-white border border-v-border rounded-xl px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple transition-all" placeholder={placeholder ?? 'e.g. Free Coffee'} value={value} onChange={e => onChange(e.target.value)} />
-  )
 }
 
 const UNLIMITED_USER_CAP = 1_000_000
@@ -186,7 +78,7 @@ export function VendorCampaignCreatePage() {
   })
 
   // Shake rewards
-  const [shakeRewards, setShakeRewards] = useState<RewardEntry[]>([newReward()])
+  const [shakeRewards, setShakeRewards] = useState<RewardEntry[]>([newRewardEntry()])
 
   // Spin segments (reward embedded per winning segment)
   const [spinSegments, setSpinSegments] = useState([
@@ -206,12 +98,12 @@ export function VendorCampaignCreatePage() {
     surpriseTo: 5,
     surpriseMode: 'single' as RewardMode,
     surpriseSingle: 'Mystery Treat',
-    surprisePool: [newReward()] as RewardEntry[],
+    surprisePool: [newRewardEntry()] as RewardEntry[],
     bigRewardFrom: 8,
     bigRewardTo: 10,
     bigMode: 'single' as RewardMode,
     bigSingle: 'Free Breakfast Combo',
-    bigPool: [newReward()] as RewardEntry[],
+    bigPool: [newRewardEntry()] as RewardEntry[],
   })
 
   // Dice outcomes (reward per winning face)
@@ -679,7 +571,7 @@ export function VendorCampaignCreatePage() {
                 <span className="text-v-text-3">Daily win rate:</span>
                 <span className="font-bold text-v-purple">{basics.overallWinRate}% / day</span>
               </div>
-              <RewardPool rewards={shakeRewards} setRewards={setShakeRewards} shareMode />
+              <RewardPoolEditor rewards={shakeRewards} setRewards={setShakeRewards} shareMode />
             </Card>
           )}
 
@@ -773,7 +665,7 @@ export function VendorCampaignCreatePage() {
                       </motion.div>
                     ) : (
                       <motion.div key="pool" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <RewardPool compact rewards={stampConfig.surprisePool} setRewards={r => setStampConfig(p => ({ ...p, surprisePool: r }))} />
+                        <RewardPoolEditor compact rewards={stampConfig.surprisePool} setRewards={r => setStampConfig(p => ({ ...p, surprisePool: r }))} />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -798,7 +690,7 @@ export function VendorCampaignCreatePage() {
                       </motion.div>
                     ) : (
                       <motion.div key="pool" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <RewardPool compact rewards={stampConfig.bigPool} setRewards={r => setStampConfig(p => ({ ...p, bigPool: r }))} />
+                        <RewardPoolEditor compact rewards={stampConfig.bigPool} setRewards={r => setStampConfig(p => ({ ...p, bigPool: r }))} />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -875,7 +767,11 @@ export function VendorCampaignCreatePage() {
                             <input className="w-full bg-v-surface-2 border border-v-border rounded-lg px-2.5 py-1.5 text-sm" placeholder="Reward name" value={m.name} onChange={e => setLoyaltyConfig(p => ({ ...p, milestones: p.milestones.map(x => x.id === m.id ? { ...x, name: e.target.value } : x) }))} />
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] text-v-text-3 shrink-0">At points:</span>
-                              <input type="number" min={1} className="w-20 bg-white border border-v-border rounded-lg px-2 py-1 text-xs text-center" value={m.pointsThreshold} onChange={e => setLoyaltyConfig(p => ({ ...p, milestones: p.milestones.map(x => x.id === m.id ? { ...x, pointsThreshold: Math.max(1, Number(e.target.value)) } : x) }))} />
+                              <PercentInput
+                                value={m.pointsThreshold}
+                                onChange={n => setLoyaltyConfig(p => ({ ...p, milestones: p.milestones.map(x => x.id === m.id ? { ...x, pointsThreshold: n } : x) }))}
+                                className="w-20 bg-white border border-v-border rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:border-v-purple"
+                              />
                             </div>
                           </div>
                           {loyaltyConfig.milestones.length > 1 && (

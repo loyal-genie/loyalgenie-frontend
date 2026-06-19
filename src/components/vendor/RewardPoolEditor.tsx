@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Plus, Trash2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -11,8 +12,84 @@ export interface RewardEntry {
   probability: number
 }
 
+export type RewardMode = 'single' | 'pool'
+
 export function newRewardEntry(): RewardEntry {
   return { id: Math.random().toString(36).slice(2), name: '', description: '', icon: '🎁', probability: 10 }
+}
+
+function clampPercent(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+/** Compact share/win % slider with a visible track and draggable thumb. */
+function ShareSlider({ value, onChange, min = 1, max = 100 }: { value: number; onChange: (n: number) => void; min?: number; max?: number }) {
+  const pct = `${((value - min) / (max - min)) * 100}%`
+  return (
+    <div className="relative flex-1 min-w-[5.5rem] h-6 flex items-center">
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        aria-label="Share percentage"
+        className="share-range-slider w-full"
+        style={{ accentColor: '#7C3AED', ['--share-pct' as string]: pct }}
+      />
+    </div>
+  )
+}
+
+export function PercentInput({
+  value,
+  onChange,
+  min = 1,
+  max = 100,
+  className,
+  disabled,
+}: {
+  value: number
+  onChange: (n: number) => void
+  min?: number
+  max?: number
+  className?: string
+  disabled?: boolean
+}) {
+  const [draft, setDraft] = useState(String(value))
+  const [focused, setFocused] = useState(false)
+
+  useEffect(() => {
+    if (!focused) setDraft(String(value))
+  }, [value, focused])
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      disabled={disabled}
+      value={focused ? draft : String(value)}
+      onFocus={() => {
+        setFocused(true)
+        setDraft(String(value))
+      }}
+      onChange={e => {
+        const digits = e.target.value.replace(/\D/g, '')
+        setDraft(digits)
+        if (digits !== '') {
+          onChange(clampPercent(Number(digits), min, max))
+        }
+      }}
+      onBlur={() => {
+        setFocused(false)
+        const next = draft === '' ? min : clampPercent(Number(draft), min, max)
+        setDraft(String(next))
+        onChange(next)
+      }}
+      className={className}
+    />
+  )
 }
 
 function ProbabilityBar({ entries, shareMode }: { entries: { name: string; probability: number; id: string }[]; shareMode?: boolean }) {
@@ -49,6 +126,36 @@ function ProbabilityBar({ entries, shareMode }: { entries: { name: string; proba
   )
 }
 
+export function RewardModeToggle({ mode, onChange, disabled }: { mode: RewardMode; onChange: (m: RewardMode) => void; disabled?: boolean }) {
+  return (
+    <div className="flex rounded-lg border border-v-border overflow-hidden bg-v-surface-2 p-0.5 gap-0.5">
+      {(['single', 'pool'] as RewardMode[]).map(m => (
+        <button
+          key={m}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(m)}
+          className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all disabled:opacity-60 ${mode === m ? 'bg-white text-v-text shadow-sm' : 'text-v-text-3 hover:text-v-text-2'}`}
+        >
+          {m === 'single' ? 'Single Reward' : 'Reward Pool'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function SingleRewardInput({ value, onChange, placeholder, disabled }: { value: string; onChange: (v: string) => void; placeholder?: string; disabled?: boolean }) {
+  return (
+    <input
+      disabled={disabled}
+      className="w-full bg-white border border-v-border rounded-xl px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple transition-all disabled:opacity-60"
+      placeholder={placeholder ?? 'e.g. Free Coffee'}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+    />
+  )
+}
+
 interface RewardPoolEditorProps {
   rewards: RewardEntry[]
   setRewards: (r: RewardEntry[]) => void
@@ -67,7 +174,7 @@ export function RewardPoolEditor({ rewards, setRewards, compact, shareMode, read
         {rewards.map(r => (
           <div key={r.id} className="flex items-center justify-between p-3 rounded-xl bg-v-surface-2 border border-v-border">
             <span className="text-sm font-medium text-v-text">{r.icon} {r.name}</span>
-            <span className="text-xs text-v-text-3">{r.probability}% share</span>
+            <span className="text-xs text-v-text-3">{r.probability}% {shareMode ? 'share' : 'win'}</span>
           </div>
         ))}
       </div>
@@ -89,19 +196,23 @@ export function RewardPoolEditor({ rewards, setRewards, compact, shareMode, read
       </div>
       <div className="space-y-2">
         {rewards.map(r => (
-          <div key={r.id} className="p-3 bg-white border border-v-border rounded-xl">
+          <div key={r.id} className="p-3 bg-v-surface-2 border border-v-border rounded-xl">
             <div className="flex items-start gap-2">
               <select value={r.icon} onChange={e => update(r.id, 'icon', e.target.value)} className="text-lg bg-transparent border-none focus:outline-none cursor-pointer pt-0.5">
                 {REWARD_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
               </select>
               <div className="flex-1 space-y-1.5">
-                <input className="w-full bg-v-surface-2 border border-v-border rounded-lg px-2.5 py-1.5 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Reward name" value={r.name} onChange={e => update(r.id, 'name', e.target.value)} />
-                {!compact && <input className="w-full bg-v-surface-2 border border-v-border rounded-lg px-2.5 py-1.5 text-xs text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Description (optional)" value={r.description} onChange={e => update(r.id, 'description', e.target.value)} />}
+                <input className="w-full bg-white border border-v-border rounded-lg px-2.5 py-1.5 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Reward name" value={r.name} onChange={e => update(r.id, 'name', e.target.value)} />
+                {!compact && <input className="w-full bg-white border border-v-border rounded-lg px-2.5 py-1.5 text-xs text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Description (optional)" value={r.description} onChange={e => update(r.id, 'description', e.target.value)} />}
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-v-text-3 shrink-0">{shareMode ? 'Share:' : 'Win %:'}</span>
-                  <input type="range" min={1} max={100} value={r.probability} onChange={e => update(r.id, 'probability', Number(e.target.value))} className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-v-purple [&::-webkit-slider-thumb]:cursor-pointer" style={{ accentColor: '#7C3AED' }} />
+                  <span className="text-[11px] text-v-text-3 shrink-0 w-9">{shareMode ? 'Share:' : 'Win %:'}</span>
+                  <ShareSlider value={r.probability} onChange={n => update(r.id, 'probability', n)} />
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <input type="number" min={1} max={100} value={r.probability} onChange={e => update(r.id, 'probability', Math.min(100, Math.max(1, Number(e.target.value))))} className="w-11 bg-white border border-v-border rounded-lg px-1.5 py-1 text-xs text-v-text text-center focus:outline-none focus:border-v-purple" />
+                    <PercentInput
+                      value={r.probability}
+                      onChange={n => update(r.id, 'probability', n)}
+                      className="w-11 bg-white border border-v-border rounded-lg px-1.5 py-1 text-xs text-v-text text-center focus:outline-none focus:border-v-purple"
+                    />
                     <span className="text-xs text-v-text-2">%</span>
                   </div>
                 </div>
@@ -123,6 +234,13 @@ export function rewardShareTotal(rewards: RewardEntry[]) {
   return rewards.reduce((s, r) => s + r.probability, 0)
 }
 
+/** Shake: shares must sum to exactly 100%. */
 export function rewardsAreValid(rewards: RewardEntry[]) {
   return rewards.some(r => r.name.trim()) && rewardShareTotal(rewards) === 100
+}
+
+/** Stamp pools: win % must be 1–100% total (not required to equal 100%). */
+export function rewardPoolValid(rewards: RewardEntry[]) {
+  const total = rewardShareTotal(rewards)
+  return rewards.some(r => r.name.trim()) && total >= 1 && total <= 100
 }
