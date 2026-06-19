@@ -700,6 +700,7 @@ export interface VendorCustomerSummary {
   gamesPlayed: number
   rewardsEarned: number
   redeemedCount: number
+  totalLoyaltyPoints: number
   status: 'active' | 'inactive'
 }
 

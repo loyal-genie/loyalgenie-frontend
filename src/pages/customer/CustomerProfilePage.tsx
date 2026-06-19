@@ -1,31 +1,25 @@
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { LogOut, Star, Gift, ChevronRight } from 'lucide-react'
+import { LogOut, Gift, ChevronRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { BottomNav } from '@/components/customer/bottom-nav'
 import { Button } from '@/components/ui/button'
 import { formatDate, formatRelativeTime } from '@/lib/utils'
 import { clearSession } from '@/lib/auth'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
-import { fetchCustomerLoyaltyProfile, fetchCustomerRewards } from '@/lib/api'
+import { fetchCustomerRewards } from '@/lib/api'
 
 export function CustomerProfilePage() {
   const navigate = useNavigate()
   const { customer, displayName, displayPhone, displayEmail } = useCustomerSession()
-
-  const { data: loyaltyProfiles = [] } = useQuery({
-    queryKey: ['customer-loyalty-profile'],
-    queryFn: fetchCustomerLoyaltyProfile,
-  })
 
   const { data: rewards = [] } = useQuery({
     queryKey: ['customer-rewards'],
     queryFn: fetchCustomerRewards,
   })
 
-  const totalLoyaltyPoints = loyaltyProfiles.reduce((s, p) => s + p.loyaltyPoints, 0)
-  const totalVisits = loyaltyProfiles.reduce((s, p) => s + p.totalCheckIns, 0)
   const pendingRewards = rewards.filter(r => r.status === 'pending')
+  const redeemedRewards = rewards.filter(r => r.status === 'redeemed')
 
   function handleSignOut() {
     clearSession('customer')
@@ -44,17 +38,16 @@ export function CustomerProfilePage() {
           <p className="text-xs text-gray-400 mt-0.5">Member since {formatDate(customer.joinedAt)}</p>
         </motion.div>
 
-        {/* Loyalty stats */}
+        {/* Reward stats */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-3 gap-2 mb-6"
+          className="grid grid-cols-2 gap-2 mb-6"
         >
           {[
-            { label: 'Loyalty Pts', value: totalLoyaltyPoints || customer.totalVisits, icon: '⭐' },
-            { label: 'Check-ins',   value: totalVisits || customer.totalVisits,         icon: '📅' },
-            { label: 'Rewards',     value: rewards.length || customer.rewardsEarned,    icon: '🎁' },
+            { label: 'Total Rewards', value: rewards.length || customer.rewardsEarned, icon: '🎁' },
+            { label: 'Redeemed', value: redeemedRewards.length, icon: '✅' },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl p-3 text-center border border-gray-100 shadow-sm">
               <div className="text-2xl mb-1">{s.icon}</div>
@@ -63,48 +56,6 @@ export function CustomerProfilePage() {
             </div>
           ))}
         </motion.div>
-
-        {/* Loyalty points by business */}
-        {loyaltyProfiles.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-            className="mb-5"
-          >
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <Star className="w-3.5 h-3.5 text-purple-500" /> Loyalty Points
-            </h2>
-            <div className="space-y-2">
-              {loyaltyProfiles.map(profile => (
-                <div key={profile.campaignId} className="bg-white rounded-2xl p-4 border border-purple-100 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">{profile.businessName}</p>
-                      <p className="text-[10px] text-gray-400">{profile.campaignName}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-black text-purple-700">{profile.loyaltyPoints}</p>
-                      <p className="text-[9px] text-gray-400">{profile.totalCheckIns} check-ins</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {profile.milestones.map(m => (
-                      <div key={m.name} className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg ${m.unlocked ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-400'}`}>
-                        <span>{m.icon}</span>
-                        <span className="flex-1 font-medium">{m.name}</span>
-                        <span className="text-[10px]">{m.pointsThreshold} pts</span>
-                        {m.unlocked && m.awarded && (
-                          <span className="text-[9px] font-bold text-green-600">Unlocked</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
 
         {/* Redeemable rewards */}
         {pendingRewards.length > 0 && (
@@ -136,18 +87,6 @@ export function CustomerProfilePage() {
             </div>
             <p className="text-[10px] text-gray-400 mt-2 text-center">Show code at counter — staff verifies redemption</p>
           </motion.div>
-        )}
-
-        {/* Business info - only if no loyalty data */}
-        {loyaltyProfiles.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-white rounded-2xl p-4 mb-5 border border-gray-100 shadow-sm"
-        >
-          <p className="text-sm text-gray-500 text-center py-2">Check in at participating stores to earn loyalty points!</p>
-        </motion.div>
         )}
 
         {/* Recent activity - from rewards */}

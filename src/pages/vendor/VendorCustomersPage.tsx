@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, Crown, TrendingUp, Clock, Users, Activity, Gift, Gamepad2, CheckCircle2, Loader2 } from 'lucide-react'
+import { Search, Crown, TrendingUp, Clock, Users, Activity, Gift, Gamepad2, CheckCircle2, Loader2, Star } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { formatRelativeTime, formatDate } from '@/lib/utils'
 import { useVendorCustomers } from '@/hooks/useVendorAnalytics'
@@ -73,10 +73,12 @@ export function VendorCustomersPage() {
   const statGames = windowCohort.reduce((s, c) => s + c.gamesPlayed, 0)
   const statRewards = windowCohort.reduce((s, c) => s + c.rewardsEarned, 0)
   const statRedeemed = windowCohort.reduce((s, c) => s + c.redeemedCount, 0)
+  const statLoyaltyPoints = windowCohort.reduce((s, c) => s + c.totalLoyaltyPoints, 0)
 
   const SUMMARY = [
     { label: 'Total Customers', value: statTotalCustomers, icon: <Users className="w-4 h-4" />, color: 'text-v-purple', bg: 'bg-purple-50', border: 'border-purple-100' },
     { label: 'Total Check-ins', value: statCheckIns, icon: <Activity className="w-4 h-4" />, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+    { label: 'Reward Points', value: statLoyaltyPoints, icon: <Star className="w-4 h-4" />, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
     { label: 'Games Played', value: statGames, icon: <Gamepad2 className="w-4 h-4" />, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
     { label: 'Rewards Earned', value: statRewards, icon: <Gift className="w-4 h-4" />, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
     { label: 'Redeemed', value: statRedeemed, icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
@@ -105,7 +107,7 @@ export function VendorCustomersPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.04 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-7"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-7"
       >
         {SUMMARY.map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 + i * 0.04 }}>
@@ -211,6 +213,12 @@ export function VendorCustomersPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-4 sm:gap-7 text-right shrink-0">
+                        {c.totalLoyaltyPoints > 0 && (
+                          <div className="hidden sm:block">
+                            <div className="text-sm font-bold text-purple-600">{c.totalLoyaltyPoints}</div>
+                            <div className="text-[10px] text-v-text-3">Reward pts</div>
+                          </div>
+                        )}
                         <div className="hidden sm:block">
                           <div className="text-sm font-bold text-v-text">{c.totalVisits}</div>
                           <div className="text-[10px] text-v-text-3">Plays</div>

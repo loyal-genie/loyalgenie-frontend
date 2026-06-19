@@ -235,13 +235,19 @@ export function VendorCustomerDetailPage() {
 
       {/* ── Decision Stats ── */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         {[
           {
             label: 'Visits / Month',
             value: `${visitsPerMonth}×`,
             sub: `${customer.totalVisits} total visits`,
             icon: '📅', color: '#7C3AED',
+          },
+          {
+            label: 'Reward Points',
+            value: customer.totalLoyaltyPoints,
+            sub: customer.totalLoyaltyPoints > 0 ? 'Check-in loyalty at your store' : 'No check-in points yet',
+            icon: '⭐', color: customer.totalLoyaltyPoints > 0 ? '#7C3AED' : '#6B7280',
           },
           {
             label: 'Win Rate',
