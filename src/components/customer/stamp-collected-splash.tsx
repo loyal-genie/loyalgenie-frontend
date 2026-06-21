@@ -4,8 +4,6 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 const CONFETTI = ['#F5C518', '#F59E0B', '#FDE68A', '#FBBF24', '#FCD34D']
-/** Time to show stamp-only success before auto-returning (ms). */
-const RESULT_VIEW_PAUSE_MS = 2400
 
 export interface StampRewardInfo {
   name: string
@@ -60,12 +58,6 @@ export function StampCollectedSplash({
     return () => clearInterval(interval)
   }, [fromCount, toCount, pending])
 
-  useEffect(() => {
-    if (!ready || won) return
-    const t = setTimeout(onComplete, RESULT_VIEW_PAUSE_MS)
-    return () => clearTimeout(t)
-  }, [ready, won, onComplete])
-
   return (
     <motion.div
       className="fixed inset-0 z-50 flex flex-col items-center min-h-dvh px-6 overflow-y-auto"
@@ -79,7 +71,7 @@ export function StampCollectedSplash({
           type="button"
           onClick={handleExit}
           className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 size-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
-          aria-label={won ? 'Back to cafe' : 'Back to vendor'}
+          aria-label="Back to vendor"
         >
           <ArrowLeft className="size-4 text-white" />
         </button>
@@ -164,14 +156,14 @@ export function StampCollectedSplash({
                 to="/customer/wallet"
                 className="block w-full py-4 rounded-[14px] font-medium text-base text-center text-white no-underline bg-white/10"
               >
-                View in Wallet
+                View Rewards
               </Link>
               <button
                 type="button"
                 onClick={handleExit}
                 className="w-full py-4 rounded-[14px] font-bold text-base text-white bg-[#631cbb] border-0 cursor-pointer"
               >
-                Back to Cafe
+                Back to Vendor
               </button>
             </div>
           </motion.div>
@@ -218,18 +210,26 @@ export function StampCollectedSplash({
                   : `${remaining} more stamps until your reward`}
             </motion.p>
 
-            {onBackToVendor && (
-              <motion.button
-                type="button"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                onClick={handleExit}
-                className="relative z-10 w-full py-3.5 rounded-xl font-bold text-sm text-white bg-[#631cbb] border-0 cursor-pointer"
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="relative z-10 w-full space-y-3"
+            >
+              <Link
+                to="/customer/wallet"
+                className="block w-full py-4 rounded-[14px] font-medium text-base text-center text-white no-underline bg-white/10"
               >
-                Back to Cafe
-              </motion.button>
-            )}
+                View Rewards
+              </Link>
+              <button
+                type="button"
+                onClick={handleExit}
+                className="w-full py-4 rounded-[14px] font-bold text-base text-white bg-[#631cbb] border-0 cursor-pointer"
+              >
+                Back to Vendor
+              </button>
+            </motion.div>
           </>
         )}
       </div>

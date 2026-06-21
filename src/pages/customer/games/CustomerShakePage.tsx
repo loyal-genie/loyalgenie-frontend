@@ -68,6 +68,7 @@ export function CustomerShakePage() {
   })
 
   useEffect(() => {
+    if (phase === 'result' || phase === 'submitting') return
     if (!campaignId) {
       navigate('/customer')
       return
@@ -75,7 +76,7 @@ export function CustomerShakePage() {
     if (!playSession) {
       navigate(`/customer/campaigns/${campaignId}`)
     }
-  }, [campaignId, playSession, navigate])
+  }, [campaignId, playSession, navigate, phase])
 
   useEffect(() => {
     if (!playState) return
@@ -157,14 +158,6 @@ export function CustomerShakePage() {
     setError('')
   }
 
-  if (campaignLoading || stateLoading) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center bg-[#1c0038]">
-        <Loader2 className="w-10 h-10 text-[#d4a8ff] animate-spin" />
-      </div>
-    )
-  }
-
   if (phase === 'result' && won) {
     return (
       <WinCelebration
@@ -185,6 +178,14 @@ export function CustomerShakePage() {
         playsLeft={playsLeft ?? undefined}
         attempts={attempts ?? undefined}
       />
+    )
+  }
+
+  if (campaignLoading || stateLoading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-[#1c0038]">
+        <Loader2 className="w-10 h-10 text-[#d4a8ff] animate-spin" />
+      </div>
     )
   }
 
@@ -257,7 +258,7 @@ export function CustomerShakePage() {
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/25 mb-2 sm:mb-3"
         >
           <span className="text-[9px] sm:text-[10px] font-bold text-amber-200 uppercase tracking-wider">
-            🎯 {winRate}% win chance
+            🎯 {winRate}% of players win
           </span>
         </motion.div>
         <motion.h1

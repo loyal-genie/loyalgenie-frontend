@@ -21,6 +21,7 @@ interface LoyaltyCampaignDetailProps {
   campaign: PublicCampaign
   loyaltyState: LoyaltyState
   onBack: () => void
+  onSplashActiveChange?: (active: boolean) => void
 }
 
 type Phase = 'overview' | 'checking-in' | 'splash'
@@ -29,6 +30,7 @@ export function LoyaltyCampaignDetail({
   campaign,
   loyaltyState,
   onBack,
+  onSplashActiveChange,
 }: LoyaltyCampaignDetailProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -98,6 +100,11 @@ export function LoyaltyCampaignDetail({
     const t = setTimeout(() => verifyMutation.mutate(pin), 300)
     return () => clearTimeout(t)
   }, [pin, phase]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    onSplashActiveChange?.(phase === 'splash')
+    return () => onSplashActiveChange?.(false)
+  }, [phase, onSplashActiveChange])
 
   const pinBusy = phase === 'checking-in' || verifyMutation.isPending
 

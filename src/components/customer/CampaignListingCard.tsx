@@ -36,7 +36,7 @@ function getHeaderRightBadge(
 ): string | undefined {
   if (comingSoon) return 'Live soon'
   if (campaign.mechanic === 'shake' && campaign.winRatePercent != null) {
-    return `${campaign.winRatePercent}% win chance`
+    return `${campaign.winRatePercent}% of players win`
   }
   if (campaign.mechanic === 'stamp') return 'Surprise + big rewards'
   if (extraBadge) return extraBadge

@@ -45,10 +45,10 @@ export function WinBasedCampaignImpact({
       </div>
       <div className={`grid gap-3 ${isSingleDay ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
         <div className={tileClass}>
-          <div className="text-xl font-black text-v-purple">{formatWinnerCount(totalWinners)}</div>
+          <div className="text-xl font-black text-v-purple">{formatWinnerCount(totalWinners, true)}</div>
           <div className="text-xs font-semibold text-v-text-2 mt-1">Total Winners</div>
           <div className="text-[10px] text-v-text-3 mt-0.5">
-            {userCap.toLocaleString()} users × {playsPerDay} play{playsPerDay > 1 ? 's' : ''} ({winRatePercent}% win rate)
+            {userCap.toLocaleString()} players × {winRatePercent}% win rate
           </div>
         </div>
         {!isSingleDay && (
@@ -56,7 +56,7 @@ export function WinBasedCampaignImpact({
             <div className="text-xl font-black text-v-text">{formatWinnerCount(dailyWinners)}</div>
             <div className="text-xs font-semibold text-v-text-2 mt-1">Winners / Day</div>
             <div className="text-[10px] text-v-text-3 mt-0.5">
-              {dailyUsers.toLocaleString()} users × {playsPerDay} play{playsPerDay > 1 ? 's' : ''} / day
+              {dailyUsers.toLocaleString()} players × {winRatePercent}% win rate
             </div>
           </div>
         )}

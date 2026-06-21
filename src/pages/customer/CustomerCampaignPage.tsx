@@ -47,6 +47,7 @@ export function CustomerCampaignPage() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [stampCollect, setStampCollect] = useState<StampCollectSession | null>(null)
+  const [loyaltySplash, setLoyaltySplash] = useState(false)
 
   const localSessionOk = isSessionValidForRole('customer') && Boolean(getToken('customer'))
 
@@ -175,10 +176,10 @@ export function CustomerCampaignPage() {
   const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked)
 
   useEffect(() => {
-    if (!blocked || stampCollect || !campaign || sessionLoading || isLoading || stateStillLoading) return
+    if (!blocked || stampCollect || loyaltySplash || !campaign || sessionLoading || isLoading || stateStillLoading) return
     const path = campaign.businessId ? `/customer/business/${campaign.businessId}` : '/customer'
     navigate(path, { replace: true })
-  }, [blocked, stampCollect, campaign, sessionLoading, isLoading, stateStillLoading, navigate])
+  }, [blocked, stampCollect, loyaltySplash, campaign, sessionLoading, isLoading, stateStillLoading, navigate])
 
   if (!localSessionOk || sessionError || (serverSession && serverSession.role !== 'customer')) {
     return (
@@ -223,7 +224,7 @@ export function CustomerCampaignPage() {
     )
   }
 
-  if (blocked && !stampCollect) return <CampaignPinLoading />
+  if (blocked && !stampCollect && !loyaltySplash) return <CampaignPinLoading />
 
   const isStamp = campaign.mechanic === 'stamp'
   const isLoyalty = campaign.mechanic === 'check-in-loyalty'
@@ -232,7 +233,7 @@ export function CustomerCampaignPage() {
   const statusChips = (
     <>
       {campaign.mechanic === 'shake' && campaign.winRatePercent != null && (
-        <StatusChip>{campaign.winRatePercent}% chance to win</StatusChip>
+        <StatusChip>{campaign.winRatePercent}% of players win</StatusChip>
       )}
       {isLoyalty && loyaltyState && (
         <StatusChip>{loyaltyState.loyaltyPoints} pts · +{loyaltyState.pointsPerCheckIn}/visit</StatusChip>
@@ -293,6 +294,7 @@ export function CustomerCampaignPage() {
         campaign={campaign}
         loyaltyState={loyaltyState}
         onBack={handleBack}
+        onSplashActiveChange={setLoyaltySplash}
       />
     )
   }

@@ -61,7 +61,7 @@ export function WinCelebration({
           type="button"
           onClick={handleBackToCafe}
           className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 size-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
-          aria-label="Back to cafe"
+          aria-label="Back to vendor"
         >
           <ArrowLeft className="size-4 text-white" />
         </button>
@@ -113,7 +113,7 @@ export function WinCelebration({
             to="/customer/wallet"
             className="block w-full py-4 rounded-[14px] font-medium text-base text-center text-white no-underline bg-white/10"
           >
-            View in Wallet
+            View Rewards
           </Link>
           {handleBackToCafe && (
             <button
@@ -121,7 +121,7 @@ export function WinCelebration({
               className="block w-full py-4 rounded-[14px] font-bold text-base text-white bg-[#631cbb] border-0 cursor-pointer"
               onClick={handleBackToCafe}
             >
-              Back to Cafe
+              Back to Vendor
             </button>
           )}
         </motion.div>
@@ -159,7 +159,7 @@ export function NoWin({
           type="button"
           onClick={onBackToCafe}
           className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 size-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
-          aria-label="Back to cafe"
+          aria-label="Back to vendor"
         >
           <ArrowLeft className="size-4 text-white" />
         </button>
@@ -196,7 +196,7 @@ export function NoWin({
             to="/customer/wallet"
             className="block w-full py-4 rounded-[14px] font-medium text-base text-center text-white no-underline bg-white/10"
           >
-            View in Wallet
+            View Rewards
           </Link>
           {onBackToCafe && (
             <button
@@ -208,7 +208,7 @@ export function NoWin({
               }`}
               onClick={onBackToCafe}
             >
-              Back to Cafe
+              Back to Vendor
             </button>
           )}
         </div>

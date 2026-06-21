@@ -40,6 +40,7 @@ export function useInstantWinPlay() {
   })
 
   useEffect(() => {
+    if (playResult) return
     if (!campaignId) {
       navigate('/customer')
       return
@@ -47,7 +48,7 @@ export function useInstantWinPlay() {
     if (!playSession) {
       navigate(`/customer/campaigns/${campaignId}`)
     }
-  }, [campaignId, playSession, navigate])
+  }, [campaignId, playSession, navigate, playResult])
 
   const playMutation = useMutation({
     mutationFn: () => executeShake(campaignId!, playSession!),

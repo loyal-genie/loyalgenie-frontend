@@ -10,7 +10,7 @@ import { getApiErrorMessage } from '@/lib/api'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
 import { RewardPoolEditor, RewardModeToggle, SingleRewardInput, NumericInput, newRewardEntry, type RewardEntry, type RewardMode } from '@/components/vendor/RewardPoolEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
-import { calcDailyWinners, calcTotalWinners, formatWinnerCount, maxTotalWinners, winRateFromTotalWinners } from '@/lib/campaign-impact'
+import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateDates, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
 import { todayInCampaignTz } from '@/lib/campaign-dates'
 import type { MechanicType } from '@/lib/types'
@@ -171,7 +171,6 @@ export function VendorCampaignCreatePage() {
   const activeWinRate  = mechanic === 'shake' ? basics.overallWinRate : mechanic === 'spin' ? spinWinRate : mechanic === 'dice' ? diceWinRate : 0
   const totalWinners = calcTotalWinners(basics.userCap, basics.playsPerDay, activeWinRate)
   const dailyWinners = calcDailyWinners(isToday ? basics.userCap : basics.perDayUserLimit, basics.playsPerDay, activeWinRate)
-  const maxWinners = maxTotalWinners(basics.userCap, basics.playsPerDay)
 
   const selectMechanic = (m: MechanicType) => {
     if (!isMechanicLive(m)) return
@@ -542,20 +541,24 @@ export function VendorCampaignCreatePage() {
                     </div>
                   )}
 
-                  {/* Winners — Shake only (vendor sets count; stored as win rate %) */}
+                  {/* Shake: vendor sets winner %; count is derived from player cap */}
                   {mechanic === 'shake' && (
                     <div>
                       <Stepper
-                        label="Total Winners"
-                        hint={`of ${maxWinners.toLocaleString()} possible plays`}
-                        value={totalWinners}
+                        label="Winner Percentage"
+                        hint="% of players who win"
+                        value={basics.overallWinRate}
                         min={1}
-                        max={maxWinners}
+                        max={100}
                         step={1}
-                        onChange={v => setBasics(p => ({ ...p, overallWinRate: winRateFromTotalWinners(v, p.userCap, p.playsPerDay) }))}
+                        onChange={v => setBasics(p => ({ ...p, overallWinRate: v }))}
                       />
                       <p className="text-xs text-v-text-3 mt-1.5">
-                        About <span className="font-semibold text-v-text-2">{formatWinnerCount(dailyWinners)} winners per day</span> when {isToday ? 'all' : basics.perDayUserLimit.toLocaleString()} customers play ({basics.overallWinRate}% win rate). Configure rewards in the next step.
+                        <span className="font-semibold text-v-text-2">{formatWinnerCount(totalWinners, true)} winners</span>
+                        {' '}out of {basics.userCap.toLocaleString()} players
+                        {!isToday && (
+                          <> · {formatWinnerCount(dailyWinners, true)} winners per day when {basics.perDayUserLimit.toLocaleString()} customers play</>
+                        )}
                       </p>
                     </div>
                   )}
@@ -937,8 +940,9 @@ export function VendorCampaignCreatePage() {
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
                     ...(mechanic === 'shake' ? [
-                      { label: 'Total Winners', value: `${formatWinnerCount(totalWinners)} customers win (${basics.overallWinRate}% win rate)` },
-                      { label: 'Winners / Day', value: `${formatWinnerCount(dailyWinners)} on a full day (${basics.overallWinRate}%)` },
+                      { label: 'Winner Percentage', value: `${basics.overallWinRate}%` },
+                      { label: 'Total Winners', value: `${formatWinnerCount(totalWinners, true)} customers` },
+                      ...(!isToday ? [{ label: 'Winners / Day', value: `${formatWinnerCount(dailyWinners, true)} on a full day` }] : []),
                     ] : []),
                     ...(mechanic === 'spin' ? [
                       { label: 'Total Winners', value: `${formatWinnerCount(totalWinners)} if cap fills (${activeWinRate}% win rate)` },

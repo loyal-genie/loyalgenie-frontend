@@ -90,14 +90,6 @@ export function CustomerDicePage() {
     }
   }, [playError, state, resetPlay])
 
-  if (loading) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center bg-[#1c0038]">
-        <Loader2 className="size-10 text-[#d4a8ff] animate-spin" />
-      </div>
-    )
-  }
-
   if (state === 'result' && playResult?.won && playResult.reward) {
     return (
       <WinCelebration
@@ -118,6 +110,14 @@ export function CustomerDicePage() {
         playsLeft={playResult.playsRemaining}
         attempts={{ used: playResult.playsUsedToday, total: playResult.playsPerDay }}
       />
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-[#1c0038]">
+        <Loader2 className="size-10 text-[#d4a8ff] animate-spin" />
+      </div>
     )
   }
 

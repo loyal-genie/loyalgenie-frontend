@@ -72,7 +72,7 @@ export function ShakeCampaignDetail({
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             {winRatePercent != null && (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-400/10 px-3 py-1.5 text-[11px] font-bold text-amber-200">
-                ✨ {winRatePercent}% chance to win!
+                ✨ {winRatePercent}% of players win!
               </span>
             )}
             {playsUsedToday != null && playsPerDay != null && (

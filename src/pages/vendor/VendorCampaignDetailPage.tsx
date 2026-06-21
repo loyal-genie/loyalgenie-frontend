@@ -217,7 +217,7 @@ export function VendorCampaignDetailPage() {
                 </>
               ) : (
                 <>
-                  Each play has a <strong className="text-v-text">{campaign.winRatePercent}%</strong> chance to win (server-side).
+                  <strong className="text-v-text">{campaign.winRatePercent}%</strong> of players who play will win a reward (server-side lottery).
                   Winners receive a reward picked by share:{' '}
                   {campaign.rewards.map(r => `${r.name} ${r.sharePercent}%`).join(', ')}.
                 </>

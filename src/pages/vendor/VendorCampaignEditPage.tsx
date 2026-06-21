@@ -19,8 +19,6 @@ import {
   calcDailyWinners,
   calcTotalWinners,
   formatWinnerCount,
-  maxTotalWinners,
-  winRateFromTotalWinners,
 } from '@/lib/campaign-impact'
 import { useCampaign, useUpdateCampaign } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, getMechanicColor, formatDate } from '@/lib/utils'
@@ -449,7 +447,6 @@ export function VendorCampaignEditPage() {
 
   const totalRewards = calcTotalWinners(userCap, playsPerDay, winRatePercent)
   const dailyRewards = calcDailyWinners(isSingleDay ? userCap : perDayUserLimit, playsPerDay, winRatePercent)
-  const maxWinners = maxTotalWinners(userCap, playsPerDay)
 
   const reviewRows: { label: string; value: string; changed: boolean; previous?: string }[] = [
     { label: 'Campaign Name', value: name, changed: changedFields.name, previous: campaign.name },
@@ -458,7 +455,8 @@ export function VendorCampaignEditPage() {
       { label: 'Overall User Cap', value: `${userCap} users total`, changed: changedFields.userCap, previous: `${campaign.userCap} users total` },
       ...(!isSingleDay ? [{ label: 'Daily User Limit', value: `${perDayUserLimit} / day`, changed: changedFields.perDayUserLimit, previous: `${campaign.perDayUserLimit} / day` }] : []),
       { label: 'Plays Per User / Day', value: String(playsPerDay), changed: changedFields.playsPerDay, previous: String(campaign.playsPerDay) },
-      { label: 'Total Winners', value: `${formatWinnerCount(totalRewards)} customers win (${winRatePercent}% win rate)`, changed: changedFields.winRatePercent || changedFields.userCap || changedFields.playsPerDay, previous: `${formatWinnerCount(calcTotalWinners(campaign.userCap, campaign.playsPerDay, campaign.winRatePercent))} customers win (${campaign.winRatePercent}% win rate)` },
+      { label: 'Winner Percentage', value: `${winRatePercent}%`, changed: changedFields.winRatePercent, previous: `${campaign.winRatePercent}%` },
+      { label: 'Total Winners', value: `${formatWinnerCount(totalRewards, true)} customers`, changed: changedFields.winRatePercent || changedFields.userCap, previous: `${formatWinnerCount(calcTotalWinners(campaign.userCap, campaign.playsPerDay, campaign.winRatePercent), true)} customers` },
     ] : []),
     ...(isStamp ? [
       { label: 'User Cap', value: `${userCap} users`, changed: changedFields.userCap, previous: `${campaign.userCap} users` },
@@ -609,7 +607,8 @@ export function VendorCampaignEditPage() {
                         <LockedField label="Overall User Cap" value={`${campaign.userCap} users total`} />
                         {!isSingleDay && <LockedField label="Daily User Limit" value={`${campaign.perDayUserLimit} users / day`} />}
                         <LockedField label="Plays Per User Per Day" value={`${campaign.playsPerDay} plays / day`} />
-                        <LockedField label="Total Winners" value={`${formatWinnerCount(calcTotalWinners(campaign.userCap, campaign.playsPerDay, campaign.winRatePercent))} customers (${campaign.winRatePercent}% win rate)`} />
+                        <LockedField label="Winner Percentage" value={`${campaign.winRatePercent}%`} />
+                        <LockedField label="Total Winners" value={`${formatWinnerCount(calcTotalWinners(campaign.userCap, campaign.playsPerDay, campaign.winRatePercent), true)} customers`} />
                       </>
                     ) : (
                       <>
@@ -624,16 +623,20 @@ export function VendorCampaignEditPage() {
                         <Stepper label="Plays Per User Per Day" hint="plays / day" value={playsPerDay} min={1} max={10} onChange={setPlaysPerDay} />
                         <div>
                           <Stepper
-                            label="Total Winners"
-                            hint={`of ${maxWinners.toLocaleString()} possible plays`}
-                            value={totalRewards}
+                            label="Winner Percentage"
+                            hint="% of players who win"
+                            value={winRatePercent}
                             min={1}
-                            max={maxWinners}
+                            max={100}
                             step={1}
-                            onChange={v => setWinRatePercent(winRateFromTotalWinners(v, userCap, playsPerDay))}
+                            onChange={setWinRatePercent}
                           />
                           <p className="text-xs text-v-text-3 mt-1.5">
-                            About <span className="font-semibold text-v-text-2">{formatWinnerCount(dailyRewards)} winners per day</span> when {isSingleDay ? 'all' : perDayUserLimit.toLocaleString()} customers play ({winRatePercent}% win rate).
+                            <span className="font-semibold text-v-text-2">{formatWinnerCount(totalRewards, true)} winners</span>
+                            {' '}out of {userCap.toLocaleString()} players
+                            {!isSingleDay && (
+                              <> · {formatWinnerCount(dailyRewards, true)} winners per day when {perDayUserLimit.toLocaleString()} customers play</>
+                            )}
                           </p>
                         </div>
                       </>

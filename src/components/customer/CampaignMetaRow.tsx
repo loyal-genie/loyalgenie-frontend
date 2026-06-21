@@ -22,7 +22,7 @@ export function CampaignMetaRow({ startDate, endDate, playsPerDay, winRatePercen
             <Users className="size-3.5 shrink-0" />
             {playsPerDay != null
               ? `${playsPerDay} attempt${playsPerDay !== 1 ? 's' : ''} per day`
-              : `${winRatePercent}% win chance`}
+              : `${winRatePercent}% of players win`}
           </span>
         </>
       )}
