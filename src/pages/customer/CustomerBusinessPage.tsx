@@ -1,8 +1,9 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { BottomNav } from '@/components/customer/bottom-nav'
 import { BusinessDetailHero } from '@/components/customer/BusinessDetailHero'
+import { PullToRefresh } from '@/components/customer/PullToRefresh'
 import {
   CampaignListingCard,
   LoyaltyCampaignSectionHeader,
@@ -126,8 +127,29 @@ function LoyaltyCampaignBlock({
 export function CustomerBusinessPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: businesses, isLoading } = useBusinessesWithCampaigns()
+  const queryClient = useQueryClient()
+  const { data: businesses, isLoading, refetch } = useBusinessesWithCampaigns()
   const biz = businesses?.find(b => b.id === id)
+
+  const handleRefresh = async () => {
+    const result = await refetch()
+    const refreshed = result.data?.find(b => b.id === id)
+    if (!refreshed) return
+    await Promise.all(
+      refreshed.campaigns.map(c => {
+        if (c.mechanic === 'stamp') {
+          return queryClient.refetchQueries({ queryKey: ['stamp-state', c.id] })
+        }
+        if (c.mechanic === 'shake') {
+          return queryClient.refetchQueries({ queryKey: ['play-state', c.id] })
+        }
+        if (c.mechanic === 'check-in-loyalty') {
+          return queryClient.refetchQueries({ queryKey: ['loyalty-state', c.id] })
+        }
+        return Promise.resolve()
+      }),
+    )
+  }
 
   if (isLoading) {
     return (
@@ -160,39 +182,41 @@ export function CustomerBusinessPage() {
   )
 
   return (
-    <div className="min-h-dvh bg-white pb-[calc(5rem+env(safe-area-inset-bottom))]">
-      <BusinessDetailHero biz={biz} onBack={() => navigate('/customer')} />
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="min-h-dvh bg-white pb-[calc(5rem+env(safe-area-inset-bottom))]">
+        <BusinessDetailHero biz={biz} />
 
-      <div className="px-5">
-        <LoyaltyCampaignSectionHeader count={biz.campaigns.length}>
-          {biz.campaigns.length === 0 ? (
-            <p className="text-sm text-[#99a1af] text-center py-12">No active campaigns right now.</p>
-          ) : (
-            <div className="flex flex-col gap-4 pb-4">
-              {stampCampaigns.map(c => (
-                <StampCampaignBlock key={c.id} campaign={c} />
-              ))}
-              {shakeCampaigns.map(c => (
-                <ShakeCampaignBlock key={c.id} campaign={c} />
-              ))}
-              {loyaltyCampaigns.map(c => (
-                <LoyaltyCampaignBlock key={c.id} campaign={c} />
-              ))}
-              {otherCampaigns.map(c => (
-                <CampaignListingCard
-                  key={c.id}
-                  campaign={c}
-                  href={`/customer/campaigns/${c.id}`}
-                  comingSoon
-                  statsLine="Launching soon"
-                />
-              ))}
-            </div>
-          )}
-        </LoyaltyCampaignSectionHeader>
+        <div className="px-5">
+          <LoyaltyCampaignSectionHeader count={biz.campaigns.length}>
+            {biz.campaigns.length === 0 ? (
+              <p className="text-sm text-[#99a1af] text-center py-12">No active campaigns right now.</p>
+            ) : (
+              <div className="flex flex-col gap-4 pb-4">
+                {stampCampaigns.map(c => (
+                  <StampCampaignBlock key={c.id} campaign={c} />
+                ))}
+                {shakeCampaigns.map(c => (
+                  <ShakeCampaignBlock key={c.id} campaign={c} />
+                ))}
+                {loyaltyCampaigns.map(c => (
+                  <LoyaltyCampaignBlock key={c.id} campaign={c} />
+                ))}
+                {otherCampaigns.map(c => (
+                  <CampaignListingCard
+                    key={c.id}
+                    campaign={c}
+                    href={`/customer/campaigns/${c.id}`}
+                    comingSoon
+                    statsLine="Launching soon"
+                  />
+                ))}
+              </div>
+            )}
+          </LoyaltyCampaignSectionHeader>
+        </div>
+
+        <BottomNav />
       </div>
-
-      <BottomNav />
-    </div>
+    </PullToRefresh>
   )
 }

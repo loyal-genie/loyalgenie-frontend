@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ArrowLeft, ExternalLink, MapPin, Phone, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getMechanicHeaderChip } from '@/lib/customer-ui'
@@ -17,11 +18,10 @@ import type { BusinessWithCampaigns } from '@/lib/api'
 
 interface BusinessDetailHeroProps {
   biz: BusinessWithCampaigns
-  onBack: () => void
   className?: string
 }
 
-export function BusinessDetailHero({ biz, onBack, className }: BusinessDetailHeroProps) {
+export function BusinessDetailHero({ biz, className }: BusinessDetailHeroProps) {
   const campaignMechanics = [...new Set(biz.campaigns.map(c => c.mechanic))]
   const mechanics =
     biz.mechanicTags && biz.mechanicTags.length > 0 ? biz.mechanicTags : campaignMechanics
@@ -69,14 +69,14 @@ export function BusinessDetailHero({ biz, onBack, className }: BusinessDetailHer
           />
         )}
 
-        <button
-          type="button"
-          onClick={onBack}
-          className="absolute top-12 left-4 z-30 size-9 rounded-full bg-black/30 backdrop-blur-[6px] flex items-center justify-center border-0 cursor-pointer pointer-events-auto"
-          aria-label="Go back"
+        <Link
+          to="/customer"
+          replace
+          className="absolute top-12 left-4 z-30 size-9 rounded-full bg-black/30 backdrop-blur-[6px] flex items-center justify-center border-0 cursor-pointer pointer-events-auto no-underline"
+          aria-label="Back to home"
         >
           <ArrowLeft className="size-4 text-white" />
-        </button>
+        </Link>
 
         {rating && (
           <div className="absolute top-12 right-4 z-10 flex items-center gap-1 bg-black/40 backdrop-blur-[6px] rounded-full px-2.5 py-1">

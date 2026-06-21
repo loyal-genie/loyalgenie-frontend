@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 
 const CONFETTI = ['#F5C518', '#F59E0B', '#FDE68A', '#FBBF24', '#FCD34D']
+/** Time to show the success result before auto-advancing (ms). */
+const RESULT_VIEW_PAUSE_MS = 2400
 
 interface StampCollectedSplashProps {
   fromCount: number
@@ -31,7 +33,11 @@ export function StampCollectedSplash({
       return
     }
     const steps = toCount - fromCount
-    const stepMs = Math.min(400, 1200 / steps)
+    const stepMs = Math.min(300, 900 / Math.max(steps, 1))
+    if (steps <= 1) {
+      setDisplayCount(toCount)
+      return
+    }
     let current = fromCount
     const interval = setInterval(() => {
       current += 1
@@ -43,7 +49,7 @@ export function StampCollectedSplash({
 
   useEffect(() => {
     if (!ready) return
-    const t = setTimeout(onComplete, 3200)
+    const t = setTimeout(onComplete, RESULT_VIEW_PAUSE_MS)
     return () => clearTimeout(t)
   }, [ready, onComplete])
 

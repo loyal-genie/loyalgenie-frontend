@@ -133,18 +133,6 @@ export function CustomerCampaignPage() {
     handleBack()
   }
 
-  const stampCollectOverlay = stampCollect && stampState && campaign?.mechanic === 'stamp' ? (
-    <StampCollectOverlay
-      campaignId={id!}
-      businessId={campaign.businessId}
-      playSessionToken={stampCollect.token}
-      stampsBefore={stampCollect.stampsBefore}
-      enrolledBefore={stampCollect.enrolledBefore}
-      totalStamps={stampState.totalStamps}
-      onDone={handleStampCollectDone}
-    />
-  ) : null
-
   const handleKey = (k: string) => {
     markMotionGesture()
     primeMotionSensors()
@@ -310,9 +298,7 @@ export function CustomerCampaignPage() {
 
   if (campaign.mechanic === 'shake') {
     return (
-      <>
-        {stampCollectOverlay}
-        <ShakeCampaignDetail
+      <ShakeCampaignDetail
         campaign={campaign}
         pin={pin}
         error={error}
@@ -325,47 +311,52 @@ export function CustomerCampaignPage() {
         onDelete={handleDelete}
         onSubmit={handleSubmit}
       />
-      </>
     )
   }
 
   if (campaign.mechanic === 'check-in-loyalty' && loyaltyState) {
     return (
-      <>
-        {stampCollectOverlay}
-        <LoyaltyCampaignDetail
+      <LoyaltyCampaignDetail
         campaign={campaign}
         loyaltyState={loyaltyState}
         onBack={handleBack}
       />
-      </>
     )
   }
 
   if (campaign.mechanic === 'stamp' && stampState) {
+    if (stampCollect) {
+      return (
+        <StampCollectOverlay
+          campaignId={id!}
+          businessId={campaign.businessId}
+          playSessionToken={stampCollect.token}
+          stampsBefore={stampCollect.stampsBefore}
+          enrolledBefore={stampCollect.enrolledBefore}
+          totalStamps={stampState.totalStamps}
+          onDone={handleStampCollectDone}
+        />
+      )
+    }
+
     return (
-      <>
-        {stampCollectOverlay}
-        <StampCampaignDetail
-          campaign={campaign}
-          businessName={businessName}
-          stampState={stampState}
-          pin={pin}
-          error={error}
-          loading={verifyMutation.isPending || Boolean(stampCollect)}
+      <StampCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        stampState={stampState}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
         onBack={handleBack}
         onKey={handleKey}
         onDelete={handleDelete}
         onSubmit={handleSubmit}
       />
-      </>
     )
   }
 
   return (
-    <>
-      {stampCollectOverlay}
-      <CampaignPinShell
+    <CampaignPinShell
       businessName={businessName}
       campaignName={campaign.name}
       mechanic={campaign.mechanic}
@@ -380,6 +371,5 @@ export function CustomerCampaignPage() {
       submitLabel={submitLabel}
       statusChips={statusChips}
     />
-    </>
   )
 }
