@@ -3,10 +3,6 @@ import { Check, Gift } from 'lucide-react'
 interface StampLoyaltyGridProps {
   total: number
   collected: number
-  surpriseFrom: number
-  surpriseTo: number
-  bigFrom: number
-  bigTo: number
   surpriseTriggerAt: number | null
   bigTriggerAt: number | null
   surpriseAwarded: boolean
@@ -16,10 +12,6 @@ interface StampLoyaltyGridProps {
 function StampSlot({
   n,
   collected,
-  surpriseFrom,
-  surpriseTo,
-  bigFrom,
-  bigTo,
   surpriseTriggerAt,
   bigTriggerAt,
   surpriseAwarded,
@@ -27,48 +19,24 @@ function StampSlot({
 }: {
   n: number
   collected: number
-  surpriseFrom: number
-  surpriseTo: number
-  bigFrom: number
-  bigTo: number
   surpriseTriggerAt: number | null
   bigTriggerAt: number | null
   surpriseAwarded: boolean
   bigAwarded: boolean
 }) {
   const filled = n <= collected
-  const inSurprise = n >= surpriseFrom && n <= surpriseTo
-  const inBig = n >= bigFrom && n <= bigTo
-  const isBigRewardSlot = inBig && n === bigTo
 
   if (filled) {
     const showSurpriseGift = surpriseAwarded && surpriseTriggerAt === n
     const showBigGift = bigAwarded && bigTriggerAt === n
-    const showGiftHint = !showSurpriseGift && !showBigGift && inSurprise
 
     return (
       <div className="size-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-        {showSurpriseGift || showBigGift || showGiftHint ? (
+        {showSurpriseGift || showBigGift ? (
           <Gift className="size-4 text-[#fad499]" strokeWidth={2.25} />
         ) : (
           <Check className="size-4 text-white" strokeWidth={2.5} />
         )}
-      </div>
-    )
-  }
-
-  if (isBigRewardSlot) {
-    return (
-      <div className="size-9 rounded-lg bg-[#e8b050] flex items-center justify-center shrink-0">
-        <Gift className="size-4 text-[#43036d]" strokeWidth={2.25} />
-      </div>
-    )
-  }
-
-  if (inSurprise) {
-    return (
-      <div className="size-9 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
-        <Gift className="size-4 text-[#fad499]/80" strokeWidth={2.25} />
       </div>
     )
   }
@@ -83,10 +51,6 @@ function StampSlot({
 export function StampLoyaltyGrid({
   total,
   collected,
-  surpriseFrom,
-  surpriseTo,
-  bigFrom,
-  bigTo,
   surpriseTriggerAt,
   bigTriggerAt,
   surpriseAwarded,
@@ -98,10 +62,6 @@ export function StampLoyaltyGrid({
 
   const slotProps = {
     collected,
-    surpriseFrom,
-    surpriseTo,
-    bigFrom,
-    bigTo,
     surpriseTriggerAt,
     bigTriggerAt,
     surpriseAwarded,

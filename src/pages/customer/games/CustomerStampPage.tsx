@@ -85,11 +85,19 @@ export function CustomerStampPage() {
     return () => clearTimeout(t)
   }, [shouldAutoCollect])
 
-  const finishStampSplash = useCallback(() => {
-    if (!splashData) {
-      setPhase('card')
-      return
+  const goBackAfterCollect = useCallback(() => {
+    clearPlaySession(campaignId)
+    queryClient.invalidateQueries({ queryKey: ['stamp-state', campaignId] })
+    queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
+    if (campaign?.businessId) {
+      navigate(`/customer/business/${campaign.businessId}`, { replace: true })
+    } else {
+      navigate('/customer', { replace: true })
     }
+  }, [campaignId, campaign?.businessId, navigate, queryClient])
+
+  const finishStampSplash = useCallback(() => {
+    if (!splashData) return
     setDisplayStamps(splashData.to)
     setHighlightStamp(splashData.to)
     setSplashData(null)
@@ -100,9 +108,8 @@ export function CustomerStampPage() {
       setPhase(pendingReward.trigger === 'big' ? 'big-win' : 'surprise')
       return
     }
-    setPhase('card')
-    setTimeout(() => setHighlightStamp(null), 1500)
-  }, [splashData, pendingReward])
+    goBackAfterCollect()
+  }, [splashData, pendingReward, goBackAfterCollect])
 
   const handleCollectSuccess = useCallback((result: StampCollectResult, wasEnrolled: boolean, from: number) => {
     const to = result.stampsCollected
@@ -141,6 +148,11 @@ export function CustomerStampPage() {
     },
     onError: (err) => {
       setError(getApiErrorMessage(err, 'Could not collect stamp'))
+      if (shouldAutoCollect) {
+        clearPlaySession(campaignId)
+        navigate(`/customer/campaigns/${campaignId}`, { replace: true })
+        return
+      }
       setPhase(stampState?.canCollectToday ? 'ready' : 'card')
     },
   })
@@ -195,12 +207,6 @@ export function CustomerStampPage() {
     }
   }, [shouldAutoCollect, stampState?.canCollectToday, phase, showPinReady, startCollect])
 
-  const returnToCard = useCallback(() => {
-    setLastReward(null)
-    setPhase('card')
-    refetch()
-  }, [refetch])
-
   if (!campaignId || !playSession) return null
 
   if (campaignLoading || stateLoading || !stampState || !campaign) {
@@ -217,8 +223,8 @@ export function CustomerStampPage() {
         reward={lastReward.name}
         emoji={lastReward.emoji}
         code={lastReward.code}
-        onClose={returnToCard}
-        closeLabel="Back to Card"
+        onClose={goBackAfterCollect}
+        closeLabel="Done"
       />
     )
   }
@@ -229,8 +235,8 @@ export function CustomerStampPage() {
         reward={lastReward.name}
         emoji={lastReward.emoji}
         code={lastReward.code}
-        onClose={returnToCard}
-        closeLabel="Back to Card"
+        onClose={goBackAfterCollect}
+        closeLabel="Done"
       />
     )
   }
@@ -249,8 +255,6 @@ export function CustomerStampPage() {
 
   const total = stampState.totalStamps
   const stamps = displayStamps
-  const [surpriseFrom, surpriseTo] = stampState.surpriseRange
-  const [bigFrom, bigTo] = stampState.bigRange
   const prefill = stampState.prefillStamps
   const canCollect = stampState.canCollectToday && !stampState.cardComplete
   const showCollectButton = phase === 'ready' || phase === 'collecting'
@@ -348,10 +352,6 @@ export function CustomerStampPage() {
               total={total}
               stamps={stamps}
               prefill={prefill}
-              surpriseFrom={surpriseFrom}
-              surpriseTo={surpriseTo}
-              bigFrom={bigFrom}
-              bigTo={bigTo}
               surpriseTriggerAt={stampState.surpriseTriggerAt}
               bigTriggerAt={stampState.bigTriggerAt}
               surpriseAwarded={stampState.surpriseAwarded}
@@ -359,11 +359,11 @@ export function CustomerStampPage() {
               highlightStamp={highlightStamp}
             />
 
-            <div className="flex flex-wrap gap-3 text-[9px] text-[#c084fc]/80">
-              {prefill > 0 && <span>● Pre-filled ({prefill})</span>}
-              <span>● Surprise slots</span>
-              <span>● Big reward</span>
-            </div>
+            {prefill > 0 && (
+              <div className="flex flex-wrap gap-3 text-[9px] text-[#c084fc]/80">
+                <span>● Pre-filled ({prefill})</span>
+              </div>
+            )}
           </div>
         </motion.div>
 

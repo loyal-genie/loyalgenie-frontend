@@ -33,8 +33,6 @@ export function StampCampaignDetail({
   const total = stampState.totalStamps
   const remaining = Math.max(0, total - collected)
   const progressPct = total > 0 ? Math.round((collected / total) * 100) : 0
-  const [surpriseFrom, surpriseTo] = stampState.surpriseRange
-  const [bigFrom, bigTo] = stampState.bigRange
 
   return (
     <div className="h-dvh flex flex-col bg-[#43036d] max-w-[440px] mx-auto overflow-hidden relative">
@@ -95,10 +93,6 @@ export function StampCampaignDetail({
               <StampLoyaltyGrid
                 total={total}
                 collected={collected}
-                surpriseFrom={surpriseFrom}
-                surpriseTo={surpriseTo}
-                bigFrom={bigFrom}
-                bigTo={bigTo}
                 surpriseTriggerAt={stampState.surpriseTriggerAt}
                 bigTriggerAt={stampState.bigTriggerAt}
                 surpriseAwarded={stampState.surpriseAwarded}

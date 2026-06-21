@@ -1,14 +1,9 @@
 import { motion } from 'framer-motion'
-import { Gift } from 'lucide-react'
 
 interface StampGameGridProps {
   total: number
   stamps: number
   prefill: number
-  surpriseFrom: number
-  surpriseTo: number
-  bigFrom: number
-  bigTo: number
   surpriseTriggerAt: number | null
   bigTriggerAt: number | null
   surpriseAwarded: boolean
@@ -20,22 +15,13 @@ export function StampGameGrid({
   total,
   stamps,
   prefill,
-  surpriseFrom,
-  surpriseTo,
-  bigFrom,
-  bigTo,
   surpriseTriggerAt,
   bigTriggerAt,
   surpriseAwarded,
   bigAwarded,
   highlightStamp,
 }: StampGameGridProps) {
-  function slotContent(n: number, isFilled: boolean): string {
-    if (!isFilled) {
-      if (n >= surpriseFrom && n <= surpriseTo) return '🎁'
-      if (n >= bigFrom && n <= bigTo) return '🏆'
-      return ''
-    }
+  function slotContent(n: number): string {
     if (surpriseTriggerAt === n && surpriseAwarded) return '🎁'
     if (bigTriggerAt === n && bigAwarded) return '🏆'
     return '☕'
@@ -47,15 +33,11 @@ export function StampGameGrid({
         const n = i + 1
         const isFilled = n <= stamps
         const isPrefilled = n <= prefill && !isFilled
-        const isGiftSlot = (n >= surpriseFrom && n <= surpriseTo) || (n >= bigFrom && n <= bigTo)
         const isHighlighted = highlightStamp === n
 
         let bg = '#e4e4e4'
         if (isFilled) bg = '#5b0e81'
         else if (isPrefilled) bg = 'rgba(91,14,129,0.15)'
-        else if (isGiftSlot) {
-          bg = 'linear-gradient(141deg, rgba(91,14,129,0.58) 11%, rgba(91,14,129,0.22) 96%)'
-        }
 
         return (
           <motion.div
@@ -66,12 +48,12 @@ export function StampGameGrid({
             style={{ background: bg }}
           >
             {isFilled ? (
-              <span className="text-lg">{slotContent(n, true)}</span>
-            ) : isGiftSlot ? (
-              <Gift className="size-5 text-[#5b0e81]" />
+              <span className="text-lg">{slotContent(n)}</span>
             ) : isPrefilled ? (
               <span className="text-[#5b0e81]/50 text-xs font-bold">{n}</span>
-            ) : null}
+            ) : (
+              <span className="text-[#9ca3af]/50 text-xs font-bold">{n}</span>
+            )}
           </motion.div>
         )
       })}
