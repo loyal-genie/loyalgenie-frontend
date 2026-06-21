@@ -56,6 +56,34 @@ export function PercentInput({
   className?: string
   disabled?: boolean
 }) {
+  return (
+    <NumericInput
+      value={value}
+      onChange={onChange}
+      min={min}
+      max={max}
+      className={className}
+      disabled={disabled}
+    />
+  )
+}
+
+/** Generic integer input — use for point thresholds, counts, etc. (not capped at 100). */
+export function NumericInput({
+  value,
+  onChange,
+  min = 1,
+  max = 99_999,
+  className,
+  disabled,
+}: {
+  value: number
+  onChange: (n: number) => void
+  min?: number
+  max?: number
+  className?: string
+  disabled?: boolean
+}) {
   const [draft, setDraft] = useState(String(value))
   const [focused, setFocused] = useState(false)
 

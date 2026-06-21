@@ -3,17 +3,25 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, ArrowRight, Lock, Check, Save, AlertTriangle, AlertCircle,
-  Play, Pause, StopCircle, Loader2, TrendingUp, CalendarDays, Plus, Trash2,
+  Play, Pause, StopCircle, Loader2, CalendarDays, Plus, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldInput as Input, Slider, Stepper } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { StatusBadge, MechanicBadge } from '@/components/ui/badge'
 import {
-  RewardPoolEditor, RewardModeToggle, SingleRewardInput, PercentInput,
+  RewardPoolEditor, RewardModeToggle, SingleRewardInput, NumericInput,
   REWARD_ICONS, newRewardEntry, rewardShareTotal, rewardsAreValid, rewardPoolValid,
   type RewardEntry, type RewardMode,
 } from '@/components/vendor/RewardPoolEditor'
+import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
+import {
+  calcDailyWinners,
+  calcTotalWinners,
+  formatWinnerCount,
+  maxTotalWinners,
+  winRateFromTotalWinners,
+} from '@/lib/campaign-impact'
 import { useCampaign, useUpdateCampaign } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, getMechanicColor, formatDate } from '@/lib/utils'
 import {
@@ -438,6 +446,10 @@ export function VendorCampaignEditPage() {
     ? singleDayDurationLabel(campaign.startDate, TODAY)
     : `${fmtCampaignDate(campaign.startDate)} → ${fmtCampaignDate(endDate)}`
 
+  const totalRewards = calcTotalWinners(userCap, playsPerDay, winRatePercent)
+  const dailyRewards = calcDailyWinners(isSingleDay ? userCap : perDayUserLimit, playsPerDay, winRatePercent)
+  const maxWinners = maxTotalWinners(userCap, playsPerDay)
+
   const reviewRows: { label: string; value: string; changed: boolean; previous?: string }[] = [
     { label: 'Campaign Name', value: name, changed: changedFields.name, previous: campaign.name },
     { label: 'Duration', value: durationLabel, changed: changedFields.endDate, previous: originalIsSingleDay ? singleDayDurationLabel(campaign.startDate, TODAY) : `${fmtCampaignDate(campaign.startDate)} → ${fmtCampaignDate(campaign.endDate)}` },
@@ -445,7 +457,7 @@ export function VendorCampaignEditPage() {
       { label: 'Overall User Cap', value: `${userCap} users total`, changed: changedFields.userCap, previous: `${campaign.userCap} users total` },
       ...(!isSingleDay ? [{ label: 'Daily User Limit', value: `${perDayUserLimit} / day`, changed: changedFields.perDayUserLimit, previous: `${campaign.perDayUserLimit} / day` }] : []),
       { label: 'Plays Per User / Day', value: String(playsPerDay), changed: changedFields.playsPerDay, previous: String(campaign.playsPerDay) },
-      { label: 'Overall Win Rate', value: `${winRatePercent}% of customers win`, changed: changedFields.winRatePercent, previous: `${campaign.winRatePercent}% of customers win` },
+      { label: 'Total Winners', value: `${formatWinnerCount(totalRewards)} customers win (${winRatePercent}% win rate)`, changed: changedFields.winRatePercent || changedFields.userCap || changedFields.playsPerDay, previous: `${formatWinnerCount(calcTotalWinners(campaign.userCap, campaign.playsPerDay, campaign.winRatePercent))} customers win (${campaign.winRatePercent}% win rate)` },
     ] : []),
     ...(isStamp ? [
       { label: 'User Cap', value: `${userCap} users`, changed: changedFields.userCap, previous: `${campaign.userCap} users` },
@@ -458,11 +470,6 @@ export function VendorCampaignEditPage() {
       { label: 'Milestones', value: `${milestones.filter(m => m.name).length} reward${milestones.filter(m => m.name).length !== 1 ? 's' : ''}`, changed: changedFields.milestones },
     ] : []),
   ]
-
-  const totalPlays = userCap * playsPerDay
-  const totalRewards = Math.round(totalPlays * winRatePercent / 100)
-  const dailyPlays = (isSingleDay ? userCap : perDayUserLimit) * playsPerDay
-  const dailyRewards = Math.round(dailyPlays * winRatePercent / 100)
 
   const mechanicTitle = isShake ? 'Shake & Win — Reward Distribution'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
@@ -600,7 +607,7 @@ export function VendorCampaignEditPage() {
                         <LockedField label="Overall User Cap" value={`${campaign.userCap} users total`} />
                         {!isSingleDay && <LockedField label="Daily User Limit" value={`${campaign.perDayUserLimit} users / day`} />}
                         <LockedField label="Plays Per User Per Day" value={`${campaign.playsPerDay} plays / day`} />
-                        <LockedField label="Overall Win Rate" value={`${campaign.winRatePercent}% of customers win`} />
+                        <LockedField label="Total Winners" value={`${formatWinnerCount(calcTotalWinners(campaign.userCap, campaign.playsPerDay, campaign.winRatePercent))} customers (${campaign.winRatePercent}% win rate)`} />
                       </>
                     ) : (
                       <>
@@ -614,8 +621,18 @@ export function VendorCampaignEditPage() {
                         )}
                         <Stepper label="Plays Per User Per Day" hint="plays / day" value={playsPerDay} min={1} max={10} onChange={setPlaysPerDay} />
                         <div>
-                          <Stepper label="Overall Win Rate" hint="% of customers win" value={winRatePercent} min={1} max={100} step={1} onChange={setWinRatePercent} />
-                          <p className="text-xs text-v-text-3 mt-1.5">Daily win rate is the same — <span className="font-semibold text-v-text-2">{winRatePercent}%</span> of each day&apos;s players will win.</p>
+                          <Stepper
+                            label="Total Winners"
+                            hint={`of ${maxWinners.toLocaleString()} possible plays`}
+                            value={totalRewards}
+                            min={1}
+                            max={maxWinners}
+                            step={1}
+                            onChange={v => setWinRatePercent(winRateFromTotalWinners(v, userCap, playsPerDay))}
+                          />
+                          <p className="text-xs text-v-text-3 mt-1.5">
+                            About <span className="font-semibold text-v-text-2">{formatWinnerCount(dailyRewards)} winners per day</span> when {isSingleDay ? 'all' : perDayUserLimit.toLocaleString()} customers play ({winRatePercent}% win rate).
+                          </p>
                         </div>
                       </>
                     ))}
@@ -676,8 +693,8 @@ export function VendorCampaignEditPage() {
                   <>
                     <p className="text-xs text-v-text-3 mb-4">Configure how winning plays are distributed across reward types.</p>
                     <div className="flex items-center gap-2 mb-5 p-2.5 bg-v-surface-2 border border-v-border rounded-xl text-xs">
-                      <span className="text-v-text-3">Overall win rate:</span>
-                      <span className="font-bold text-v-purple">{winRatePercent}% of players win</span>
+                      <span className="text-v-text-3">Expected winners:</span>
+                      <span className="font-bold text-v-purple">{formatWinnerCount(totalRewards)} total</span>
                     </div>
                     {isEnded ? (
                       <RewardPoolEditor rewards={rewards} setRewards={setRewards} shareMode readOnly />
@@ -777,7 +794,7 @@ export function VendorCampaignEditPage() {
                       </div>
                     ) : (
                       <div className="space-y-5">
-                        <Stepper label="Points per Check-in" hint="points earned per visit" value={pointsPerCheckIn} min={1} max={50} onChange={setPointsPerCheckIn} />
+                        <Stepper label="Points per Check-in" hint="points earned per visit" value={pointsPerCheckIn} min={1} max={999} onChange={setPointsPerCheckIn} />
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[11px] font-semibold text-v-text-2 uppercase tracking-wider">Reward Milestones</span>
@@ -796,7 +813,7 @@ export function VendorCampaignEditPage() {
                                     <input className="w-full bg-white border border-v-border rounded-lg px-2.5 py-1.5 text-sm" placeholder="Reward name" value={m.name} onChange={e => setMilestones(p => p.map(x => x.id === m.id ? { ...x, name: e.target.value } : x))} />
                                     <div className="flex items-center gap-2">
                                       <span className="text-[11px] text-v-text-3 shrink-0">At points:</span>
-                                      <PercentInput value={m.pointsThreshold} onChange={n => setMilestones(p => p.map(x => x.id === m.id ? { ...x, pointsThreshold: n } : x))} className="w-20 bg-white border border-v-border rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:border-v-purple" />
+                                      <NumericInput value={m.pointsThreshold} onChange={n => setMilestones(p => p.map(x => x.id === m.id ? { ...x, pointsThreshold: n } : x))} min={1} max={99_999} className="w-20 bg-white border border-v-border rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:border-v-purple" />
                                     </div>
                                   </div>
                                   {milestones.length > 1 && (
@@ -878,34 +895,31 @@ export function VendorCampaignEditPage() {
               )}
 
               {isShake && (
-                <Card className="p-5 bg-v-surface-3 border-v-border-b">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-4 h-4 text-v-purple" />
-                    <h3 className="text-sm font-bold text-v-text">Expected Campaign Impact</h3>
-                  </div>
-                  <div className={`grid gap-3 ${isSingleDay ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
-                    <div className="bg-v-surface-2 rounded-xl p-3.5">
-                      <div className="text-xl font-black text-v-purple">{winRatePercent}%</div>
-                      <div className="text-xs font-semibold text-v-text-2 mt-1">Win Rate</div>
-                    </div>
-                    <div className="bg-v-surface-2 rounded-xl p-3.5">
-                      <div className="text-xl font-black text-v-text">~{totalRewards}</div>
-                      <div className="text-xs font-semibold text-v-text-2 mt-1">Total Rewards</div>
-                    </div>
-                    {!isSingleDay && (
-                      <>
-                        <div className="bg-v-surface-2 rounded-xl p-3.5">
-                          <div className="text-xl font-black text-v-text">~{dailyRewards}</div>
-                          <div className="text-xs font-semibold text-v-text-2 mt-1">Rewards / Day</div>
-                        </div>
-                        <div className="bg-v-surface-2 rounded-xl p-3.5">
-                          <div className="text-xl font-black text-v-text">{campaignDays}d</div>
-                          <div className="text-xs font-semibold text-v-text-2 mt-1">Duration</div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </Card>
+                <WinBasedCampaignImpact
+                  userCap={userCap}
+                  perDayUserLimit={perDayUserLimit}
+                  playsPerDay={playsPerDay}
+                  winRatePercent={winRatePercent}
+                  campaignDays={campaignDays}
+                  startDate={campaign.startDate}
+                  endDate={endDate}
+                  isSingleDay={isSingleDay}
+                  variant="muted"
+                />
+              )}
+
+              {isStamp && (
+                <StampCampaignImpact userCap={userCap} totalStamps={stampConfig.totalStamps} variant="muted" />
+              )}
+
+              {isLoyalty && (
+                <LoyaltyCampaignImpact
+                  userCap={userCapLimited ? userCap : null}
+                  userCapLimited={userCapLimited}
+                  pointsPerCheckIn={pointsPerCheckIn}
+                  milestoneCount={milestones.filter(m => m.name).length}
+                  variant="muted"
+                />
               )}
 
               <Button variant="gold" size="lg" className="w-full" onClick={handleSave} disabled={updateMutation.isPending || saveState === 'saved'}>
