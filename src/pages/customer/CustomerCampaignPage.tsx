@@ -23,7 +23,8 @@ import {
   CampaignPinShell,
 } from '@/components/customer/CampaignPinShell'
 import { ShakeCampaignDetail } from '@/components/customer/ShakeCampaignDetail'
-import { StampPinRow } from '@/components/customer/StampPinRow'
+import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
+import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 
 function StatusChip({ children }: { children: ReactNode }) {
   return (
@@ -38,7 +39,6 @@ export function CustomerCampaignPage() {
   const navigate = useNavigate()
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
-  const [pinOpen, setPinOpen] = useState(false)
 
   const localSessionOk = isSessionValidForRole('customer') && Boolean(getToken('customer'))
 
@@ -74,7 +74,7 @@ export function CustomerCampaignPage() {
     staleTime: 0,
   })
 
-  const { data: loyaltyState } = useQuery({
+  const { data: loyaltyState, isLoading: loyaltyStateLoading } = useQuery({
     queryKey: ['loyalty-state', id, serverSession?.userId],
     queryFn: () => fetchLoyaltyState(id!),
     enabled: Boolean(id) && authReady && campaign?.mechanic === 'check-in-loyalty',
@@ -129,10 +129,9 @@ export function CustomerCampaignPage() {
 
   useEffect(() => {
     if (pin.length !== 3 || verifyMutation.isPending || !authReady) return
-    if (campaign?.mechanic === 'shake' && !pinOpen) return
     const t = setTimeout(() => verifyMutation.mutate(pin), 300)
     return () => clearTimeout(t)
-  }, [pin, authReady, pinOpen, campaign?.mechanic]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pin, authReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!localSessionOk || sessionError || (serverSession && serverSession.role !== 'customer')) {
     return (
@@ -157,6 +156,7 @@ export function CustomerCampaignPage() {
   const stateStillLoading =
     (campaign?.mechanic === 'shake' && playStateLoading)
     || (campaign?.mechanic === 'stamp' && stampStateLoading)
+    || (campaign?.mechanic === 'check-in-loyalty' && loyaltyStateLoading)
 
   if (stateStillLoading) return <CampaignPinLoading />
 
@@ -188,34 +188,39 @@ export function CustomerCampaignPage() {
     || (stampState.enrolled && !stampState.canCollectToday)
     || (!stampState.enrolled && !stampState.enrollmentOpen)
   )
+  const loyaltyBlocked = campaign.mechanic === 'check-in-loyalty' && loyaltyState?.checkedInToday
 
-  if (shakeBlocked || stampBlocked) {
+  if (shakeBlocked || stampBlocked || loyaltyBlocked) {
     const title = shakeBlocked
       ? playState!.blockReason === 'no_plays_remaining'
         ? 'All plays used today!'
         : 'Cannot play right now'
-      : stampState!.cardComplete
-        ? 'Stamp card complete!'
-        : stampState!.status === 'expired'
-          ? 'Stamp card expired'
-          : stampState!.enrolled && !stampState!.canCollectToday
-            ? 'Stamp already collected today!'
-            : 'Enrollment closed'
+      : loyaltyBlocked
+        ? 'Already checked in today!'
+        : stampState!.cardComplete
+          ? 'Stamp card complete!'
+          : stampState!.status === 'expired'
+            ? 'Stamp card expired'
+            : stampState!.enrolled && !stampState!.canCollectToday
+              ? 'Stamp already collected today!'
+              : 'Enrollment closed'
     const detail = shakeBlocked
       ? playState!.message
-      : stampState!.cardComplete
-        ? `You collected all ${stampState!.totalStamps} stamps`
-        : stampState!.enrolled && !stampState!.canCollectToday
-          ? `${stampState!.stampsCollected}/${stampState!.totalStamps} stamps · come back tomorrow`
-          : stampState!.status === 'expired'
-            ? 'The claim window for this card has ended'
-            : 'No spots left to join this stamp card'
+      : loyaltyBlocked
+        ? `${loyaltyState!.loyaltyPoints} loyalty points · come back tomorrow`
+        : stampState!.cardComplete
+          ? `You collected all ${stampState!.totalStamps} stamps`
+          : stampState!.enrolled && !stampState!.canCollectToday
+            ? `${stampState!.stampsCollected}/${stampState!.totalStamps} stamps · come back tomorrow`
+            : stampState!.status === 'expired'
+              ? 'The claim window for this card has ended'
+              : 'No spots left to join this stamp card'
 
     return (
       <CampaignPinBlocked
         title={title}
         detail={detail}
-        emoji={stampBlocked && stampState!.cardComplete ? '🏆' : '✅'}
+        emoji={stampBlocked && stampState?.cardComplete ? '🏆' : '✅'}
         onBack={handleBack}
       />
     )
@@ -269,19 +274,40 @@ export function CustomerCampaignPage() {
     return (
       <ShakeCampaignDetail
         campaign={campaign}
-        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
-        pinOpen={pinOpen}
-        statusChips={statusChips}
+        winRatePercent={campaign.winRatePercent}
+        playsUsedToday={playState?.playsUsedToday}
+        playsPerDay={playState?.playsPerDay ?? campaign.playsPerDay}
         onBack={handleBack}
-        onOpenPin={() => setPinOpen(true)}
-        onClosePin={() => {
-          setPinOpen(false)
-          setPin('')
-          setError('')
-        }}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'check-in-loyalty' && loyaltyState) {
+    return (
+      <LoyaltyCampaignDetail
+        campaign={campaign}
+        loyaltyState={loyaltyState}
+        onBack={handleBack}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'stamp' && stampState) {
+    return (
+      <StampCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        stampState={stampState}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        onBack={handleBack}
         onKey={handleKey}
         onDelete={handleDelete}
         onSubmit={handleSubmit}
@@ -292,9 +318,7 @@ export function CustomerCampaignPage() {
   return (
     <CampaignPinShell
       businessName={businessName}
-      campaignName={isStamp && stampState
-        ? `${campaign.name} (${stampState.stampsCollected}/${stampState.totalStamps})`
-        : campaign.name}
+      campaignName={campaign.name}
       mechanic={campaign.mechanic}
       pin={pin}
       error={error}
@@ -306,14 +330,6 @@ export function CustomerCampaignPage() {
       onSubmit={handleSubmit}
       submitLabel={submitLabel}
       statusChips={statusChips}
-    >
-      {isStamp && stampState && (
-        <StampPinRow
-          collected={stampState.stampsCollected}
-          total={stampState.totalStamps}
-          prefill={stampState.prefillStamps ?? 0}
-        />
-      )}
-    </CampaignPinShell>
+    />
   )
 }

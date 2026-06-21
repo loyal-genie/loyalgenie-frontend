@@ -277,6 +277,9 @@ export interface BusinessProfile {
   facebook: string
   website: string
   googleReview: string
+  rating?: number | null
+  latitude?: number | null
+  longitude?: number | null
   qrSlug: string
   branchName: string
   branchCity: string
@@ -437,6 +440,19 @@ export interface BusinessWithCampaigns {
   brandColor: string
   logoData?: string
   coverBannerData?: string
+  address?: string
+  landmark?: string
+  mobile?: string
+  operatingHours?: string
+  googleReview?: string
+  interiorPhotosData?: string[]
+  branchAddress?: string
+  branchCity?: string
+  rating?: number | null
+  latitude?: number | null
+  longitude?: number | null
+  displayDistanceKm?: number | null
+  mechanicTags?: string[]
   campaigns: {
     id: string
     name: string

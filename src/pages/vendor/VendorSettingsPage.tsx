@@ -46,6 +46,7 @@ function profileToForm(p: BusinessProfile): BusinessProfileUpdate {
     facebook: p.facebook,
     website: p.website,
     googleReview: p.googleReview,
+    rating: p.rating ?? null,
     logoData: p.logoData,
     coverBannerData: p.coverBannerData,
     interiorPhotosData: p.interiorPhotosData ?? [],
@@ -224,7 +225,19 @@ export function VendorSettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="operatingHours">Operating Hours</Label>
-                <Input id="operatingHours" {...register('operatingHours')} placeholder="e.g. 8:00 AM – 10:00 PM" />
+                <Input id="operatingHours" {...register('operatingHours')} placeholder="e.g. Open until 10 PM" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rating">Google Rating (0–5)</Label>
+                <Input
+                  id="rating"
+                  type="number"
+                  step="0.1"
+                  min={0}
+                  max={5}
+                  {...register('rating', { valueAsNumber: true })}
+                  placeholder="e.g. 4.7"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="weeklyOff">Weekly Off Days</Label>

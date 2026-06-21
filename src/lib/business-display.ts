@@ -1,0 +1,85 @@
+import type { BusinessWithCampaigns } from '@/lib/api'
+
+export function formatBusinessCategory(type: string): string {
+  const t = type.toLowerCase()
+  if (t.includes('cafe') || t.includes('coffee')) return 'Cafe'
+  if (t.includes('salon')) return 'Salon'
+  if (t.includes('gym') || t.includes('fitness')) return 'Gym'
+  if (t.includes('restaurant')) return 'Restaurant'
+  return type.split(/[&,/]/)[0]?.trim() || type
+}
+
+export function formatBusinessLocation(biz: Pick<
+  BusinessWithCampaigns,
+  'landmark' | 'address' | 'branchAddress' | 'branchCity' | 'city'
+>): string {
+  const area = biz.landmark?.trim() || biz.branchAddress?.trim() || biz.address?.trim()
+  if (area && biz.city) return `${area}, ${biz.city}`
+  return biz.city || area || ''
+}
+
+export function formatOpenStatus(hours?: string): string | null {
+  if (!hours?.trim()) return null
+  const h = hours.trim()
+  if (/^open/i.test(h) || /until|–|-/i.test(h)) return h
+  return `Open until ${h}`
+}
+
+export function formatPhoneDisplay(mobile?: string): string | null {
+  if (!mobile?.trim()) return null
+  const digits = mobile.replace(/\D/g, '')
+  if (digits.length === 10) {
+    return `+91 ${digits.slice(0, 2)} ${digits.slice(2, 6)} ${digits.slice(6)}`
+  }
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return `+91 ${digits.slice(2, 4)} ${digits.slice(4, 8)} ${digits.slice(8)}`
+  }
+  return mobile.trim()
+}
+
+export function getBusinessHeroPhotos(
+  biz: Pick<BusinessWithCampaigns, 'coverBannerData' | 'interiorPhotosData'>,
+): string[] {
+  const photos = [
+    biz.coverBannerData,
+    ...(biz.interiorPhotosData ?? []),
+  ].filter((p): p is string => Boolean(p?.trim()))
+  return [...new Set(photos)]
+}
+
+export function formatDistanceKm(
+  biz: Pick<BusinessWithCampaigns, 'latitude' | 'longitude' | 'displayDistanceKm'>,
+  userLat?: number | null,
+  userLng?: number | null,
+): string | null {
+  if (
+    biz.latitude != null &&
+    biz.longitude != null &&
+    userLat != null &&
+    userLng != null
+  ) {
+    const toRad = (d: number) => (d * Math.PI) / 180
+    const R = 6371
+    const dLat = toRad(biz.latitude - userLat)
+    const dLng = toRad(biz.longitude - userLng)
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(userLat)) * Math.cos(toRad(biz.latitude)) * Math.sin(dLng / 2) ** 2
+    const km = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    if (km < 1) return `${Math.round(km * 1000)} m`
+    return `${km.toFixed(1)} km`
+  }
+
+  if (biz.displayDistanceKm != null && !Number.isNaN(biz.displayDistanceKm)) {
+    const km = biz.displayDistanceKm
+    if (km < 1) return `${Math.round(km * 1000)} m`
+    return `${km.toFixed(1)} km`
+  }
+
+  return null
+}
+
+export function formatRating(rating?: number | null): string | null {
+  if (rating == null || Number.isNaN(rating)) return null
+  return rating.toFixed(1)
+}

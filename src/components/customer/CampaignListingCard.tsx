@@ -1,13 +1,9 @@
 import { type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import {
-  formatCampaignDateRange,
-  formatExpiry,
-  getCampaignGradient,
-  getCampaignSubtitle,
-  getCustomerMechanicChipLabel,
-} from '@/lib/customer-ui'
+import { CampaignCoverBadge, CampaignCoverHero } from '@/components/customer/CampaignCoverHero'
+import { CampaignPlayButton } from '@/components/customer/CampaignPlayButton'
+import { formatCampaignDateRange, getCampaignSubtitle } from '@/lib/customer-ui'
+import { getCampaignTheme } from '@/lib/campaign-themes'
 
 interface CampaignListingCardProps {
   campaign: {
@@ -29,6 +25,38 @@ interface CampaignListingCardProps {
   comingSoon?: boolean
 }
 
+function formatEndDate(end: string): string {
+  return new Date(end).toISOString().slice(0, 10)
+}
+
+function getHeaderRightBadge(
+  campaign: CampaignListingCardProps['campaign'],
+  extraBadge?: string,
+  comingSoon?: boolean,
+): string | undefined {
+  if (comingSoon) return 'Live soon'
+  if (campaign.mechanic === 'shake' && campaign.winRatePercent != null) {
+    return `${campaign.winRatePercent}% win chance`
+  }
+  if (campaign.mechanic === 'stamp') return 'Surprise + big rewards'
+  if (extraBadge) return extraBadge
+  return 'Active'
+}
+
+function getMetaLine(campaign: CampaignListingCardProps['campaign'], statsLine?: string): string {
+  if (statsLine) return `${statsLine} · ends ${formatEndDate(campaign.endDate)}`
+  if (campaign.mechanic === 'stamp') {
+    return `1 stamp per day · ends ${formatEndDate(campaign.endDate)}`
+  }
+  if (campaign.mechanic === 'shake' && campaign.playsPerDay != null) {
+    return `${campaign.playsPerDay} play per day · ends ${formatEndDate(campaign.endDate)}`
+  }
+  if (campaign.startDate && campaign.endDate) {
+    return formatCampaignDateRange(campaign.startDate, campaign.endDate)
+  }
+  return `ends ${formatEndDate(campaign.endDate)}`
+}
+
 export function CampaignListingCard({
   campaign,
   href,
@@ -40,81 +68,48 @@ export function CampaignListingCard({
   className,
   comingSoon = false,
 }: CampaignListingCardProps) {
-  const gradient = getCampaignGradient(campaign.mechanic)
-  const mechanicLabel = getCustomerMechanicChipLabel(campaign.mechanic)
+  const headerRight = getHeaderRightBadge(campaign, extraBadge, comingSoon)
+  const theme = getCampaignTheme(campaign.mechanic)
 
   return (
     <div
       className={cn(
-        'bg-white border border-[#f3f4f6] rounded-3xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.1)]',
+        'bg-white border border-[#f3f4f6] rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.08)]',
         className,
       )}
     >
-      <div
-        className="relative h-44 overflow-hidden"
-        style={{ background: `linear-gradient(130deg, ${gradient.from}, ${gradient.to})` }}
-      >
-        <div className="absolute inset-0 opacity-20 flex items-center justify-center text-6xl select-none">
-          {gradient.emoji}
-        </div>
-        <span className="absolute top-3 left-3 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#f3e8ff] text-[#6b21a8]">
-          {mechanicLabel.toUpperCase()}
-        </span>
-        <span className="absolute top-3 right-3 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#d1fae5] text-[#065f46]">
-          {comingSoon ? 'Live soon' : 'Active'}
-        </span>
-      </div>
+      <CampaignCoverHero mechanic={campaign.mechanic}>
+        <CampaignCoverBadge mechanic={campaign.mechanic} />
+        {headerRight && (
+          <span className="absolute top-3 right-3 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-black/25 backdrop-blur-sm text-white">
+            {headerRight}
+          </span>
+        )}
+      </CampaignCoverHero>
 
-      <div className="p-4 flex flex-col gap-1">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-bold text-[#101828]">{campaign.name}</h3>
-          {extraBadge && (
-            <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f3e8ff] text-[#8200db]">
-              {extraBadge}
-            </span>
-          )}
-        </div>
+      <div className="p-4 flex flex-col gap-2">
+        <h3 className="text-base font-bold text-[#101828] leading-tight">{campaign.name}</h3>
         <p className="text-xs text-[#6a7282] leading-5">
           {getCampaignSubtitle(campaign.mechanic, campaign.name)}
         </p>
+        <p className="text-[11px] text-[#99a1af] leading-5">{getMetaLine(campaign, statsLine)}</p>
         {progressLine && (
-          <p className="text-[10px] font-semibold text-[#6a7282] text-right">{progressLine}</p>
-        )}
-        {(statsLine || campaign.endDate) && (
-          <div className="flex flex-wrap items-center gap-2 text-[10px] text-[#6a7282] pt-1 pb-2">
-            {statsLine && <span className="font-semibold">{statsLine}</span>}
-            {statsLine && campaign.endDate && <span className="text-[#e5e7eb]">·</span>}
-            {campaign.startDate && campaign.endDate ? (
-              <span className="text-[#99a1af]">
-                {formatCampaignDateRange(campaign.startDate, campaign.endDate)}
-              </span>
-            ) : (
-              <span className="text-[#99a1af]">{formatExpiry(campaign.endDate)}</span>
-            )}
-          </div>
+          <p className="text-[11px] font-semibold" style={{ color: theme.accent }}>
+            {progressLine}
+          </p>
         )}
 
         {blocked || comingSoon ? (
           <div
             className={cn(
-              'w-full py-2.5 rounded-[20px] text-xs font-bold text-center',
+              'w-full py-3 rounded-full text-xs font-bold text-center',
               comingSoon ? 'bg-[#faf5ff] text-[#5b0e81] border border-[#e9d5ff]' : 'bg-[#f3f4f6] text-[#6a7282]',
             )}
           >
             {comingSoon ? '✨ Live soon — not playable yet' : blockedLabel ?? '✓ Played today — come back tomorrow'}
           </div>
         ) : (
-          <Link
-            to={href}
-            className={cn(
-              'flex items-center justify-center w-full py-2.5 rounded-[20px] text-xs font-bold text-white no-underline',
-              campaign.mechanic === 'check-in-loyalty'
-                ? 'bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed]'
-                : 'bg-gradient-to-r from-[#631cbb] to-[#43036d]',
-            )}
-          >
-            Play Now
-          </Link>
+          <CampaignPlayButton mechanic={campaign.mechanic} href={href} />
         )}
       </div>
     </div>

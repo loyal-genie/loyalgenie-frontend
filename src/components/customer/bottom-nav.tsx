@@ -1,73 +1,132 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Compass, Home, User, Wallet } from 'lucide-react'
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import {
+  createNavCurvePath,
+  NAV_LAYOUT,
+  tabCenterX,
+} from '@/components/customer/nav-curve-path'
+import {
+  NavHomeActive,
+  NavHomeInactive,
+  NavProfileActive,
+  NavProfileInactive,
+  NavWalletActive,
+  NavWalletInactive,
+} from '@/components/customer/nav-icons'
 
-const nav = [
-  { label: 'Home', href: '/customer', icon: Home },
-  { label: 'Discover', href: '/customer/discover', icon: Compass },
-  { label: 'Wallet', href: '/customer/wallet', icon: Wallet },
-  { label: 'Profile', href: '/customer/profile', icon: User },
-]
+const NAV_ITEMS = [
+  {
+    label: 'Home',
+    href: '/customer',
+    ActiveIcon: NavHomeActive,
+    InactiveIcon: NavHomeInactive,
+    inactiveClassName: 'h-5 w-5',
+    activeClassName: 'h-6 w-6',
+  },
+  {
+    label: 'Wallet',
+    href: '/customer/wallet',
+    ActiveIcon: NavWalletActive,
+    InactiveIcon: NavWalletInactive,
+    inactiveClassName: 'h-6 w-6',
+    activeClassName: 'h-6 w-6',
+  },
+  {
+    label: 'Profile',
+    href: '/customer/profile',
+    ActiveIcon: NavProfileActive,
+    InactiveIcon: NavProfileInactive,
+    inactiveClassName: 'h-5 w-5',
+    activeClassName: 'h-6 w-6',
+  },
+] as const
+
+const { totalHeight, barTop, barHeight, circleSize, viewBoxWidth } = NAV_LAYOUT
+const circleRadius = circleSize / 2
+
+function isActive(path: string, href: string) {
+  return href === '/customer'
+    ? path === '/customer'
+    : path === href || path.startsWith(href + '/')
+}
 
 export function BottomNav() {
-  const { pathname: path } = useLocation()
+  const { pathname } = useLocation()
+  const activeIndex = Math.max(
+    0,
+    NAV_ITEMS.findIndex(item => isActive(pathname, item.href)),
+  )
+  const activeItem = NAV_ITEMS[activeIndex]
+  const ActiveIcon = activeItem.ActiveIcon
+  const curveCenter = tabCenterX(activeIndex, NAV_ITEMS.length)
 
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-50 pointer-events-none pb-[env(safe-area-inset-bottom)]">
-      <div className="px-5 pb-5 pt-6 pointer-events-auto">
+    <nav
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[440px] bg-[#fff5f0] pb-[env(safe-area-inset-bottom)]"
+      aria-label="Customer navigation"
+    >
+      <div className="relative w-full" style={{ height: totalHeight }}>
+        {/* Shaped top — full bleed width */}
+        <svg
+          className="pointer-events-auto absolute inset-x-0 w-full"
+          style={{ top: barTop, height: barHeight }}
+          viewBox={`0 0 ${viewBoxWidth} ${barHeight}`}
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          <path
+            d={createNavCurvePath(curveCenter)}
+            fill="#fff5f0"
+            shapeRendering="geometricPrecision"
+          />
+        </svg>
+
+        {/* Active bubble — 50px Figma size, empty gap via cutout */}
         <div
-          className="flex justify-around rounded-2xl py-3 px-2"
+          className="pointer-events-none absolute z-20 flex items-center justify-center rounded-full bg-white shadow-[0_2px_10px_rgba(0,0,0,0.1)] transition-[left] duration-300 ease-out"
           style={{
-            background: '#fff5f0',
-            boxShadow:
-              '0 0 0 1px rgba(0,0,0,0.05), 0 8px 32px rgba(91,14,129,0.12), 0 2px 6px rgba(0,0,0,0.05)',
+            top: barTop - circleRadius,
+            left: `calc(${(curveCenter / viewBoxWidth) * 100}% - ${circleRadius}px)`,
+            width: circleSize,
+            height: circleSize,
           }}
         >
-          {nav.map(({ label, href, icon: Icon }) => {
-            const active =
-              href === '/customer'
-                ? path === '/customer'
-                : path === href || path.startsWith(`${href}/`)
+          <ActiveIcon className={activeItem.activeClassName} />
+        </div>
 
-            return (
-              <Link key={href} to={href} className="flex-1 no-underline">
-                <motion.div
-                  whileTap={{ scale: 0.88 }}
-                  className="relative flex flex-col items-center gap-1.5 py-1 cursor-pointer select-none"
+        {/* Tab row */}
+        <div
+          className="pointer-events-auto absolute inset-x-0 grid grid-cols-3 items-end px-1"
+          style={{ top: barTop, height: barHeight, paddingBottom: 8 }}
+        >
+          {NAV_ITEMS.map(
+            ({ label, href, InactiveIcon, inactiveClassName }, index) => {
+              const active = index === activeIndex
+              return (
+                <Link
+                  key={href}
+                  to={href}
+                  className="flex h-full min-w-0 flex-col items-center justify-end touch-manipulation"
+                  aria-current={active ? 'page' : undefined}
                 >
-                  {active ? (
-                    <>
-                      <motion.div
-                        layoutId="nav-pill"
-                        className="absolute left-1/2 w-14 h-14 rounded-full flex items-center justify-center"
-                        style={{
-                          top: '-32px',
-                          transform: 'translateX(-50%)',
-                          background: 'linear-gradient(145deg, #7c3aed, #5b0e81)',
-                          boxShadow: '0 8px 28px rgba(91,14,129,0.45), 0 2px 8px rgba(0,0,0,0.12)',
-                        }}
-                        transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                      >
-                        <Icon className="w-6 h-6 text-white" strokeWidth={2.5} />
-                      </motion.div>
-                      <div style={{ width: 18, height: 18 }} />
-                    </>
-                  ) : (
-                    <Icon className="w-[18px] h-[18px] text-gray-400" strokeWidth={1.8} />
+                  {!active && (
+                    <InactiveIcon className={cn(inactiveClassName, 'mb-1')} />
                   )}
+                  {active && <span className="mb-0.5 h-5 w-5 shrink-0" aria-hidden />}
                   <span
                     className={cn(
-                      'text-[10px] font-semibold tracking-wide leading-none',
-                      active ? 'text-[#5b0e81]' : 'text-gray-400',
+                      'font-[family-name:var(--font-nav)] text-[10px] leading-none tracking-[0.2px]',
+                      active
+                        ? 'font-semibold text-[#5b0e81]'
+                        : 'font-medium text-[#646464]',
                     )}
                   >
                     {label}
                   </span>
-                </motion.div>
-              </Link>
-            )
-          })}
+                </Link>
+              )
+            },
+          )}
         </div>
       </div>
     </nav>

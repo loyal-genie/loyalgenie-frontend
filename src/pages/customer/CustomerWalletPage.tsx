@@ -161,7 +161,7 @@ export function CustomerWalletPage() {
       : null
 
   return (
-    <div className="min-h-dvh bg-gray-50 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-dvh bg-gray-50 pb-[calc(5rem+env(safe-area-inset-bottom))]">
       <AnimatePresence>
         {openView && (
           <RedemptionScreen

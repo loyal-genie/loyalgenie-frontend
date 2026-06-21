@@ -19,7 +19,6 @@ import { VendorSettingsPage } from '@/pages/vendor/VendorSettingsPage'
 import { VendorQrCodePage } from '@/pages/vendor/VendorQrCodePage'
 import { CustomerLayout } from '@/pages/customer/CustomerLayout'
 import { CustomerPage } from '@/pages/customer/CustomerPage'
-import { CustomerDiscoverPage } from '@/pages/customer/CustomerDiscoverPage'
 import { CustomerWalletPage } from '@/pages/customer/CustomerWalletPage'
 import { CustomerProfilePage } from '@/pages/customer/CustomerProfilePage'
 import { CustomerProfileInfoPage } from '@/pages/customer/profile/CustomerProfileInfoPage'
@@ -83,7 +82,7 @@ export function App() {
           }
         >
           <Route index element={<CustomerPage />} />
-          <Route path="discover" element={<CustomerDiscoverPage />} />
+          <Route path="discover" element={<Navigate to="/customer" replace />} />
           <Route path="wallet" element={<CustomerWalletPage />} />
           <Route path="profile" element={<CustomerProfilePage />} />
           <Route path="profile/:section" element={<CustomerProfileInfoPage />} />

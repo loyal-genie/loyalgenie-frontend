@@ -52,7 +52,7 @@ export function CustomerProfilePage() {
   }
 
   return (
-    <div className="min-h-dvh bg-gray-50 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-dvh bg-gray-50 pb-[calc(5rem+env(safe-area-inset-bottom))]">
       <div className="pt-14 px-5 pb-6">
         <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
           <div className="w-20 h-20 rounded-3xl bg-purple-100 border-2 border-purple-200 flex items-center justify-center text-4xl font-extrabold text-[#5b0e81] mx-auto mb-4">

@@ -90,11 +90,10 @@ function ShakeCampaignBlock({
           ? `✓ All plays used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
           : playState?.message
       }
-      extraBadge="Win Reward"
       statsLine={
         playState
           ? `${playState.playsUsedToday}/${playState.playsPerDay} attempts today`
-          : `${campaign.playsPerDay ?? 1} slots per day`
+          : `${campaign.playsPerDay ?? 1} play per day`
       }
     />
   )
@@ -115,10 +114,10 @@ function LoyaltyCampaignBlock({
   return (
     <CampaignListingCard
       campaign={campaign}
-      href={checkedInToday ? '#' : `/customer/check-in?campaign=${campaign.id}`}
+      href={checkedInToday ? '#' : `/customer/campaigns/${campaign.id}`}
       blocked={checkedInToday}
       blockedLabel={`✓ Checked in today · ${state?.loyaltyPoints ?? 0} pts`}
-      extraBadge={state ? `+${state.pointsPerCheckIn} pts` : undefined}
+      extraBadge={state ? `${state.loyaltyPoints} pts` : undefined}
       statsLine={state ? `${state.loyaltyPoints} pts · ${state.currentUsers}/${state.userCap} players` : undefined}
     />
   )
@@ -161,7 +160,7 @@ export function CustomerBusinessPage() {
   )
 
   return (
-    <div className="min-h-dvh bg-white pb-[calc(7rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-dvh bg-white pb-[calc(5rem+env(safe-area-inset-bottom))]">
       <BusinessDetailHero biz={biz} onBack={() => navigate(-1)} />
 
       <div className="px-5">

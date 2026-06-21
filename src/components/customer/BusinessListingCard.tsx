@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
-import { MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getCustomerMechanicChipLabel } from '@/lib/customer-ui'
+import { getMechanicHeaderChipShort } from '@/lib/customer-ui'
 import { isMechanicLive } from '@/lib/live-mechanics'
 import { BusinessCoverHero } from '@/components/customer/BusinessCoverHero'
 import type { BusinessWithCampaigns } from '@/lib/api'
@@ -11,69 +10,91 @@ interface BusinessListingCardProps {
   className?: string
 }
 
+function businessEmoji(type: string): string {
+  const t = type.toLowerCase()
+  if (t.includes('cafe') || t.includes('coffee')) return '🏪'
+  if (t.includes('salon') || t.includes('spa')) return '💇'
+  if (t.includes('gym') || t.includes('fitness')) return '💪'
+  if (t.includes('restaurant') || t.includes('food')) return '🍽️'
+  return '🏪'
+}
+
+function formatSubtitle(biz: BusinessWithCampaigns): string {
+  if (biz.tagline?.trim()) {
+    const t = biz.tagline.trim()
+    return t.startsWith('"') ? t : `"${t}"`
+  }
+  return biz.businessType
+}
+
 export function BusinessListingCard({ biz, className }: BusinessListingCardProps) {
-  const liveMechanics = [...new Set(biz.campaigns.map(c => c.mechanic).filter(isMechanicLive))].slice(0, 3)
-  const hasComingSoon = biz.campaigns.some(c => !isMechanicLive(c.mechanic))
-  const campaignCount = biz.campaigns.filter(c => isMechanicLive(c.mechanic)).length || biz.campaigns.length
+  const liveCampaigns = biz.campaigns.filter(c => isMechanicLive(c.mechanic))
+  const liveMechanics = [...new Set(liveCampaigns.map(c => c.mechanic))]
+  const liveCount = liveCampaigns.length || biz.campaigns.length
+  const maxWinRate = liveCampaigns.reduce((max, c) => Math.max(max, c.winRatePercent ?? 0), 0)
 
   return (
     <Link
       to={`/customer/business/${biz.id}`}
       className={cn(
-        'block no-underline bg-white border border-[#e5e0dc] rounded-3xl overflow-hidden',
-        'shadow-[0_8px_30px_rgba(0,0,0,0.06)] active:scale-[0.99] transition-transform',
+        'block no-underline bg-white rounded-3xl overflow-hidden',
+        'shadow-[0_8px_32px_rgba(0,0,0,0.08)] active:scale-[0.99] transition-transform',
         className,
       )}
     >
       <BusinessCoverHero
         coverBannerData={biz.coverBannerData}
         brandColor={biz.brandColor}
-        fallbackEmoji="🏪"
+        fallbackEmoji={businessEmoji(biz.businessType)}
         className="aspect-[398/224]"
+        emojiClassName="text-8xl"
       >
-        <div className="absolute top-3 right-3 bg-white/95 rounded-full px-2.5 py-1">
-          <span className="text-[10px] font-bold text-[#5b0e81]">
-            {campaignCount} reward{campaignCount !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 max-w-[85%]">
-          {liveMechanics.map(m => (
-            <span
-              key={m}
-              className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-white/90 text-[#2b2827] shadow-sm"
-            >
-              {getCustomerMechanicChipLabel(m)}
+        {liveCount > 0 && (
+          <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 max-w-[85%]">
+            <span className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 backdrop-blur-sm text-white">
+              LOYALTY
             </span>
-          ))}
-          {hasComingSoon && (
-            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-white/75 text-[#5b0e81] shadow-sm">
-              More soon ✨
-            </span>
-          )}
-        </div>
+            {liveMechanics.map(m => (
+              <span
+                key={m}
+                className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 backdrop-blur-sm text-white"
+              >
+                {getMechanicHeaderChipShort(m)}
+              </span>
+            ))}
+          </div>
+        )}
       </BusinessCoverHero>
 
-      <div className="p-4 flex flex-col gap-0.5">
+      <div className="px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <h3
-            className="text-lg font-bold text-[#2b2827] leading-7 truncate"
+            className="text-lg font-bold text-[#1a1625] leading-tight truncate"
             style={{ fontFamily: 'var(--font-display)' }}
           >
             {biz.name}
           </h3>
-          <span className="text-[10px] font-semibold text-[#5b0e81] shrink-0 pt-1 uppercase">
-            {biz.businessType}
+          {maxWinRate > 0 && (
+            <span className="shrink-0 rounded-full bg-[#fff7ed] px-2.5 py-1 text-[11px] font-semibold text-[#c2410c]">
+              Up to {maxWinRate}% win
+            </span>
+          )}
+        </div>
+
+        <p className="mt-1 text-sm text-[#6b7280] leading-snug line-clamp-2">
+          {formatSubtitle(biz)}
+        </p>
+
+        <div className="my-3 h-px bg-[#f0ece8]" />
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm text-[#9ca3af] truncate">
+            {biz.city} · {liveCount} live
+          </span>
+          <span className="shrink-0 text-sm font-semibold text-[#5b0e81]">
+            Play now →
           </span>
         </div>
-        <div className="flex items-center gap-1 text-xs text-[#6b6461]">
-          <MapPin className="size-3 shrink-0" />
-          <span className="truncate">{biz.city}</span>
-        </div>
-        {biz.tagline && (
-          <p className="text-xs text-[rgba(43,40,39,0.7)] leading-4 pt-1.5 line-clamp-2">
-            {biz.tagline}
-          </p>
-        )}
       </div>
     </Link>
   )
