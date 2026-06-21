@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { WinCelebration } from '@/components/customer/win-celebration'
 import { StampCollectedSplash } from '@/components/customer/stamp-collected-splash'
@@ -16,7 +15,7 @@ interface StampCollectOverlayProps {
   onDone: (opts?: { error?: string }) => void
 }
 
-type Phase = 'collecting' | 'splash' | 'surprise' | 'big-win'
+type Phase = 'splash' | 'surprise' | 'big-win'
 
 export function StampCollectOverlay({
   campaignId,
@@ -27,8 +26,9 @@ export function StampCollectOverlay({
   onDone,
 }: StampCollectOverlayProps) {
   const queryClient = useQueryClient()
-  const [phase, setPhase] = useState<Phase>('collecting')
-  const [splashData, setSplashData] = useState<{ from: number; to: number; enrolled: boolean } | null>(null)
+  const [phase, setPhase] = useState<Phase>('splash')
+  const [pending, setPending] = useState(true)
+  const [toCount, setToCount] = useState(stampsBefore)
   const [reward, setReward] = useState<{
     name: string
     emoji: string
@@ -45,6 +45,8 @@ export function StampCollectOverlay({
 
   const handleSuccess = useCallback((result: StampCollectResult) => {
     queryClient.invalidateQueries({ queryKey: ['stamp-state', campaignId] })
+    setToCount(result.stampsCollected)
+    setPending(false)
 
     if (result.won && result.reward) {
       setReward({
@@ -54,14 +56,7 @@ export function StampCollectOverlay({
         trigger: result.trigger === 'big' ? 'big' : 'surprise',
       })
     }
-
-    setSplashData({
-      from: stampsBefore,
-      to: result.stampsCollected,
-      enrolled: enrolledBefore,
-    })
-    setPhase('splash')
-  }, [campaignId, enrolledBefore, queryClient, stampsBefore])
+  }, [campaignId, queryClient])
 
   useEffect(() => {
     let cancelled = false
@@ -90,25 +85,14 @@ export function StampCollectOverlay({
     finishAndExit()
   }, [reward, finishAndExit])
 
-  if (phase === 'collecting') {
-    return (
-      <div
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 px-6"
-        style={{ background: 'linear-gradient(165deg, #43036d 0%, #2d110e 38%, #1c0038 100%)' }}
-      >
-        <Loader2 className="size-10 text-[#fad499] animate-spin" />
-        <p className="text-sm font-semibold text-white/90">Collecting your stamp…</p>
-      </div>
-    )
-  }
-
-  if (phase === 'splash' && splashData) {
+  if (phase === 'splash') {
     return (
       <StampCollectedSplash
-        fromCount={splashData.from}
-        toCount={splashData.to}
+        fromCount={stampsBefore}
+        toCount={toCount}
         totalStamps={totalStamps}
-        enrolled={splashData.enrolled}
+        enrolled={enrolledBefore}
+        pending={pending}
         onComplete={finishSplash}
       />
     )
