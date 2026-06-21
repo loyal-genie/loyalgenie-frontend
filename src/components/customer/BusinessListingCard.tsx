@@ -3,10 +3,12 @@ import { cn } from '@/lib/utils'
 import { getMechanicHeaderChipShort } from '@/lib/customer-ui'
 import { isMechanicLive } from '@/lib/live-mechanics'
 import { BusinessCoverHero } from '@/components/customer/BusinessCoverHero'
+import { formatDistanceKm } from '@/lib/business-display'
 import type { BusinessWithCampaigns } from '@/lib/api'
 
 interface BusinessListingCardProps {
   biz: BusinessWithCampaigns
+  userCoords?: { lat: number; lng: number } | null
   className?: string
 }
 
@@ -27,11 +29,12 @@ function formatSubtitle(biz: BusinessWithCampaigns): string {
   return biz.businessType
 }
 
-export function BusinessListingCard({ biz, className }: BusinessListingCardProps) {
+export function BusinessListingCard({ biz, userCoords, className }: BusinessListingCardProps) {
   const liveCampaigns = biz.campaigns.filter(c => isMechanicLive(c.mechanic))
   const liveMechanics = [...new Set(liveCampaigns.map(c => c.mechanic))]
   const liveCount = liveCampaigns.length || biz.campaigns.length
   const maxWinRate = liveCampaigns.reduce((max, c) => Math.max(max, c.winRatePercent ?? 0), 0)
+  const distance = formatDistanceKm(biz, userCoords?.lat, userCoords?.lng)
 
   return (
     <Link
@@ -89,6 +92,7 @@ export function BusinessListingCard({ biz, className }: BusinessListingCardProps
 
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm text-[#9ca3af] truncate">
+            {distance ? `${distance} · ` : ''}
             {biz.city} · {liveCount} live
           </span>
           <span className="shrink-0 text-sm font-semibold text-[#5b0e81]">

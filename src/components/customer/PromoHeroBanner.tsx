@@ -38,14 +38,7 @@ export function PromoHeroBanner({ businesses = [], className }: PromoHeroBannerP
   const [active, setActive] = useState(0)
 
   const slides = useMemo((): Slide[] => {
-    const sorted = [...businesses].sort((a, b) => {
-      const aHasCover = Boolean(a.coverBannerData)
-      const bHasCover = Boolean(b.coverBannerData)
-      if (aHasCover !== bHasCover) return aHasCover ? -1 : 1
-      return 0
-    })
-
-    const fromBusinesses = sorted.slice(0, MAX_SLIDES).map(biz => {
+    const fromBusinesses = businesses.slice(0, MAX_SLIDES).map(biz => {
       const featured = biz.campaigns[0]
       return {
         id: biz.id,

@@ -52,6 +52,17 @@ export function formatDistanceKm(
   userLat?: number | null,
   userLng?: number | null,
 ): string | null {
+  const km = getBusinessDistanceKm(biz, userLat, userLng)
+  if (km == null) return null
+  if (km < 1) return `${Math.round(km * 1000)} m`
+  return `${km.toFixed(1)} km`
+}
+
+export function getBusinessDistanceKm(
+  biz: Pick<BusinessWithCampaigns, 'latitude' | 'longitude' | 'displayDistanceKm'>,
+  userLat?: number | null,
+  userLng?: number | null,
+): number | null {
   if (
     biz.latitude != null &&
     biz.longitude != null &&
@@ -65,18 +76,33 @@ export function formatDistanceKm(
     const a =
       Math.sin(dLat / 2) ** 2 +
       Math.cos(toRad(userLat)) * Math.cos(toRad(biz.latitude)) * Math.sin(dLng / 2) ** 2
-    const km = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    if (km < 1) return `${Math.round(km * 1000)} m`
-    return `${km.toFixed(1)} km`
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   }
 
   if (biz.displayDistanceKm != null && !Number.isNaN(biz.displayDistanceKm)) {
-    const km = biz.displayDistanceKm
-    if (km < 1) return `${Math.round(km * 1000)} m`
-    return `${km.toFixed(1)} km`
+    return biz.displayDistanceKm
   }
 
   return null
+}
+
+export function sortBusinessesByDistance<T extends Pick<
+  BusinessWithCampaigns,
+  'latitude' | 'longitude' | 'displayDistanceKm' | 'name'
+>>(
+  businesses: T[],
+  userLat?: number | null,
+  userLng?: number | null,
+): T[] {
+  return [...businesses].sort((a, b) => {
+    const da = getBusinessDistanceKm(a, userLat, userLng)
+    const db = getBusinessDistanceKm(b, userLat, userLng)
+    if (da == null && db == null) return a.name.localeCompare(b.name)
+    if (da == null) return 1
+    if (db == null) return -1
+    if (da !== db) return da - db
+    return a.name.localeCompare(b.name)
+  })
 }
 
 export function formatRating(rating?: number | null): string | null {

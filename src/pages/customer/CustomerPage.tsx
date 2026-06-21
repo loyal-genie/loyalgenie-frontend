@@ -7,25 +7,33 @@ import { BusinessListingCard } from '@/components/customer/BusinessListingCard'
 import { CategoryFilter } from '@/components/customer/CategoryFilter'
 import { PromoHeroBanner } from '@/components/customer/PromoHeroBanner'
 import { categoryMatches, type CustomerCategory } from '@/lib/customer-ui'
+import { sortBusinessesByDistance } from '@/lib/business-display'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
 import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
+import { useUserLocation } from '@/hooks/useUserLocation'
 
 export function CustomerPage() {
   const navigate = useNavigate()
   const { firstName } = useCustomerSession()
   const { data: businesses, isLoading } = useBusinessesWithCampaigns()
+  const userCoords = useUserLocation()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<CustomerCategory>('All')
 
+  const sortedBusinesses = useMemo(
+    () => sortBusinessesByDistance(businesses ?? [], userCoords?.lat, userCoords?.lng),
+    [businesses, userCoords],
+  )
+
   const filtered = useMemo(() => {
-    return (businesses ?? []).filter(b => {
+    return sortedBusinesses.filter(b => {
       const matchSearch =
         b.name.toLowerCase().includes(search.toLowerCase()) ||
         b.city.toLowerCase().includes(search.toLowerCase()) ||
         b.tagline?.toLowerCase().includes(search.toLowerCase())
       return matchSearch && categoryMatches(b.businessType, category)
     })
-  }, [businesses, search, category])
+  }, [sortedBusinesses, search, category])
 
   return (
     <div className="min-h-dvh bg-gray-50 pb-[calc(5rem+env(safe-area-inset-bottom))]">
@@ -81,7 +89,7 @@ export function CustomerPage() {
       </div>
 
       <div className="bg-white rounded-t-3xl -mt-3 px-5 pt-5 min-h-[50vh]">
-        <PromoHeroBanner businesses={businesses} className="mb-4" />
+        <PromoHeroBanner businesses={sortedBusinesses} className="mb-4" />
 
         <CategoryFilter value={category} onChange={setCategory} className="mb-4" />
 
@@ -97,7 +105,9 @@ export function CustomerPage() {
               <p className="text-xs text-[#6b6461] mt-2">Try a different category or search term</p>
             </div>
           ) : (
-            filtered.map(biz => <BusinessListingCard key={biz.id} biz={biz} />)
+            filtered.map(biz => (
+              <BusinessListingCard key={biz.id} biz={biz} userCoords={userCoords} />
+            ))
           )}
         </div>
       </div>

@@ -11,6 +11,7 @@ import {
   formatRating,
   getBusinessHeroPhotos,
 } from '@/lib/business-display'
+import { useUserLocation } from '@/hooks/useUserLocation'
 import { BusinessCoverHero } from '@/components/customer/BusinessCoverHero'
 import type { BusinessWithCampaigns } from '@/lib/api'
 
@@ -27,21 +28,11 @@ export function BusinessDetailHero({ biz, onBack, className }: BusinessDetailHer
   const photos = useMemo(() => getBusinessHeroPhotos(biz), [biz])
   const dotCount = photos.length > 1 ? photos.length : 3
   const [activePhoto, setActivePhoto] = useState(0)
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const userCoords = useUserLocation()
 
   useEffect(() => {
     setActivePhoto(0)
   }, [biz.id])
-
-  useEffect(() => {
-    if (biz.latitude == null || biz.longitude == null) return
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      pos => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {},
-      { maximumAge: 120_000, timeout: 8000 },
-    )
-  }, [biz.latitude, biz.longitude])
 
   useEffect(() => {
     if (photos.length <= 1) return
