@@ -371,6 +371,8 @@ export interface CampaignDto {
   userCap: number
   perDayUserLimit: number
   playsPerDay: number
+  overallWinners: number
+  /** Derived display hint */
   winRatePercent: number
   pin: string | null
   pinExpiresAt: string | null
@@ -394,7 +396,7 @@ export interface CreateShakeCampaignPayload {
   userCap: number
   perDayUserLimit: number
   playsPerDay: number
-  winRatePercent: number
+  overallWinners: number
   rewards: { name: string; description?: string; icon: string; sharePercent: number }[]
 }
 
@@ -459,7 +461,9 @@ export interface BusinessWithCampaigns {
     mechanic: string
     startDate: string
     endDate: string
-    winRatePercent: number
+    overallWinners?: number
+    userCap?: number
+    winRatePercent?: number
     playsPerDay: number
   }[]
 }
@@ -472,6 +476,7 @@ export interface PublicCampaign {
   startDate: string
   endDate: string
   playsPerDay?: number
+  overallWinners?: number
   winRatePercent?: number
   userCap?: number
   currentUsers?: number
@@ -529,7 +534,8 @@ export interface PlayState {
   canPlay: boolean
   message: string
   blockReason?: 'campaign_inactive' | 'user_cap' | 'daily_participant_limit' | 'no_plays_remaining' | null
-  winRatePercent: number
+  overallWinners?: number
+  winRatePercent?: number
 }
 
 export interface ShakeResult {
@@ -585,6 +591,7 @@ export interface UpdateCampaignPayload {
   userCap?: number
   perDayUserLimit?: number
   playsPerDay?: number
+  overallWinners?: number
   winRatePercent?: number
   status?: 'active' | 'paused' | 'ended'
   rewards?:

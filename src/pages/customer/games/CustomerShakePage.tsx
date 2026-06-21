@@ -13,6 +13,7 @@ import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage, 
 import { getUser } from '@/lib/auth'
 import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
 import { findBusinessForCampaign, getCustomerBusinessPath } from '@/lib/customer-ui'
+import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { useShakeCharge } from '@/hooks/useShakeCharge'
 
 type Phase = 'idle' | 'submitting' | 'result'
@@ -189,7 +190,9 @@ export function CustomerShakePage() {
     )
   }
 
-  const winRate = campaign?.winRatePercent ?? 30
+  const winLabel = campaign?.overallWinners != null && campaign?.userCap != null
+    ? formatShakeWinLabel(campaign.overallWinners, campaign.userCap)
+    : `${campaign?.winRatePercent ?? 30}% of players win`
   const showSimulate =
     permissionState === 'unsupported' || permissionState === 'granted'
 
@@ -258,7 +261,7 @@ export function CustomerShakePage() {
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/25 mb-2 sm:mb-3"
         >
           <span className="text-[9px] sm:text-[10px] font-bold text-amber-200 uppercase tracking-wider">
-            🎯 {winRate}% of players win
+            🎯 {winLabel}
           </span>
         </motion.div>
         <motion.h1

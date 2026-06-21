@@ -13,6 +13,7 @@ import {
 import { setPlaySession, markMotionGesture } from '@/lib/customer-game'
 import { primeMotionSensors } from '@/lib/shake-motion-sensors'
 import { getGameRouteForMechanic } from '@/lib/customer-ui'
+import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { isMechanicComingSoon } from '@/lib/live-mechanics'
 import { MechanicComingSoon } from '@/components/shared/MechanicComingSoon'
 import { getToken, isSessionValidForRole } from '@/lib/auth'
@@ -236,7 +237,10 @@ export function CustomerCampaignPage() {
 
   const statusChips = (
     <>
-      {campaign.mechanic === 'shake' && campaign.winRatePercent != null && (
+      {campaign.mechanic === 'shake' && campaign.overallWinners != null && campaign.userCap != null && (
+        <StatusChip>{formatShakeWinLabel(campaign.overallWinners, campaign.userCap)}</StatusChip>
+      )}
+      {campaign.mechanic === 'shake' && campaign.overallWinners == null && campaign.winRatePercent != null && (
         <StatusChip>{campaign.winRatePercent}% of players win</StatusChip>
       )}
       {isLoyalty && loyaltyState && (
@@ -282,6 +286,8 @@ export function CustomerCampaignPage() {
         error={error}
         loading={verifyMutation.isPending}
         winRatePercent={campaign.winRatePercent}
+        overallWinners={campaign.overallWinners}
+        userCap={campaign.userCap}
         playsUsedToday={playState?.playsUsedToday}
         playsPerDay={playState?.playsPerDay ?? campaign.playsPerDay}
         onBack={handleBack}

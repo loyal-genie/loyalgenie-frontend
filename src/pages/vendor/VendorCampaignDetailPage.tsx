@@ -150,7 +150,7 @@ export function VendorCampaignDetailPage() {
                 { label: 'Total Stamps', value: String(stampStats?.stampConfig?.totalStamps ?? '—') },
                 { label: 'Stamps / Day', value: '1 per customer' },
               ] : [
-                { label: 'Win Rate', value: `${campaign.winRatePercent}%` },
+                { label: 'Overall Winners', value: String(campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100))) },
                 { label: 'Plays / Day', value: String(campaign.playsPerDay) },
                 { label: 'Daily User Limit', value: String(campaign.perDayUserLimit) },
                 { label: 'User Cap', value: String(campaign.userCap) },
@@ -217,7 +217,8 @@ export function VendorCampaignDetailPage() {
                 </>
               ) : (
                 <>
-                  <strong className="text-v-text">{campaign.winRatePercent}%</strong> of players who play will win a reward (server-side lottery).
+                  <strong className="text-v-text">{campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100))}</strong> winners
+                  are drawn randomly across up to {campaign.userCap} players.
                   Winners receive a reward picked by share:{' '}
                   {campaign.rewards.map(r => `${r.name} ${r.sharePercent}%`).join(', ')}.
                 </>

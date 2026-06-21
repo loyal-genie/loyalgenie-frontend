@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check, Zap, Plus, Trash2, AlertCircle, CalendarDays, Loader2 } from 'lucide-react'
@@ -71,12 +71,11 @@ export function VendorCampaignCreatePage() {
     activeStartTime: '09:00',
     activeEndTime: '21:00',
     // Participation
-    userCap: 200,
+    userCap: 300,
     userCapLimited: false,
-    perDayUserLimit: 50,
-    playsPerDay: 1,
-    // Shake & Win only
-    overallWinRate: 30,
+    perDayUserLimit: 10,
+    playsPerDay: 2,
+    overallWinners: 150,
     claimDurationMode: '14d' as DurationMode,
   })
 
@@ -162,14 +161,30 @@ export function VendorCampaignCreatePage() {
   })()
   const suggestedDailyLimit = Math.max(1, Math.floor(basics.userCap / campaignDays))
 
+  const dailyLimitSyncRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (isToday || !isShakeSpinOrDice) return
+    const key = `${basics.userCap}:${campaignDays}`
+    if (dailyLimitSyncRef.current === null) {
+      dailyLimitSyncRef.current = key
+      return
+    }
+    if (dailyLimitSyncRef.current === key) return
+    dailyLimitSyncRef.current = key
+    setBasics(p => {
+      const next = Math.max(1, Math.floor(p.userCap / campaignDays))
+      return p.perDayUserLimit === next ? p : { ...p, perDayUserLimit: next }
+    })
+  }, [basics.userCap, campaignDays, isToday, isShakeSpinOrDice])
+
   // Win rates
   // Shake: explicit vendor input (overallWinRate). Pool probabilities = share AMONG winners (sum to 100%)
   // Spin/Dice: structurally derived from config
   const shakePoolTotal = shakeRewards.reduce((s, r) => s + r.probability, 0)
   const spinWinRate    = spinSegments.length > 0 ? Math.round((spinSegments.filter(s => s.isWin).length / spinSegments.length) * 100) : 0
   const diceWinRate    = Math.round((diceOutcomes.filter(o => o.isWin).length / 6) * 100)
-  const activeWinRate  = mechanic === 'shake' ? basics.overallWinRate : mechanic === 'spin' ? spinWinRate : mechanic === 'dice' ? diceWinRate : 0
-  const totalWinners = calcTotalWinners(basics.userCap, basics.playsPerDay, activeWinRate)
+  const activeWinRate  = mechanic === 'spin' ? spinWinRate : mechanic === 'dice' ? diceWinRate : 0
+  const totalWinners = mechanic === 'shake' ? basics.overallWinners : calcTotalWinners(basics.userCap, basics.playsPerDay, activeWinRate)
   const dailyWinners = calcDailyWinners(isToday ? basics.userCap : basics.perDayUserLimit, basics.playsPerDay, activeWinRate)
 
   const selectMechanic = (m: MechanicType) => {
@@ -226,7 +241,7 @@ export function VendorCampaignCreatePage() {
           userCap: basics.userCap,
           perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
           playsPerDay: basics.playsPerDay,
-          winRatePercent: basics.overallWinRate,
+          overallWinners: basics.overallWinners,
           rewards: shakeRewards
             .filter(r => r.name.trim())
             .map(r => ({
@@ -478,12 +493,12 @@ export function VendorCampaignCreatePage() {
                   {/* Shake, Spin, Dice: overall + per-day */}
                   {isShakeSpinOrDice && (
                     <>
-                      <Stepper label="Overall User Cap" hint="users total" value={basics.userCap} min={1} max={2000} step={1} onChange={v => setBasics(p => ({ ...p, userCap: v, perDayUserLimit: Math.min(p.perDayUserLimit, v) }))} />
+                      <Stepper label="Overall User Cap" hint="users total" value={basics.userCap} min={1} max={2000} step={1} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
                       {!isToday && (
                         <div>
                           <Stepper label="Daily User Limit" hint="users / day" value={basics.perDayUserLimit} min={1} max={basics.userCap} onChange={v => setBasics(p => ({ ...p, perDayUserLimit: v }))} />
                           <p className="text-xs text-v-text-3 mt-1.5">
-                            Suggested: <span className="font-semibold text-v-text-2">{suggestedDailyLimit} / day</span> — even distribution over {campaignDays} days. Override if needed.
+                            Suggested: <span className="font-semibold text-v-text-2">{suggestedDailyLimit} / day</span> — even distribution over {campaignDays} days. Updates when cap or duration changes; override if needed.
                           </p>
                         </div>
                       )}
@@ -543,22 +558,19 @@ export function VendorCampaignCreatePage() {
 
                   {/* Shake: vendor sets winner %; count is derived from player cap */}
                   {mechanic === 'shake' && (
-                    <div>
+                    <div className="space-y-4">
                       <Stepper
-                        label="Winner Percentage"
-                        hint="% of players who win"
-                        value={basics.overallWinRate}
+                        label="Overall Winners"
+                        hint="total prizes"
+                        value={basics.overallWinners}
                         min={1}
-                        max={100}
+                        max={basics.userCap}
                         step={1}
-                        onChange={v => setBasics(p => ({ ...p, overallWinRate: v }))}
+                        onChange={v => setBasics(p => ({ ...p, overallWinners: v }))}
                       />
-                      <p className="text-xs text-v-text-3 mt-1.5">
-                        <span className="font-semibold text-v-text-2">{formatWinnerCount(totalWinners, true)} winners</span>
-                        {' '}out of {basics.userCap.toLocaleString()} players
-                        {!isToday && (
-                          <> · {formatWinnerCount(dailyWinners, true)} winners per day when {basics.perDayUserLimit.toLocaleString()} customers play</>
-                        )}
+                      <p className="text-xs text-v-text-3 -mt-2">
+                        <span className="font-semibold text-v-text-2">{formatWinnerCount(basics.overallWinners, true)} winners</span>
+                        {' '}randomly distributed out of {basics.userCap.toLocaleString()} players max
                       </p>
                     </div>
                   )}
@@ -593,9 +605,13 @@ export function VendorCampaignCreatePage() {
               <div className="flex items-center gap-2 mb-5 p-2.5 bg-v-surface-2 border border-v-border rounded-xl text-xs">
                 <span className="text-v-text-3">Expected winners:</span>
                 <span className="font-bold text-v-purple">{formatWinnerCount(totalWinners)} total</span>
-                <span className="text-v-text-3 mx-1">·</span>
-                <span className="text-v-text-3">Per full day:</span>
-                <span className="font-bold text-v-purple">{formatWinnerCount(dailyWinners)}</span>
+                {!isToday && (
+                  <>
+                    <span className="text-v-text-3 mx-1">·</span>
+                    <span className="text-v-text-3">Players / day:</span>
+                    <span className="font-bold text-v-purple">{basics.perDayUserLimit.toLocaleString()}</span>
+                  </>
+                )}
               </div>
               <RewardPoolEditor rewards={shakeRewards} setRewards={setShakeRewards} shareMode />
             </Card>
@@ -940,9 +956,7 @@ export function VendorCampaignCreatePage() {
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
                     ...(mechanic === 'shake' ? [
-                      { label: 'Winner Percentage', value: `${basics.overallWinRate}%` },
-                      { label: 'Total Winners', value: `${formatWinnerCount(totalWinners, true)} customers` },
-                      ...(!isToday ? [{ label: 'Winners / Day', value: `${formatWinnerCount(dailyWinners, true)} on a full day` }] : []),
+                      { label: 'Overall Winners', value: `${formatWinnerCount(basics.overallWinners, true)} customers` },
                     ] : []),
                     ...(mechanic === 'spin' ? [
                       { label: 'Total Winners', value: `${formatWinnerCount(totalWinners)} if cap fills (${activeWinRate}% win rate)` },
@@ -972,12 +986,11 @@ export function VendorCampaignCreatePage() {
               </Card>
 
               {/* Expected Campaign Impact */}
-              {isShakeSpinOrDice && (
+              {mechanic === 'shake' && (
                 <WinBasedCampaignImpact
                   userCap={basics.userCap}
-                  perDayUserLimit={basics.perDayUserLimit}
-                  playsPerDay={basics.playsPerDay}
-                  winRatePercent={activeWinRate}
+                  overallWinners={basics.overallWinners}
+                  perDayUserLimit={isToday ? basics.userCap : basics.perDayUserLimit}
                   campaignDays={campaignDays}
                   startDate={dates.start}
                   endDate={dates.end}

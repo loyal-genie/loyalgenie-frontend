@@ -33,7 +33,7 @@ export function BusinessListingCard({ biz, userCoords, className }: BusinessList
   const liveCampaigns = biz.campaigns.filter(c => isMechanicLive(c.mechanic))
   const liveMechanics = [...new Set(liveCampaigns.map(c => c.mechanic))]
   const liveCount = liveCampaigns.length || biz.campaigns.length
-  const maxWinRate = liveCampaigns.reduce((max, c) => Math.max(max, c.winRatePercent ?? 0), 0)
+  const maxWinners = liveCampaigns.reduce((max, c) => Math.max(max, c.overallWinners ?? 0), 0)
   const distance = formatDistanceKm(biz, userCoords?.lat, userCoords?.lng)
 
   return (
@@ -77,9 +77,9 @@ export function BusinessListingCard({ biz, userCoords, className }: BusinessList
           >
             {biz.name}
           </h3>
-          {maxWinRate > 0 && (
+          {maxWinners > 0 && (
             <span className="shrink-0 rounded-full bg-[#fff7ed] px-2.5 py-1 text-[11px] font-semibold text-[#c2410c]">
-              Up to {maxWinRate}% win
+              Up to {maxWinners} prizes
             </span>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -16,8 +16,6 @@ import {
 } from '@/components/vendor/RewardPoolEditor'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
-  calcDailyWinners,
-  calcTotalWinners,
   formatWinnerCount,
 } from '@/lib/campaign-impact'
 import { useCampaign, useUpdateCampaign } from '@/hooks/useCampaigns'
@@ -168,7 +166,7 @@ export function VendorCampaignEditPage() {
   const [userCapLimited, setUserCapLimited] = useState(true)
   const [perDayUserLimit, setPerDayUserLimit] = useState(50)
   const [playsPerDay, setPlaysPerDay] = useState(1)
-  const [winRatePercent, setWinRatePercent] = useState(30)
+  const [overallWinners, setOverallWinners] = useState(150)
   const [rewards, setRewards] = useState<RewardEntry[]>([])
   const [stampConfig, setStampConfig] = useState(() => ({
     totalStamps: 10,
@@ -194,6 +192,7 @@ export function VendorCampaignEditPage() {
   const [saveState, setSaveState] = useState<'idle' | 'saved'>('idle')
   const [formError, setFormError] = useState('')
   const [pendingStatus, setPendingStatus] = useState<'paused' | 'active' | 'ended' | null>(null)
+  const dailyLimitSyncRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!campaign) return
@@ -204,7 +203,7 @@ export function VendorCampaignEditPage() {
     setUserCapLimited(campaign.userCap < UNLIMITED_USER_CAP)
     setPerDayUserLimit(campaign.perDayUserLimit)
     setPlaysPerDay(campaign.playsPerDay)
-    setWinRatePercent(campaign.winRatePercent)
+    setOverallWinners(campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100)))
     setRewards(toShakeRewards(campaign.rewards))
 
     if (campaign.mechanic === 'stamp') {
@@ -228,7 +227,32 @@ export function VendorCampaignEditPage() {
       setOriginalPointsPerCheckIn(pts)
       setOriginalUserCapLimited(campaign.userCap < UNLIMITED_USER_CAP)
     }
+
+    if (campaign.mechanic === 'shake' && campaign.startDate !== campaign.endDate) {
+      const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
+      dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
+    } else {
+      dailyLimitSyncRef.current = null
+    }
   }, [campaign])
+
+  useEffect(() => {
+    if (!campaign || campaign.mechanic !== 'shake') return
+    if (campaign.startDate === endDate) return
+    const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
+    if (status === 'ended') return
+
+    const days = campaignDayCount(campaign.startDate, endDate)
+    const key = `${userCap}:${days}`
+    if (dailyLimitSyncRef.current === null) {
+      dailyLimitSyncRef.current = key
+      return
+    }
+    if (dailyLimitSyncRef.current === key) return
+    dailyLimitSyncRef.current = key
+    const next = Math.max(1, Math.floor(userCap / days))
+    setPerDayUserLimit(prev => (prev === next ? prev : next))
+  }, [campaign, userCap, endDate])
 
   if (isLoading) {
     return (
@@ -305,7 +329,7 @@ export function VendorCampaignEditPage() {
     userCapLimited: isLoyalty && userCapLimited !== originalUserCapLimited,
     perDayUserLimit: isShake && perDayUserLimit !== campaign.perDayUserLimit,
     playsPerDay: isShake && playsPerDay !== campaign.playsPerDay,
-    winRatePercent: isShake && winRatePercent !== campaign.winRatePercent,
+    overallWinners: isShake && overallWinners !== (campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100))),
     rewards: isShake && !rewardsEqual(rewards, toShakeRewards(campaign.rewards)),
     claimPeriod: isStamp && claimDurationMode !== originalClaimDurationMode,
     stampConfig: stampConfigChanged(),
@@ -350,7 +374,7 @@ export function VendorCampaignEditPage() {
       if (isShake) {
         if (changedFields.perDayUserLimit) payload.perDayUserLimit = perDayUserLimit
         if (changedFields.playsPerDay) payload.playsPerDay = playsPerDay
-        if (changedFields.winRatePercent) payload.winRatePercent = winRatePercent
+        if (changedFields.overallWinners) payload.overallWinners = overallWinners
         if (changedFields.rewards) {
           payload.rewards = rewards
             .filter(r => r.name.trim())
@@ -445,8 +469,6 @@ export function VendorCampaignEditPage() {
     ? singleDayDurationLabel(campaign.startDate, TODAY)
     : `${fmtCampaignDate(campaign.startDate)} → ${fmtCampaignDate(endDate)}`
 
-  const totalRewards = calcTotalWinners(userCap, playsPerDay, winRatePercent)
-  const dailyRewards = calcDailyWinners(isSingleDay ? userCap : perDayUserLimit, playsPerDay, winRatePercent)
 
   const reviewRows: { label: string; value: string; changed: boolean; previous?: string }[] = [
     { label: 'Campaign Name', value: name, changed: changedFields.name, previous: campaign.name },
@@ -455,8 +477,7 @@ export function VendorCampaignEditPage() {
       { label: 'Overall User Cap', value: `${userCap} users total`, changed: changedFields.userCap, previous: `${campaign.userCap} users total` },
       ...(!isSingleDay ? [{ label: 'Daily User Limit', value: `${perDayUserLimit} / day`, changed: changedFields.perDayUserLimit, previous: `${campaign.perDayUserLimit} / day` }] : []),
       { label: 'Plays Per User / Day', value: String(playsPerDay), changed: changedFields.playsPerDay, previous: String(campaign.playsPerDay) },
-      { label: 'Winner Percentage', value: `${winRatePercent}%`, changed: changedFields.winRatePercent, previous: `${campaign.winRatePercent}%` },
-      { label: 'Total Winners', value: `${formatWinnerCount(totalRewards, true)} customers`, changed: changedFields.winRatePercent || changedFields.userCap, previous: `${formatWinnerCount(calcTotalWinners(campaign.userCap, campaign.playsPerDay, campaign.winRatePercent), true)} customers` },
+      { label: 'Overall Winners', value: `${formatWinnerCount(overallWinners, true)} customers`, changed: changedFields.overallWinners, previous: `${formatWinnerCount(campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100)), true)} customers` },
     ] : []),
     ...(isStamp ? [
       { label: 'User Cap', value: `${userCap} users`, changed: changedFields.userCap, previous: `${campaign.userCap} users` },
@@ -607,36 +628,32 @@ export function VendorCampaignEditPage() {
                         <LockedField label="Overall User Cap" value={`${campaign.userCap} users total`} />
                         {!isSingleDay && <LockedField label="Daily User Limit" value={`${campaign.perDayUserLimit} users / day`} />}
                         <LockedField label="Plays Per User Per Day" value={`${campaign.playsPerDay} plays / day`} />
-                        <LockedField label="Winner Percentage" value={`${campaign.winRatePercent}%`} />
-                        <LockedField label="Total Winners" value={`${formatWinnerCount(calcTotalWinners(campaign.userCap, campaign.playsPerDay, campaign.winRatePercent), true)} customers`} />
+                        <LockedField label="Overall Winners" value={`${formatWinnerCount(campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100)), true)} customers`} />
                       </>
                     ) : (
                       <>
-                        <Stepper label="Overall User Cap" hint="users total" value={userCap} min={Math.max(campaign.currentUsers, 1)} max={2000} step={1} onChange={v => { setUserCap(v); setPerDayUserLimit(prev => Math.min(prev, v)) }} />
+                        <Stepper label="Overall User Cap" hint="users total" value={userCap} min={Math.max(campaign.currentUsers, 1)} max={2000} step={1} onChange={setUserCap} />
                         <p className="text-[11px] text-v-text-3 -mt-2">{campaign.currentUsers} players joined · cap cannot go below current players</p>
                         {!isSingleDay && (
                           <div>
                             <Stepper label="Daily User Limit" hint="users / day" value={perDayUserLimit} min={1} max={userCap} onChange={setPerDayUserLimit} />
-                            <p className="text-xs text-v-text-3 mt-1.5">Suggested: <span className="font-semibold text-v-text-2">{suggestedDailyLimit} / day</span> — even distribution over {campaignDays} days.</p>
+                            <p className="text-xs text-v-text-3 mt-1.5">Suggested: <span className="font-semibold text-v-text-2">{suggestedDailyLimit} / day</span> — even distribution over {campaignDays} days. Updates when cap or duration changes.</p>
                           </div>
                         )}
                         <Stepper label="Plays Per User Per Day" hint="plays / day" value={playsPerDay} min={1} max={10} onChange={setPlaysPerDay} />
                         <div>
                           <Stepper
-                            label="Winner Percentage"
-                            hint="% of players who win"
-                            value={winRatePercent}
+                            label="Overall Winners"
+                            hint="total prizes"
+                            value={overallWinners}
                             min={1}
-                            max={100}
+                            max={userCap}
                             step={1}
-                            onChange={setWinRatePercent}
+                            onChange={setOverallWinners}
                           />
                           <p className="text-xs text-v-text-3 mt-1.5">
-                            <span className="font-semibold text-v-text-2">{formatWinnerCount(totalRewards, true)} winners</span>
-                            {' '}out of {userCap.toLocaleString()} players
-                            {!isSingleDay && (
-                              <> · {formatWinnerCount(dailyRewards, true)} winners per day when {perDayUserLimit.toLocaleString()} customers play</>
-                            )}
+                            <span className="font-semibold text-v-text-2">{formatWinnerCount(overallWinners, true)} winners</span>
+                            {' '}out of {userCap.toLocaleString()} players max
                           </p>
                         </div>
                       </>
@@ -699,7 +716,7 @@ export function VendorCampaignEditPage() {
                     <p className="text-xs text-v-text-3 mb-4">Configure how winning plays are distributed across reward types.</p>
                     <div className="flex items-center gap-2 mb-5 p-2.5 bg-v-surface-2 border border-v-border rounded-xl text-xs">
                       <span className="text-v-text-3">Expected winners:</span>
-                      <span className="font-bold text-v-purple">{formatWinnerCount(totalRewards)} total</span>
+                      <span className="font-bold text-v-purple">{formatWinnerCount(overallWinners, true)} total</span>
                     </div>
                     {isEnded ? (
                       <RewardPoolEditor rewards={rewards} setRewards={setRewards} shareMode readOnly />
@@ -902,9 +919,8 @@ export function VendorCampaignEditPage() {
               {isShake && (
                 <WinBasedCampaignImpact
                   userCap={userCap}
-                  perDayUserLimit={perDayUserLimit}
-                  playsPerDay={playsPerDay}
-                  winRatePercent={winRatePercent}
+                  overallWinners={overallWinners}
+                  perDayUserLimit={isSingleDay ? userCap : perDayUserLimit}
                   campaignDays={campaignDays}
                   startDate={campaign.startDate}
                   endDate={endDate}

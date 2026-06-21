@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import { CampaignCoverBadge, CampaignCoverHero } from '@/components/customer/CampaignCoverHero'
 import { CampaignPlayButton } from '@/components/customer/CampaignPlayButton'
 import { formatCampaignDateRange, getCampaignSubtitle } from '@/lib/customer-ui'
+import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { getCampaignTheme } from '@/lib/campaign-themes'
 
 interface CampaignListingCardProps {
@@ -13,6 +14,8 @@ interface CampaignListingCardProps {
     startDate: string
     endDate: string
     winRatePercent?: number
+    overallWinners?: number
+    userCap?: number
     playsPerDay?: number
   }
   href: string
@@ -35,6 +38,9 @@ function getHeaderRightBadge(
   comingSoon?: boolean,
 ): string | undefined {
   if (comingSoon) return 'Live soon'
+  if (campaign.mechanic === 'shake' && campaign.overallWinners != null && campaign.userCap != null) {
+    return formatShakeWinLabel(campaign.overallWinners, campaign.userCap)
+  }
   if (campaign.mechanic === 'shake' && campaign.winRatePercent != null) {
     return `${campaign.winRatePercent}% of players win`
   }

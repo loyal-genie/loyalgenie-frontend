@@ -1,6 +1,7 @@
 import { ArrowLeft, Gift, Loader2 } from 'lucide-react'
 import { PinKeypad } from '@/components/customer/PinKeypad'
 import { getCustomerMechanicChipLabel } from '@/lib/customer-ui'
+import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import type { PublicCampaign } from '@/lib/api'
 
 function ShakeHandIcon() {
@@ -20,6 +21,8 @@ interface ShakeCampaignDetailProps {
   error?: string
   loading?: boolean
   winRatePercent?: number
+  overallWinners?: number
+  userCap?: number
   playsUsedToday?: number
   playsPerDay?: number
   onBack: () => void
@@ -34,6 +37,8 @@ export function ShakeCampaignDetail({
   error,
   loading,
   winRatePercent,
+  overallWinners,
+  userCap,
   playsUsedToday,
   playsPerDay,
   onBack,
@@ -68,9 +73,14 @@ export function ShakeCampaignDetail({
         <h1 className="mt-5 text-center text-xl font-bold text-white">{campaign.name}</h1>
         <p className="mt-1 text-center text-sm font-medium text-fuchsia-300">Shake &amp; Win</p>
 
-        {(winRatePercent != null || (playsUsedToday != null && playsPerDay != null)) && (
+        {((overallWinners != null && userCap != null) || winRatePercent != null || (playsUsedToday != null && playsPerDay != null)) && (
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            {winRatePercent != null && (
+            {overallWinners != null && userCap != null && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-400/10 px-3 py-1.5 text-[11px] font-bold text-amber-200">
+                ✨ {formatShakeWinLabel(overallWinners, userCap)}
+              </span>
+            )}
+            {overallWinners == null && winRatePercent != null && (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-400/10 px-3 py-1.5 text-[11px] font-bold text-amber-200">
                 ✨ {winRatePercent}% of players win!
               </span>

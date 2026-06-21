@@ -1,19 +1,16 @@
 import { TrendingUp } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import {
-  calcDailyWinners,
   calcLoyaltyMaxRewards,
   calcStampMaxRewards,
-  calcTotalWinners,
   formatWinnerCount,
 } from '@/lib/campaign-impact'
 import { fmtCampaignDate } from '@/lib/campaign-duration'
 
 interface WinBasedImpactProps {
   userCap: number
+  overallWinners: number
   perDayUserLimit: number
-  playsPerDay: number
-  winRatePercent: number
   campaignDays: number
   startDate: string
   endDate: string
@@ -23,18 +20,14 @@ interface WinBasedImpactProps {
 
 export function WinBasedCampaignImpact({
   userCap,
+  overallWinners,
   perDayUserLimit,
-  playsPerDay,
-  winRatePercent,
   campaignDays,
   startDate,
   endDate,
   isSingleDay = false,
   variant = 'light',
 }: WinBasedImpactProps) {
-  const totalWinners = calcTotalWinners(userCap, playsPerDay, winRatePercent)
-  const dailyWinners = calcDailyWinners(isSingleDay ? userCap : perDayUserLimit, playsPerDay, winRatePercent)
-  const dailyUsers = isSingleDay ? userCap : perDayUserLimit
   const tileClass = variant === 'light' ? 'bg-white rounded-xl p-3.5' : 'bg-v-surface-2 rounded-xl p-3.5'
 
   return (
@@ -45,19 +38,17 @@ export function WinBasedCampaignImpact({
       </div>
       <div className={`grid gap-3 ${isSingleDay ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
         <div className={tileClass}>
-          <div className="text-xl font-black text-v-purple">{formatWinnerCount(totalWinners, true)}</div>
+          <div className="text-xl font-black text-v-purple">{formatWinnerCount(overallWinners, true)}</div>
           <div className="text-xs font-semibold text-v-text-2 mt-1">Total Winners</div>
           <div className="text-[10px] text-v-text-3 mt-0.5">
-            {userCap.toLocaleString()} players × {winRatePercent}% win rate
+            Out of {userCap.toLocaleString()} players max
           </div>
         </div>
         {!isSingleDay && (
           <div className={tileClass}>
-            <div className="text-xl font-black text-v-text">{formatWinnerCount(dailyWinners)}</div>
-            <div className="text-xs font-semibold text-v-text-2 mt-1">Winners / Day</div>
-            <div className="text-[10px] text-v-text-3 mt-0.5">
-              {dailyUsers.toLocaleString()} players × {winRatePercent}% win rate
-            </div>
+            <div className="text-xl font-black text-v-text">{perDayUserLimit.toLocaleString()}</div>
+            <div className="text-xs font-semibold text-v-text-2 mt-1">Players / Day</div>
+            <div className="text-[10px] text-v-text-3 mt-0.5">Max users allowed to play per day</div>
           </div>
         )}
         {!isSingleDay && (
@@ -69,7 +60,7 @@ export function WinBasedCampaignImpact({
         )}
       </div>
       <p className="text-[11px] text-v-text-3 mt-3">
-        Numbers assume your user cap fills. Adjust winners above or change your user cap to update projections.
+        Winners are drawn randomly across the campaign. Plays per day only controls retries — not win odds.
       </p>
     </Card>
   )
