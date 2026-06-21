@@ -73,10 +73,20 @@ export function VendorSettingsPage() {
 
   function onSubmit(data: BusinessProfileUpdate) {
     setSaveMessage(null)
-    updateMutation.mutate(data, {
+    updateMutation.mutate(
+      {
+        ...data,
+        brandColor,
+        logoData,
+        coverBannerData,
+        interiorPhotosData,
+        exteriorPhotosData,
+      },
+      {
       onSuccess: () => setSaveMessage('Profile saved successfully.'),
       onError: (err) => setSaveMessage(getApiErrorMessage(err, 'Failed to save profile.')),
-    })
+      },
+    )
   }
 
   if (isLoading) {

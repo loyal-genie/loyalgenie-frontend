@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Bell, Search, Loader2, Store, Sparkles, Gift } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
+import { BusinessCoverHero } from '@/components/customer/BusinessCoverHero'
 import { MECHANIC_META } from '@/lib/utils'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
 import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
@@ -30,15 +31,15 @@ function BusinessCard({ biz, index }: { biz: BusinessWithCampaigns; index: numbe
     >
       <Link to={`/customer/business/${biz.id}`} className="no-underline block group">
         <div className="relative bg-white rounded-3xl overflow-hidden border border-white/80 shadow-[0_8px_30px_rgba(76,29,149,0.08)] hover:shadow-[0_16px_40px_rgba(76,29,149,0.14)] transition-all duration-300 active:scale-[0.98]">
-          <div
-            className="relative h-[170px] lg:h-[190px] flex items-end p-4 overflow-hidden"
-            style={{ background: `linear-gradient(135deg, ${biz.brandColor} 0%, ${biz.brandColor}cc 50%, #1e1b4b 100%)` }}
+          <BusinessCoverHero
+            coverBannerData={biz.coverBannerData}
+            brandColor={biz.brandColor}
+            fallbackEmoji={emoji}
+            className="h-[170px] lg:h-[190px] flex items-end p-4"
+            emojiClassName="text-7xl opacity-25 group-hover:scale-110 transition-transform duration-500"
           >
             <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
             <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/30 to-transparent" />
-            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-7xl opacity-25 select-none group-hover:scale-110 transition-transform duration-500">
-              {emoji}
-            </span>
             <div className="flex flex-wrap gap-1.5 z-10">
               {badgeCampaigns.map(c => {
                 const meta = MECHANIC_META[c.mechanic as keyof typeof MECHANIC_META] ?? MECHANIC_META.shake
@@ -53,7 +54,7 @@ function BusinessCard({ biz, index }: { biz: BusinessWithCampaigns; index: numbe
                 )
               })}
             </div>
-          </div>
+          </BusinessCoverHero>
           <div className="p-4 lg:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">

@@ -435,6 +435,8 @@ export interface BusinessWithCampaigns {
   businessType: string
   city: string
   brandColor: string
+  logoData?: string
+  coverBannerData?: string
   campaigns: {
     id: string
     name: string

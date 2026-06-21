@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, MapPin, Loader2, Sparkles, Star } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { BottomNav } from '@/components/customer/bottom-nav'
+import { BusinessCoverHero } from '@/components/customer/BusinessCoverHero'
 import { MECHANIC_META, getMechanicEmoji, getMechanicLabel } from '@/lib/utils'
 import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
 import { fetchLoyaltyState, fetchPlayState, fetchStampState } from '@/lib/api'
@@ -280,15 +281,12 @@ export function CustomerBusinessPage() {
 
   return (
     <div className="min-h-dvh bg-[#f8f6ff] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
-      <div
-        className="relative h-[220px] lg:h-[260px] overflow-hidden"
-        style={{ background: `linear-gradient(160deg, ${color} 0%, ${color}aa 40%, #1e1b4b 100%)` }}
+      <BusinessCoverHero
+        coverBannerData={biz.coverBannerData}
+        brandColor={color}
+        fallbackEmoji={emoji}
+        className="h-[220px] lg:h-[260px]"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.15),transparent_50%)]" />
-        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-9xl opacity-15 select-none">
-          {emoji}
-        </span>
-
         <button
           onClick={() => navigate(-1)}
           className="absolute top-12 left-4 w-10 h-10 rounded-2xl bg-black/25 backdrop-blur-md flex items-center justify-center z-10 border border-white/10 cursor-pointer hover:bg-black/35 transition-colors"
@@ -297,17 +295,26 @@ export function CustomerBusinessPage() {
         </button>
 
         <div className="absolute bottom-0 left-0 right-0 p-5 lg:px-8 pb-6 bg-gradient-to-t from-black/50 to-transparent">
-          <div className="max-w-3xl mx-auto">
-            <h1 className="text-2xl font-extrabold text-white drop-shadow-sm">{biz.name}</h1>
-            <div className="flex items-center gap-2 mt-2 text-xs text-white/80">
-              <MapPin className="w-3.5 h-3.5" />
-              <span>{biz.city}</span>
-              <span>·</span>
-              <span>{biz.businessType}</span>
+          <div className="max-w-3xl mx-auto flex items-end gap-3">
+            {biz.logoData && (
+              <img
+                src={biz.logoData}
+                alt=""
+                className="w-14 h-14 rounded-2xl object-cover border-2 border-white/30 shadow-lg shrink-0"
+              />
+            )}
+            <div className="min-w-0">
+              <h1 className="text-2xl font-extrabold text-white drop-shadow-sm">{biz.name}</h1>
+              <div className="flex items-center gap-2 mt-2 text-xs text-white/80">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>{biz.city}</span>
+                <span>·</span>
+                <span>{biz.businessType}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </BusinessCoverHero>
 
       <div className="px-5 lg:px-8 pt-6 max-w-3xl mx-auto">
         {biz.tagline && (
