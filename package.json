@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:shake": "vitest run --config vitest.config.ts src/lib/shake-engine.test.ts"
+    "test:shake": "vitest run --config vitest.config.ts src/hooks/useShakeCharge.test.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -23,6 +23,7 @@
     "@react-three/fiber": "^9.6.1",
     "@tanstack/react-query": "^5.101.0",
     "axios": "^1.17.0",
+    "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
@@ -38,6 +39,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.1",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
