@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { WinCelebration } from '@/components/customer/win-celebration'
-import { StampCollectedSplash } from '@/components/customer/stamp-collected-splash'
+import { StampCollectedSplash, type StampRewardInfo } from '@/components/customer/stamp-collected-splash'
 import { executeStamp, getApiErrorMessage, type StampCollectResult } from '@/lib/api'
 import { clearPlaySession } from '@/lib/customer-game'
 
@@ -15,8 +14,6 @@ interface StampCollectOverlayProps {
   onDone: (opts?: { error?: string }) => void
 }
 
-type Phase = 'splash' | 'surprise' | 'big-win'
-
 export function StampCollectOverlay({
   campaignId,
   playSessionToken,
@@ -26,20 +23,15 @@ export function StampCollectOverlay({
   onDone,
 }: StampCollectOverlayProps) {
   const queryClient = useQueryClient()
-  const [phase, setPhase] = useState<Phase>('splash')
   const [pending, setPending] = useState(true)
   const [toCount, setToCount] = useState(stampsBefore)
-  const [reward, setReward] = useState<{
-    name: string
-    emoji: string
-    code?: string
-    trigger: 'surprise' | 'big'
-  } | null>(null)
+  const [reward, setReward] = useState<StampRewardInfo | null>(null)
 
   const finishAndExit = useCallback(() => {
     clearPlaySession(campaignId)
     queryClient.invalidateQueries({ queryKey: ['stamp-state', campaignId] })
     queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
+    queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
     onDone()
   }, [campaignId, onDone, queryClient])
 
@@ -53,7 +45,6 @@ export function StampCollectOverlay({
         name: result.reward.name,
         emoji: result.trigger === 'big' ? '🏆' : result.reward.icon || '🎁',
         code: result.code ?? undefined,
-        trigger: result.trigger === 'big' ? 'big' : 'surprise',
       })
     }
   }, [campaignId, queryClient])
@@ -77,38 +68,16 @@ export function StampCollectOverlay({
     }
   }, [campaignId, playSessionToken, handleSuccess, onDone])
 
-  const finishSplash = useCallback(() => {
-    if (reward) {
-      setPhase(reward.trigger === 'big' ? 'big-win' : 'surprise')
-      return
-    }
-    finishAndExit()
-  }, [reward, finishAndExit])
-
-  if (phase === 'splash') {
-    return (
-      <StampCollectedSplash
-        fromCount={stampsBefore}
-        toCount={toCount}
-        totalStamps={totalStamps}
-        enrolled={enrolledBefore}
-        pending={pending}
-        onComplete={finishSplash}
-      />
-    )
-  }
-
-  if ((phase === 'surprise' || phase === 'big-win') && reward) {
-    return (
-      <WinCelebration
-        reward={reward.name}
-        emoji={reward.emoji}
-        code={reward.code}
-        onClose={finishAndExit}
-        closeLabel="Done"
-      />
-    )
-  }
-
-  return null
+  return (
+    <StampCollectedSplash
+      fromCount={stampsBefore}
+      toCount={toCount}
+      totalStamps={totalStamps}
+      enrolled={enrolledBefore}
+      pending={pending}
+      reward={reward}
+      onComplete={finishAndExit}
+      onBackToVendor={finishAndExit}
+    />
+  )
 }

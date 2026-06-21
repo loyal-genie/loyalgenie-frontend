@@ -215,42 +215,15 @@ export function CustomerCampaignPage() {
     || (!stampState.enrolled && !stampState.enrollmentOpen)
   )
   const loyaltyBlocked = campaign.mechanic === 'check-in-loyalty' && loyaltyState?.checkedInToday
+  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked)
 
-  if (shakeBlocked || stampBlocked || loyaltyBlocked) {
-    const title = shakeBlocked
-      ? playState!.blockReason === 'no_plays_remaining'
-        ? 'All plays used today!'
-        : 'Cannot play right now'
-      : loyaltyBlocked
-        ? 'Already checked in today!'
-        : stampState!.cardComplete
-          ? 'Stamp card complete!'
-          : stampState!.status === 'expired'
-            ? 'Stamp card expired'
-            : stampState!.enrolled && !stampState!.canCollectToday
-              ? 'Stamp already collected today!'
-              : 'Enrollment closed'
-    const detail = shakeBlocked
-      ? playState!.message
-      : loyaltyBlocked
-        ? `${loyaltyState!.loyaltyPoints} loyalty points · come back tomorrow`
-        : stampState!.cardComplete
-          ? `You collected all ${stampState!.totalStamps} stamps`
-          : stampState!.enrolled && !stampState!.canCollectToday
-            ? `${stampState!.stampsCollected}/${stampState!.totalStamps} stamps · come back tomorrow`
-            : stampState!.status === 'expired'
-              ? 'The claim window for this card has ended'
-              : 'No spots left to join this stamp card'
+  useEffect(() => {
+    if (!blocked || stampCollect) return
+    const path = campaign.businessId ? `/customer/business/${campaign.businessId}` : '/customer'
+    navigate(path, { replace: true })
+  }, [blocked, stampCollect, campaign.businessId, navigate])
 
-    return (
-      <CampaignPinBlocked
-        title={title}
-        detail={detail}
-        emoji={stampBlocked && stampState?.cardComplete ? '🏆' : '✅'}
-        onBack={handleBack}
-      />
-    )
-  }
+  if (blocked && !stampCollect) return <CampaignPinLoading />
 
   const isStamp = campaign.mechanic === 'stamp'
   const isLoyalty = campaign.mechanic === 'check-in-loyalty'

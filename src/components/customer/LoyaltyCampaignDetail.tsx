@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { LoyaltyMilestonesList } from '@/components/customer/LoyaltyMilestonesList'
@@ -14,7 +14,7 @@ import {
   type LoyaltyState,
   type PublicCampaign,
 } from '@/lib/api'
-import { setPlaySession } from '@/lib/customer-game'
+import { clearPlaySession, setPlaySession } from '@/lib/customer-game'
 import { getCustomerMechanicChipLabel } from '@/lib/customer-ui'
 
 interface LoyaltyCampaignDetailProps {
@@ -31,11 +31,12 @@ export function LoyaltyCampaignDetail({
   onBack,
 }: LoyaltyCampaignDetailProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [phase, setPhase] = useState<Phase>('overview')
   const [checkInResult, setCheckInResult] = useState<{
-    pointsEarned: number
+    pointsBefore: number
     loyaltyPoints: number
     businessName: string
     milestonesUnlocked: { name: string; icon: string; code: string }[]
@@ -44,12 +45,13 @@ export function LoyaltyCampaignDetail({
   const verifyMutation = useMutation({
     mutationFn: (enteredPin: string) => verifyCampaignPin(campaign.id, enteredPin),
     onSuccess: async (data) => {
+      const pointsBefore = loyaltyState.loyaltyPoints
       setPlaySession(campaign.id, data.playSessionToken)
       setPhase('checking-in')
       try {
         const result = await executeCheckIn(campaign.id, data.playSessionToken)
         setCheckInResult({
-          pointsEarned: result.pointsEarned,
+          pointsBefore,
           loyaltyPoints: result.loyaltyPoints,
           businessName: loyaltyState.businessName,
           milestonesUnlocked: result.milestonesUnlocked,
@@ -68,11 +70,15 @@ export function LoyaltyCampaignDetail({
   })
 
   const handleSplashComplete = useCallback(() => {
+    clearPlaySession(campaign.id)
+    queryClient.invalidateQueries({ queryKey: ['loyalty-state', campaign.id] })
+    queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
+    queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
     const dest = loyaltyState.businessId
       ? `/customer/business/${loyaltyState.businessId}`
       : '/customer'
     navigate(dest, { replace: true })
-  }, [navigate, loyaltyState.businessId])
+  }, [campaign.id, navigate, loyaltyState.businessId, queryClient])
 
   const handleKey = (digit: string) => {
     if (pin.length < 3) setPin(prev => prev + digit)
@@ -100,11 +106,12 @@ export function LoyaltyCampaignDetail({
       <AnimatePresence>
         {phase === 'splash' && checkInResult && (
           <LoyaltyPointsSplash
-            pointsEarned={checkInResult.pointsEarned}
+            pointsBefore={checkInResult.pointsBefore}
             totalPoints={checkInResult.loyaltyPoints}
             businessName={checkInResult.businessName}
             milestonesUnlocked={checkInResult.milestonesUnlocked}
             onComplete={handleSplashComplete}
+            onBackToCafe={handleSplashComplete}
           />
         )}
       </AnimatePresence>

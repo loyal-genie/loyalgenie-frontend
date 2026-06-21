@@ -11,6 +11,8 @@ import { SimulateShakeButton } from '@/components/customer/SimulateShakeButton'
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage, type PlayState } from '@/lib/api'
 import { getUser } from '@/lib/auth'
+import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
+import { findBusinessForCampaign, getCustomerBusinessPath } from '@/lib/customer-ui'
 import { useShakeCharge } from '@/hooks/useShakeCharge'
 
 type Phase = 'idle' | 'submitting' | 'result'
@@ -50,6 +52,7 @@ export function CustomerShakePage() {
   const customerId = getUser('customer')?.userId
   const playSession = campaignId ? getPlaySession(campaignId) : null
   const queryClient = useQueryClient()
+  const { data: businesses } = useBusinessesWithCampaigns()
 
   const { data: campaign, isLoading: campaignLoading } = useQuery({
     queryKey: ['public-campaign', campaignId],
@@ -139,11 +142,14 @@ export function CustomerShakePage() {
 
   resetIntensityRef.current = resetIntensity
 
+  const businessName = findBusinessForCampaign(businesses, campaignId ?? '', campaign?.businessId)?.name
+
+  const handleBackToCafe = useCallback(() => {
+    navigate(getCustomerBusinessPath(campaign?.businessId), { replace: true })
+  }, [navigate, campaign?.businessId])
+
   const handlePlayAgain = () => {
-    if (playsLeft === null || playsLeft <= 0) {
-      navigate('/customer/wallet')
-      return
-    }
+    if (playsLeft === null || playsLeft <= 0) return
     submittingRef.current = false
     resetIntensity()
     setPhase('idle')
@@ -165,13 +171,21 @@ export function CustomerShakePage() {
         reward={rewardText}
         emoji={rewardEmoji}
         code={rewardCode}
-        onClose={handlePlayAgain}
+        businessName={businessName}
+        onBackToCafe={handleBackToCafe}
       />
     )
   }
 
   if (phase === 'result' && !won) {
-    return <NoWin onClose={handlePlayAgain} playsLeft={playsLeft ?? undefined} attempts={attempts ?? undefined} />
+    return (
+      <NoWin
+        onTryAgain={handlePlayAgain}
+        onBackToCafe={handleBackToCafe}
+        playsLeft={playsLeft ?? undefined}
+        attempts={attempts ?? undefined}
+      />
+    )
   }
 
   const winRate = campaign?.winRatePercent ?? 30

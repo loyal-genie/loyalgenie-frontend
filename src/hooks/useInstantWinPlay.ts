@@ -66,6 +66,7 @@ export function useInstantWinPlay() {
   return {
     campaignId,
     campaign,
+    businessId: campaign?.businessId,
     businessName,
     playState,
     playSession,

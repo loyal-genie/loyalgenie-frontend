@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { ArrowLeft } from 'lucide-react'
 
 const CONFETTI_COLORS = ['#5b0e81', '#fad499', '#631cbb', '#e8b050', '#d4a8ff', '#9b59e8']
 
@@ -35,8 +35,9 @@ interface WinCelebrationProps {
   emoji?: string
   code?: string
   businessName?: string
+  onBackToCafe?: () => void
+  /** @deprecated use onBackToCafe */
   onClose?: () => void
-  closeLabel?: string
 }
 
 export function WinCelebration({
@@ -44,16 +45,27 @@ export function WinCelebration({
   emoji = '☕',
   code,
   businessName,
+  onBackToCafe,
   onClose,
-  closeLabel = '← Back to Dashboard',
 }: WinCelebrationProps) {
-  const displayCode = code ?? 'LG-WIN7'
+  const handleBackToCafe = onBackToCafe ?? onClose
+  const displayCode = code ?? '—'
 
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center min-h-dvh px-5 overflow-y-auto"
       style={{ background: 'linear-gradient(174deg, #43036d 2%, #2e1403 93%)' }}
     >
+      {handleBackToCafe && (
+        <button
+          type="button"
+          onClick={handleBackToCafe}
+          className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 size-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
+          aria-label="Back to cafe"
+        >
+          <ArrowLeft className="size-4 text-white" />
+        </button>
+      )}
       <Confetti />
       <div className="relative z-10 text-center w-full max-w-sm mx-auto pt-16 pb-[max(2rem,env(safe-area-inset-bottom))]">
         <motion.p
@@ -82,7 +94,7 @@ export function WinCelebration({
             {businessName ? `Added to your wallet · ${businessName}` : 'Added to your wallet'}
           </p>
 
-          <div className="bg-[rgba(217,217,217,0.1)] rounded-[10px] px-6 py-4 mb-3 mx-auto max-w-[174px]">
+          <div className="bg-[rgba(217,217,217,0.1)] rounded-[10px] px-6 py-4 mb-3 mx-auto max-w-[220px]">
             <p className="text-xs text-white/80 mb-1">Reward Code</p>
             <p className="font-semibold text-xl text-white tracking-wide">{displayCode}</p>
           </div>
@@ -95,40 +107,65 @@ export function WinCelebration({
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
-          className="space-y-4"
+          className="space-y-3"
         >
           <Link
             to="/customer/wallet"
             className="block w-full py-4 rounded-[14px] font-medium text-base text-center text-white no-underline bg-white/10"
           >
-            View in Wallet →
+            View in Wallet
           </Link>
-          <button
-            type="button"
-            className="block w-full py-2 text-base text-[rgba(254,254,254,0.44)] bg-transparent border-0 cursor-pointer"
-            onClick={onClose}
-          >
-            {closeLabel}
-          </button>
+          {handleBackToCafe && (
+            <button
+              type="button"
+              className="block w-full py-4 rounded-[14px] font-bold text-base text-white bg-[#631cbb] border-0 cursor-pointer"
+              onClick={handleBackToCafe}
+            >
+              Back to Cafe
+            </button>
+          )}
         </motion.div>
       </div>
     </div>
   )
 }
 
-export function NoWin({ onClose, playsLeft, attempts }: {
+interface NoWinProps {
+  onTryAgain?: () => void
+  onBackToCafe?: () => void
+  /** @deprecated use onTryAgain */
   onClose?: () => void
   playsLeft?: number
   attempts?: { used: number; total: number }
-}) {
-  const navigate = useNavigate()
+}
+
+export function NoWin({
+  onTryAgain,
+  onBackToCafe,
+  onClose,
+  playsLeft,
+  attempts,
+}: NoWinProps) {
+  const handleTryAgain = onTryAgain ?? onClose
+  const canRetry = playsLeft !== undefined && playsLeft > 0 && Boolean(handleTryAgain)
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center min-h-dvh px-5"
+      className="fixed inset-0 z-50 flex flex-col items-center min-h-dvh px-5 overflow-y-auto"
       style={{ background: 'linear-gradient(174deg, #43036d 2%, #2e1403 93%)' }}
     >
-      <div className="text-center w-full max-w-sm mx-auto pb-[env(safe-area-inset-bottom)]">
+      {onBackToCafe && (
+        <button
+          type="button"
+          onClick={onBackToCafe}
+          className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 size-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
+          aria-label="Back to cafe"
+        >
+          <ArrowLeft className="size-4 text-white" />
+        </button>
+      )}
+
+      <div className="relative z-10 flex flex-col items-center justify-center flex-1 w-full max-w-sm py-16 text-center">
         <motion.div
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
@@ -143,25 +180,38 @@ export function NoWin({ onClose, playsLeft, attempts }: {
             {attempts.used}/{attempts.total} attempts used today
           </p>
         )}
-        <p className="text-xs text-white/30 mb-8">Every visit gives you a new chance to win 🍀</p>
+        <p className="text-xs text-white/30 mb-10">Every visit gives you a new chance to win 🍀</p>
 
-        {playsLeft !== undefined && playsLeft > 0 ? (
-          <button
-            type="button"
-            className="block w-full py-4 rounded-[14px] font-bold text-sm text-white bg-[#631cbb] border-0 cursor-pointer mb-3"
-            onClick={onClose}
+        <div className="w-full space-y-3">
+          {canRetry && (
+            <button
+              type="button"
+              className="block w-full py-4 rounded-[14px] font-bold text-base text-white bg-[#631cbb] border-0 cursor-pointer"
+              onClick={handleTryAgain}
+            >
+              Try Again ({playsLeft} left)
+            </button>
+          )}
+          <Link
+            to="/customer/wallet"
+            className="block w-full py-4 rounded-[14px] font-medium text-base text-center text-white no-underline bg-white/10"
           >
-            Try Again ({playsLeft} left)
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="block w-full py-4 rounded-[14px] font-medium text-white bg-white/10 border-0 cursor-pointer mb-3"
-            onClick={() => { onClose?.(); navigate(-1) }}
-          >
-            ← Back
-          </button>
-        )}
+            View in Wallet
+          </Link>
+          {onBackToCafe && (
+            <button
+              type="button"
+              className={`block w-full py-4 rounded-[14px] font-bold text-base border-0 cursor-pointer ${
+                canRetry
+                  ? 'text-white bg-white/10'
+                  : 'text-white bg-[#631cbb]'
+              }`}
+              onClick={onBackToCafe}
+            >
+              Back to Cafe
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

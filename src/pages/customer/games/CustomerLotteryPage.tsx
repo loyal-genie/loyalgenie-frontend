@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
 import { useInstantWinPlay } from '@/hooks/useInstantWinPlay'
+import { getCustomerBusinessPath } from '@/lib/customer-ui'
 import { buildLotteryGrid, type LotteryCell } from '@/lib/instant-win-ui'
 
 const TOTAL = 9
@@ -58,6 +59,7 @@ function ScratchCell({
 export function CustomerLotteryPage() {
   const navigate = useNavigate()
   const {
+    businessId,
     businessName,
     campaign,
     playState,
@@ -67,7 +69,17 @@ export function CustomerLotteryPage() {
     playError,
     isPlaying,
     startPlay,
+    resetPlay,
   } = useInstantWinPlay()
+
+  const goToCafe = () => navigate(getCustomerBusinessPath(businessId), { replace: true })
+
+  const tryAgain = () => {
+    resetPlay()
+    setState('idle')
+    setCells([])
+    setRevealed(Array(TOTAL).fill(false))
+  }
 
   const [state, setState] = useState<State>('idle')
   const [cells, setCells] = useState<LotteryCell[]>([])
@@ -117,7 +129,7 @@ export function CustomerLotteryPage() {
         emoji={playResult.reward.icon || '🎟️'}
         code={playResult.code ?? undefined}
         businessName={businessName}
-        onClose={() => navigate(-1)}
+        onBackToCafe={goToCafe}
       />
     )
   }
@@ -125,7 +137,8 @@ export function CustomerLotteryPage() {
   if (state === 'done' && playResult && !playResult.won) {
     return (
       <NoWin
-        onClose={() => navigate(-1)}
+        onTryAgain={tryAgain}
+        onBackToCafe={goToCafe}
         playsLeft={playResult.playsRemaining}
         attempts={{ used: playResult.playsUsedToday, total: playResult.playsPerDay }}
       />

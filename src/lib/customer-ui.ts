@@ -25,6 +25,10 @@ export function categoryMatches(businessType: string, category: CustomerCategory
   return businessType.toLowerCase() === category.toLowerCase()
 }
 
+export function getCustomerBusinessPath(businessId?: string | null): string {
+  return businessId ? `/customer/business/${businessId}` : '/customer'
+}
+
 export function findBusinessForCampaign(
   businesses: { id: string; name: string; campaigns: { id: string }[] }[] | undefined,
   campaignId: string,

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
 import { useInstantWinPlay } from '@/hooks/useInstantWinPlay'
+import { getCustomerBusinessPath } from '@/lib/customer-ui'
 import { pickDiceFace } from '@/lib/instant-win-ui'
 
 type State = 'idle' | 'rolling' | 'result'
@@ -35,6 +36,7 @@ function DiceFaceSVG({ value }: { value: number }) {
 export function CustomerDicePage() {
   const navigate = useNavigate()
   const {
+    businessId,
     businessName,
     campaign,
     playState,
@@ -46,6 +48,14 @@ export function CustomerDicePage() {
     startPlay,
     resetPlay,
   } = useInstantWinPlay()
+
+  const goToCafe = () => navigate(getCustomerBusinessPath(businessId), { replace: true })
+
+  const tryAgain = () => {
+    resetPlay()
+    setState('idle')
+    setDisplayValue(1)
+  }
 
   const [state, setState] = useState<State>('idle')
   const [displayValue, setDisplayValue] = useState(1)
@@ -95,7 +105,7 @@ export function CustomerDicePage() {
         emoji={playResult.reward.icon || '🎲'}
         code={playResult.code ?? undefined}
         businessName={businessName}
-        onClose={() => navigate(-1)}
+        onBackToCafe={goToCafe}
       />
     )
   }
@@ -103,7 +113,8 @@ export function CustomerDicePage() {
   if (state === 'result' && playResult && !playResult.won) {
     return (
       <NoWin
-        onClose={() => navigate(-1)}
+        onTryAgain={tryAgain}
+        onBackToCafe={goToCafe}
         playsLeft={playResult.playsRemaining}
         attempts={{ used: playResult.playsUsedToday, total: playResult.playsPerDay }}
       />

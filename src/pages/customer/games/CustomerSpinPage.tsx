@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
 import { useInstantWinPlay } from '@/hooks/useInstantWinPlay'
+import { getCustomerBusinessPath } from '@/lib/customer-ui'
 import { buildSpinSegmentsFromRewards, pickSpinLandingIndex } from '@/lib/instant-win-ui'
 import type { SpinSegment } from '@/lib/types'
 
@@ -12,6 +13,7 @@ type State = 'idle' | 'spinning' | 'result'
 export function CustomerSpinPage() {
   const navigate = useNavigate()
   const {
+    businessId,
     businessName,
     campaign,
     playState,
@@ -23,6 +25,15 @@ export function CustomerSpinPage() {
     startPlay,
     resetPlay,
   } = useInstantWinPlay()
+
+  const goToCafe = () => navigate(getCustomerBusinessPath(businessId), { replace: true })
+
+  const tryAgain = () => {
+    resetPlay()
+    setState('idle')
+    setRotation(0)
+    setLandedIdx(null)
+  }
 
   const segments = useMemo((): SpinSegment[] => {
     if (campaign?.rewards?.length) return buildSpinSegmentsFromRewards(campaign.rewards)
@@ -80,7 +91,7 @@ export function CustomerSpinPage() {
         emoji={playResult.reward.icon || '🎡'}
         code={playResult.code ?? undefined}
         businessName={businessName}
-        onClose={() => navigate(-1)}
+        onBackToCafe={goToCafe}
       />
     )
   }
@@ -88,7 +99,8 @@ export function CustomerSpinPage() {
   if (state === 'result' && playResult && !playResult.won) {
     return (
       <NoWin
-        onClose={() => navigate(-1)}
+        onTryAgain={tryAgain}
+        onBackToCafe={goToCafe}
         playsLeft={playResult.playsRemaining}
         attempts={{ used: playResult.playsUsedToday, total: playResult.playsPerDay }}
       />
