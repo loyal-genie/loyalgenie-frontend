@@ -56,23 +56,23 @@ export function BusinessDetailHero({ biz, onBack, className }: BusinessDetailHer
             <img
               src={heroPhoto}
               alt=""
-              className="absolute top-0 left-[-2%] h-[89%] w-[105%] max-w-none object-cover"
+              className="absolute top-0 left-[-2%] h-[89%] w-[105%] max-w-none object-cover pointer-events-none"
             />
-            <div className="absolute inset-[127px_0_0_0] bg-gradient-to-b from-black/[0.12] via-[rgba(146,64,14,0.5)] via-[67%] to-[rgba(120,53,15,0.78)] rounded-[10px]" />
+            <div className="absolute inset-[127px_0_0_0] bg-gradient-to-b from-black/[0.12] via-[rgba(146,64,14,0.5)] via-[67%] to-[rgba(120,53,15,0.78)] rounded-[10px] pointer-events-none" />
           </>
         ) : (
           <BusinessCoverHero
             coverBannerData={undefined}
             brandColor={biz.brandColor}
             fallbackEmoji="🏪"
-            className="h-full w-full"
+            className="h-full w-full pointer-events-none"
           />
         )}
 
         <button
           type="button"
           onClick={onBack}
-          className="absolute top-12 left-4 z-10 size-9 rounded-full bg-black/30 backdrop-blur-[6px] flex items-center justify-center border-0 cursor-pointer"
+          className="absolute top-12 left-4 z-30 size-9 rounded-full bg-black/30 backdrop-blur-[6px] flex items-center justify-center border-0 cursor-pointer pointer-events-auto"
           aria-label="Go back"
         >
           <ArrowLeft className="size-4 text-white" />

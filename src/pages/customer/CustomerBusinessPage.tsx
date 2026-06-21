@@ -161,7 +161,7 @@ export function CustomerBusinessPage() {
 
   return (
     <div className="min-h-dvh bg-white pb-[calc(5rem+env(safe-area-inset-bottom))]">
-      <BusinessDetailHero biz={biz} onBack={() => navigate(-1)} />
+      <BusinessDetailHero biz={biz} onBack={() => navigate('/customer')} />
 
       <div className="px-5">
         <LoyaltyCampaignSectionHeader count={biz.campaigns.length}>
