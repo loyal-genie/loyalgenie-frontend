@@ -1,178 +1,170 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Bell, Search, Loader2, Store, Sparkles, Gift } from 'lucide-react'
+import { Bell, Loader2, Search } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
-import { BusinessCoverHero } from '@/components/customer/BusinessCoverHero'
-import { MECHANIC_META } from '@/lib/utils'
+import { BusinessListingCard } from '@/components/customer/BusinessListingCard'
+import { CategoryFilter } from '@/components/customer/CategoryFilter'
+import { PromoHeroBanner } from '@/components/customer/PromoHeroBanner'
+import { categoryMatches, type CustomerCategory } from '@/lib/customer-ui'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
-import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
-import type { BusinessWithCampaigns } from '@/lib/api'
+import { useBusinessesWithCampaigns, useCustomerRewards } from '@/hooks/useCustomerData'
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  Cafe: '☕', Restaurant: '🍝', Salon: '✂️', Gym: '🏋️', Jewellery: '💎',
-}
+const REWARD_ICONS = [
+  { emoji: '🧾', label: 'Stamps', mechanic: 'stamp' },
+  { emoji: '🤳', label: 'Shake', mechanic: 'shake' },
+  { emoji: '📍', label: 'Check-in', mechanic: 'check-in-loyalty' },
+]
 
-function BusinessCard({ biz, index }: { biz: BusinessWithCampaigns; index: number }) {
-  const emoji = CATEGORY_EMOJI[biz.businessType] ?? '🏪'
-  const shakeCampaigns = biz.campaigns.filter(c => c.mechanic === 'shake')
-  const stampCampaigns = biz.campaigns.filter(c => c.mechanic === 'stamp')
-  const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
-  const badgeCampaigns = [...loyaltyCampaigns, ...stampCampaigns, ...shakeCampaigns].slice(0, 2)
-  const topWinRate = Math.max(...shakeCampaigns.map(c => c.winRatePercent), 0)
-  const hasStamp = stampCampaigns.length > 0
-  const hasLoyalty = loyaltyCampaigns.length > 0
+export function CustomerPage() {
+  const navigate = useNavigate()
+  const { firstName } = useCustomerSession()
+  const { data: businesses, isLoading } = useBusinessesWithCampaigns()
+  const { data: rewards = [] } = useCustomerRewards()
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<CustomerCategory>('All')
+
+  const activeCount = rewards.filter(r => r.status === 'earned' || r.status === 'pending').length
+  const redeemedCount = rewards.filter(r => r.status === 'redeemed').length
+
+  const rewardCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const r of rewards) {
+      counts[r.mechanic] = (counts[r.mechanic] ?? 0) + 1
+    }
+    return counts
+  }, [rewards])
+
+  const filtered = useMemo(() => {
+    return (businesses ?? []).filter(b => {
+      const matchSearch =
+        b.name.toLowerCase().includes(search.toLowerCase()) ||
+        b.city.toLowerCase().includes(search.toLowerCase()) ||
+        b.tagline?.toLowerCase().includes(search.toLowerCase())
+      return matchSearch && categoryMatches(b.businessType, category)
+    })
+  }, [businesses, search, category])
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 22, delay: index * 0.06 }}
-    >
-      <Link to={`/customer/business/${biz.id}`} className="no-underline block group">
-        <div className="relative bg-white rounded-3xl overflow-hidden border border-white/80 shadow-[0_8px_30px_rgba(76,29,149,0.08)] hover:shadow-[0_16px_40px_rgba(76,29,149,0.14)] transition-all duration-300 active:scale-[0.98]">
-          <BusinessCoverHero
-            coverBannerData={biz.coverBannerData}
-            brandColor={biz.brandColor}
-            fallbackEmoji={emoji}
-            className="h-[170px] lg:h-[190px] flex items-end p-4"
-            emojiClassName="text-7xl opacity-25 group-hover:scale-110 transition-transform duration-500"
+    <div className="min-h-dvh bg-gray-50 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+      <div
+        className="relative px-5 pt-14 pb-5 overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #43036d 0%, #5b0e81 50%, #43036d 100%)' }}
+      >
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)',
+            backgroundSize: '24px 24px',
+          }}
+        />
+
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative flex items-center justify-between mb-5"
+        >
+          <div>
+            <p className="text-purple-200 text-xs font-medium tracking-wide">Welcome back</p>
+            <h1 className="text-white text-xl font-extrabold mt-0.5 flex items-center gap-2">
+              Hello, {firstName}
+              <span aria-hidden>👋</span>
+            </h1>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/customer/profile/settings')}
+            className="relative w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm border-0 cursor-pointer"
+            aria-label="Notifications"
           >
-            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/30 to-transparent" />
-            <div className="flex flex-wrap gap-1.5 z-10">
-              {badgeCampaigns.map(c => {
-                const meta = MECHANIC_META[c.mechanic as keyof typeof MECHANIC_META] ?? MECHANIC_META.shake
+            <Bell className="w-5 h-5 text-white" />
+          </button>
+        </motion.div>
+
+        <Link to="/customer/wallet" className="block no-underline">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            whileTap={{ scale: 0.98 }}
+            className="relative rounded-2xl p-4 overflow-hidden"
+            style={{
+              background: 'rgba(255,255,255,0.10)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.12)',
+            }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-purple-200 text-xs font-semibold uppercase tracking-wide">Your Wallet</p>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-white font-bold">
+                  {activeCount} <span className="text-purple-200 font-normal">active</span>
+                </span>
+                <span className="text-purple-300">·</span>
+                <span className="text-white font-bold">
+                  {redeemedCount} <span className="text-purple-200 font-normal">redeemed</span>
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-5 overflow-x-auto">
+              {REWARD_ICONS.map((r, i) => {
+                const count = rewardCounts[r.mechanic] ?? 0
                 return (
-                  <span
-                    key={c.id}
-                    className="text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm"
-                    style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}
+                  <motion.div
+                    key={r.label}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.14 + i * 0.06 }}
+                    className="flex flex-col items-center gap-0.5 shrink-0"
                   >
-                    {meta.label}
-                  </span>
+                    <motion.span
+                      className="text-[22px] leading-none"
+                      animate={count > 0 ? { scale: [1, 1.2, 1] } : {}}
+                      transition={{ duration: 0.4, delay: 0.3 + i * 0.07 }}
+                    >
+                      {r.emoji}
+                    </motion.span>
+                    <span className="text-sm font-extrabold text-white leading-none mt-1">{count}</span>
+                    <span className="text-[9px] text-purple-200/80 leading-none">{r.label}</span>
+                  </motion.div>
                 )
               })}
             </div>
-          </BusinessCoverHero>
-          <div className="p-4 lg:p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="text-base font-extrabold text-gray-900 truncate">{biz.name}</h3>
-                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{biz.tagline || biz.businessType}</p>
-              </div>
-              {topWinRate > 0 ? (
-                <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
-                  Up to {topWinRate}% win
-                </span>
-              ) : hasLoyalty ? (
-                <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
-                  Check-in loyalty
-                </span>
-              ) : hasStamp ? (
-                <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
-                  Stamp card
-                </span>
-              ) : null}
-            </div>
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-              <span className="text-xs text-gray-400">{biz.city} · {biz.campaigns.length} live</span>
-              <span className="text-xs font-bold text-purple-600 group-hover:text-purple-800 transition-colors">
-                Play now →
-              </span>
-            </div>
-          </div>
-        </div>
-      </Link>
-    </motion.div>
-  )
-}
-
-export function CustomerPage() {
-  const { firstName } = useCustomerSession()
-  const { data: businesses, isLoading } = useBusinessesWithCampaigns()
-  const [search, setSearch] = useState('')
-
-  const filtered = (businesses ?? []).filter(b =>
-    b.name.toLowerCase().includes(search.toLowerCase()) ||
-    b.city.toLowerCase().includes(search.toLowerCase()),
-  )
-
-  return (
-    <div className="min-h-dvh bg-[#f8f6ff] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
-      <div className="relative overflow-hidden">
-        <div
-          className="px-5 lg:px-8 pt-12 pb-8 relative z-10"
-          style={{ background: 'linear-gradient(145deg, #4C1D95 0%, #6D28D9 45%, #5B21B6 100%)' }}
-        >
-          <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-300/15 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
-
-          <div className="max-w-4xl mx-auto relative">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <p className="text-purple-200 text-xs font-medium flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" /> Welcome back
-                </p>
-                <h1 className="text-white text-2xl lg:text-3xl font-extrabold mt-1">{firstName} 👋</h1>
-                <p className="text-purple-200/80 text-sm mt-1">Shake, win rewards & save at your favourite spots</p>
-              </div>
-              <button className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/15 cursor-pointer hover:bg-white/15 transition-colors">
-                <Bell className="w-5 h-5 text-white" />
-              </button>
-            </div>
-
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search cafes, restaurants…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm border-0 shadow-lg shadow-purple-900/20 focus:outline-none focus:ring-2 focus:ring-purple-300/50 bg-white"
-              />
-            </div>
-          </div>
-        </div>
+          </motion.div>
+        </Link>
       </div>
 
-      <div className="px-5 lg:px-8 -mt-4 relative z-20 max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-4 shadow-sm border border-purple-100/80 mb-6 flex items-center gap-3"
-        >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
-            <Gift className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-gray-900">How to play</p>
-            <p className="text-xs text-gray-500">Pick a vendor → check in or enter staff PIN to play!</p>
-          </div>
-        </motion.div>
+      <div className="bg-white rounded-t-3xl -mt-3 px-5 pt-5 min-h-[50vh]">
+        <PromoHeroBanner businesses={businesses} className="mb-4" />
 
-        <h2 className="text-base font-extrabold text-gray-900 mb-4 flex items-center gap-2">
-          <Store className="w-4 h-4 text-purple-600" />
-          Vendors with live games
-        </h2>
+        <div className="relative mb-4">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#6b6461]" />
+          <input
+            type="text"
+            placeholder="Search cafes, salons, gyms…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 rounded-2xl text-base border border-[#e5e0dc] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#5b0e81]/20 bg-white text-[#2b2827] placeholder:text-[#6b6461]"
+          />
+        </div>
 
-        {isLoading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16 px-6 bg-white rounded-3xl border border-gray-100">
-            <p className="text-5xl mb-4">🏪</p>
-            <p className="font-bold text-gray-700">No vendors with active campaigns</p>
-            <p className="text-xs text-gray-400 mt-2">New shake & win games appear here when vendors launch them</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {filtered.map((biz, i) => (
-              <BusinessCard key={biz.id} biz={biz} index={i} />
-            ))}
-          </div>
-        )}
+        <CategoryFilter value={category} onChange={setCategory} className="mb-4" />
+
+        <div className="flex flex-col gap-4 pb-4">
+          {isLoading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="size-8 text-[#5b0e81] animate-spin" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-16 px-6 bg-white rounded-3xl border border-[#e5e0dc]">
+              <p className="text-5xl mb-4">🏪</p>
+              <p className="font-bold text-[#2b2827]">No vendors found</p>
+              <p className="text-xs text-[#6b6461] mt-2">Try a different category or search term</p>
+            </div>
+          ) : (
+            filtered.map(biz => <BusinessListingCard key={biz.id} biz={biz} />)
+          )}
+        </div>
       </div>
 
       <BottomNav />

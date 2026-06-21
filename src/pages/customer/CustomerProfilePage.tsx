@@ -1,27 +1,50 @@
-import { useNavigate, Link } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { LogOut, Gift, ChevronRight } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import {
+  ChevronRight,
+  HelpCircle,
+  Info,
+  LogOut,
+  Settings,
+  Shield,
+  Trash2,
+} from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
-import { Button } from '@/components/ui/button'
-import { formatDate, formatRelativeTime } from '@/lib/utils'
 import { clearSession } from '@/lib/auth'
+import { getCampaignGradient, walletTimeAgo } from '@/lib/customer-ui'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
-import { fetchCustomerRewards } from '@/lib/api'
+import { useCustomerLoyaltyProfiles, useCustomerRewards } from '@/hooks/useCustomerData'
+
+const menuItems = [
+  { label: 'Settings', icon: Settings, action: 'settings' as const },
+  { label: 'Help', icon: HelpCircle, action: 'help' as const },
+  { label: 'Privacy Policy', icon: Shield, action: 'privacy' as const },
+  { label: 'Terms and Conditions', icon: Info, action: 'terms' as const },
+  { label: 'Delete Account', icon: Trash2, danger: true, action: 'delete' as const },
+]
 
 export function CustomerProfilePage() {
   const navigate = useNavigate()
-  const { customer, displayName, displayPhone, displayEmail } = useCustomerSession()
+  const { displayName, displayPhone, displayEmail } = useCustomerSession()
+  const { data: rewards = [] } = useCustomerRewards()
+  const { data: loyaltyProfiles = [] } = useCustomerLoyaltyProfiles()
 
-  const { data: rewards = [] } = useQuery({
-    queryKey: ['customer-rewards'],
-    queryFn: fetchCustomerRewards,
-  })
+  const totalVisits = loyaltyProfiles.reduce((sum, p) => sum + p.totalCheckIns, 0)
+  const gamesPlayed = rewards.length
+  const rewardsEarned = rewards.filter(r => r.status !== 'redeemed').length + rewards.filter(r => r.status === 'redeemed').length
 
-  const earnedRewards = rewards.filter(r => r.status === 'earned')
-  const queuedRewards = rewards.filter(r => r.status === 'pending')
-  const redeemableRewards = [...queuedRewards, ...earnedRewards]
-  const redeemedRewards = rewards.filter(r => r.status === 'redeemed')
+  const recentActivity = useMemo(
+    () =>
+      [...rewards]
+        .sort((a, b) => new Date(b.earnedAt).getTime() - new Date(a.earnedAt).getTime())
+        .slice(0, 5),
+    [rewards],
+  )
+
+  function handleMenuAction(action: string) {
+    navigate(`/customer/profile/${action}`)
+  }
 
   function handleSignOut() {
     clearSession('customer')
@@ -29,27 +52,27 @@ export function CustomerProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="pt-12 px-5 pb-6">
+    <div className="min-h-dvh bg-gray-50 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+      <div className="pt-14 px-5 pb-6">
         <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
-          <div className="w-20 h-20 rounded-3xl bg-purple-100 border-2 border-purple-200 flex items-center justify-center text-4xl font-extrabold text-purple-700 mx-auto mb-4">
-            {displayName[0]}
+          <div className="w-20 h-20 rounded-3xl bg-purple-100 border-2 border-purple-200 flex items-center justify-center text-4xl font-extrabold text-[#5b0e81] mx-auto mb-4">
+            {displayName[0]?.toUpperCase()}
           </div>
           <h1 className="text-xl font-extrabold text-gray-900">{displayName}</h1>
           <p className="text-sm text-gray-500 mt-1">{displayPhone}</p>
-          <p className="text-xs text-gray-400 mt-0.5">Member since {formatDate(customer.joinedAt)}</p>
+          {displayEmail && <p className="text-xs text-gray-400 mt-0.5">{displayEmail}</p>}
         </motion.div>
 
-        {/* Reward stats */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-2 gap-2 mb-6"
+          className="grid grid-cols-3 gap-2 mb-6"
         >
           {[
-            { label: 'Total Rewards', value: rewards.length || customer.rewardsEarned, icon: '🎁' },
-            { label: 'Redeemed', value: redeemedRewards.length, icon: '✅' },
+            { label: 'Visits', value: totalVisits, icon: '📅' },
+            { label: 'Games', value: gamesPlayed, icon: '🎮' },
+            { label: 'Rewards', value: rewardsEarned, icon: '🎁' },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl p-3 text-center border border-gray-100 shadow-sm">
               <div className="text-2xl mb-1">{s.icon}</div>
@@ -59,109 +82,81 @@ export function CustomerProfilePage() {
           ))}
         </motion.div>
 
-        {/* Redeemable rewards */}
-        {redeemableRewards.length > 0 && (
+        {recentActivity.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.14 }}
-            className="mb-5"
+            transition={{ delay: 0.2 }}
+            className="mb-6"
           >
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Gift className="w-3.5 h-3.5 text-amber-500" /> Your Rewards
-              </h2>
-              <Link to="/customer/wallet" className="text-[10px] font-semibold text-purple-600 flex items-center gap-0.5">
-                Wallet <ChevronRight className="w-3 h-3" />
-              </Link>
-            </div>
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Recent Activity</h2>
             <div className="space-y-2">
-              {redeemableRewards.slice(0, 3).map(r => (
-                <div key={r.id} className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-3 flex items-center gap-3 border border-amber-200">
-                  <span className="text-2xl">{r.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-gray-900 truncate">{r.reward}</p>
-                    <p className="text-[10px] text-gray-500">{r.campaignName}</p>
-                  </div>
-                  <span className={`text-[9px] font-bold px-2 py-1 rounded-lg shrink-0 ${
-                    r.status === 'pending'
-                      ? 'text-amber-700 bg-white'
-                      : 'text-purple-700 bg-white'
-                  }`}>
-                    {r.status === 'pending' ? 'At counter' : 'Tap to redeem'}
-                  </span>
-                </div>
-              ))}
+              {recentActivity.map((r, i) => {
+                const meta = getCampaignGradient(r.mechanic)
+                return (
+                  <motion.div
+                    key={r.id}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.06 + 0.2 }}
+                    className="bg-white rounded-xl p-3 flex items-center gap-3 border border-gray-100 shadow-sm"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-lg shrink-0">
+                      {r.icon || meta.emoji}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-900 truncate">{r.campaignName}</p>
+                      <p className="text-[10px] text-gray-400">{walletTimeAgo(r.earnedAt)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] font-bold text-amber-600 capitalize">{r.status}</p>
+                      <p className="text-[9px] text-gray-400 truncate max-w-[80px]">{r.reward}</p>
+                    </div>
+                  </motion.div>
+                )
+              })}
             </div>
-            <p className="text-[10px] text-gray-400 mt-2 text-center">Tap Redeem in Wallet when you&apos;re ready — redeem anytime</p>
           </motion.div>
         )}
 
-        {/* Recent activity - from rewards */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Recent Rewards</h2>
-          <div className="space-y-2">
-            {rewards.length > 0 ? rewards.slice(0, 5).map((r, i) => (
-              <motion.div
-                key={r.id}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.06 + 0.2 }}
-                className="bg-white rounded-xl p-3 flex items-center gap-3 border border-gray-100 shadow-sm"
-              >
-                <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-lg shrink-0">
-                  {r.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-gray-900 truncate">{r.reward}</p>
-                  <p className="text-[10px] text-gray-400">{formatRelativeTime(r.earnedAt)}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className={`text-[10px] font-bold ${
-                    r.status === 'redeemed' ? 'text-green-600'
-                    : r.status === 'pending' ? 'text-amber-600'
-                    : 'text-purple-600'
-                  }`}>
-                    {r.status === 'redeemed' ? 'Redeemed' : r.status === 'pending' ? 'At counter' : 'In wallet'}
-                  </p>
-                </div>
-              </motion.div>
-            )) : customer.gameHistory.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-4">No activity yet</p>
-            ) : null}
-          </div>
-        </motion.div>
-
-        {/* Profile info */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-5 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm"
-        >
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Profile</h2>
-          {[
-            { label: 'Email', value: displayEmail },
-            { label: 'Date of Birth', value: formatDate(customer.dob) },
-            { label: 'Last Visit', value: formatRelativeTime(customer.lastVisit) },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-              <span className="text-xs text-gray-400">{item.label}</span>
-              <span className="text-xs text-gray-800 font-medium">{item.value}</span>
-            </div>
+        <div className="space-y-3">
+          {menuItems.map(({ label, icon: Icon, danger, action }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => handleMenuAction(action)}
+              className="w-full flex items-center gap-4 bg-white rounded-3xl px-5 py-4 border border-[#f3f4f6] shadow-sm cursor-pointer text-left"
+            >
+              <span className="size-[42px] rounded-xl bg-[#f9fafb] flex items-center justify-center shrink-0">
+                <Icon className={cnIcon(danger)} />
+              </span>
+              <span className={cnLabel(danger)}>{label}</span>
+              <ChevronRight className="size-4 text-[#d1d5db] ml-auto" />
+            </button>
           ))}
-        </motion.div>
 
-        <Button variant="danger" className="w-full mt-6" onClick={handleSignOut}>
-          <LogOut className="w-4 h-4" /> Sign out
-        </Button>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center gap-2 mt-4 py-3.5 rounded-2xl bg-[#fef2f2] text-[#dc2626] font-semibold text-sm border border-[#fecaca] cursor-pointer"
+          >
+            <LogOut className="size-4" />
+            Sign out
+          </button>
+        </div>
       </div>
 
       <BottomNav />
     </div>
   )
+}
+
+function cnIcon(danger?: boolean) {
+  return danger ? 'size-5 text-[#dc2626]' : 'size-5 text-[#5b0e81]'
+}
+
+function cnLabel(danger?: boolean) {
+  return danger
+    ? 'text-sm font-medium text-[#dc2626]'
+    : 'text-sm font-medium text-[#2b2827]'
 }

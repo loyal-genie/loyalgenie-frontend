@@ -36,7 +36,7 @@ import {
 type Phase = 'idle' | 'shaking' | 'suspending' | 'revealing' | 'result'
 type MotionHint = 'needed' | 'ready' | 'live'
 
-const GAME_BG = 'linear-gradient(165deg, #1A0545 0%, #2D1B69 38%, #0D0B1E 100%)'
+const GAME_BG = 'linear-gradient(165deg, #43036d 0%, #2d110e 38%, #1c0038 100%)'
 
 export function CustomerShakePage() {
   const navigate = useNavigate()
@@ -391,8 +391,8 @@ export function CustomerShakePage() {
 
   if (campaignLoading || stateLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center customer-game-bg">
-        <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
+      <div className="min-h-dvh flex items-center justify-center bg-[#1c0038]">
+        <Loader2 className="w-10 h-10 text-[#d4a8ff] animate-spin" />
       </div>
     )
   }

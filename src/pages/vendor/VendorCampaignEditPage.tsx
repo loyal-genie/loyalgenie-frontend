@@ -36,6 +36,7 @@ import {
 } from '@/lib/campaign-duration'
 import { effectiveCampaignStatus, singleDayDurationLabel, todayInCampaignTz } from '@/lib/campaign-dates'
 import { getApiErrorMessage, type CampaignDto } from '@/lib/api'
+import { MechanicComingSoonBanner } from '@/components/vendor/MechanicComingSoonBanner'
 import type { CampaignStatus } from '@/lib/types'
 
 const UNLIMITED_USER_CAP = 1_000_000
@@ -478,6 +479,7 @@ export function VendorCampaignEditPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+      <MechanicComingSoonBanner mechanic={mechanic} />
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <Link to={`/vendor/campaigns/${id}`} className="inline-flex items-center gap-1.5 text-sm text-v-text-2 hover:text-v-text mb-4 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to campaign

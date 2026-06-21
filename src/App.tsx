@@ -22,14 +22,13 @@ import { CustomerPage } from '@/pages/customer/CustomerPage'
 import { CustomerDiscoverPage } from '@/pages/customer/CustomerDiscoverPage'
 import { CustomerWalletPage } from '@/pages/customer/CustomerWalletPage'
 import { CustomerProfilePage } from '@/pages/customer/CustomerProfilePage'
+import { CustomerProfileInfoPage } from '@/pages/customer/profile/CustomerProfileInfoPage'
 import { CustomerCheckInPage } from '@/pages/customer/CustomerCheckInPage'
 import { CustomerBusinessPage } from '@/pages/customer/CustomerBusinessPage'
 import { CustomerCampaignPage } from '@/pages/customer/CustomerCampaignPage'
 import { CustomerShakePage } from '@/pages/customer/games/CustomerShakePage'
-import { CustomerSpinPage } from '@/pages/customer/games/CustomerSpinPage'
 import { CustomerStampPage } from '@/pages/customer/games/CustomerStampPage'
-import { CustomerDicePage } from '@/pages/customer/games/CustomerDicePage'
-import { CustomerLotteryPage } from '@/pages/customer/games/CustomerLotteryPage'
+import { CustomerMechanicComingSoonPage } from '@/pages/customer/games/CustomerMechanicComingSoonPage'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
 export function App() {
@@ -87,14 +86,16 @@ export function App() {
           <Route path="discover" element={<CustomerDiscoverPage />} />
           <Route path="wallet" element={<CustomerWalletPage />} />
           <Route path="profile" element={<CustomerProfilePage />} />
+          <Route path="profile/:section" element={<CustomerProfileInfoPage />} />
           <Route path="check-in" element={<CustomerCheckInPage />} />
           <Route path="business/:id" element={<CustomerBusinessPage />} />
           <Route path="campaigns/:id" element={<CustomerCampaignPage />} />
           <Route path="games/shake" element={<CustomerShakePage />} />
-          <Route path="games/spin" element={<CustomerSpinPage />} />
           <Route path="games/stamp" element={<CustomerStampPage />} />
-          <Route path="games/dice" element={<CustomerDicePage />} />
-          <Route path="games/lottery" element={<CustomerLotteryPage />} />
+          <Route path="games/coming-soon" element={<CustomerMechanicComingSoonPage />} />
+          <Route path="games/spin" element={<Navigate to="/customer/games/coming-soon?mechanic=spin" replace />} />
+          <Route path="games/dice" element={<Navigate to="/customer/games/coming-soon?mechanic=dice" replace />} />
+          <Route path="games/lottery" element={<Navigate to="/customer/games/coming-soon?mechanic=lottery" replace />} />
         </Route>
 
         <Route path="/:slug" element={<SlugPage />} />

@@ -44,7 +44,7 @@ export function StampCollectedSplash({
   return (
     <motion.div
       className="fixed inset-0 z-40 flex flex-col items-center justify-center px-6"
-      style={{ background: 'linear-gradient(145deg, #1A0545 0%, #2D1B69 45%, #0D0B1E 100%)' }}
+      style={{ background: 'linear-gradient(165deg, #43036d 0%, #2d110e 38%, #1c0038 100%)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

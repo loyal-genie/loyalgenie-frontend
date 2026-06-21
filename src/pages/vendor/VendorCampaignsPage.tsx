@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, ProgressBar } from '@/components/ui/card'
 import { MechanicBadge, StatusBadge } from '@/components/ui/badge'
+import { MechanicComingSoonBadge } from '@/components/vendor/MechanicComingSoonBanner'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, getMechanicColor, formatDate, capPercent } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/api'
@@ -140,6 +141,7 @@ function ListCard({ c }: { c: CampaignDto }) {
                   </Link>
                   <StatusBadge status={status} />
                   <MechanicBadge mechanic={c.mechanic as 'shake'} />
+                  <MechanicComingSoonBadge mechanic={c.mechanic} />
                   {urgent && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-v-danger border border-red-200">
                       ⚠ {daysLeftLabel(c.endDate)}
@@ -236,8 +238,9 @@ function GridCard({ c }: { c: CampaignDto }) {
             <Link to={`/vendor/campaigns/${c.id}`} className="text-sm font-bold text-v-text hover:text-v-purple transition-colors leading-snug block">
               {c.name}
             </Link>
-            <div className="mt-1">
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <MechanicBadge mechanic={c.mechanic} />
+              <MechanicComingSoonBadge mechanic={c.mechanic} />
             </div>
           </div>
 

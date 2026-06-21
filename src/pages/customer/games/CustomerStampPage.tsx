@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Loader2, Clock, AlertTriangle } from 'lucide-react'
 import { WinCelebration } from '@/components/customer/win-celebration'
 import { StampCollectedSplash } from '@/components/customer/stamp-collected-splash'
+import { StampGameGrid } from '@/components/customer/StampGameGrid'
 import {
   executeStamp,
   fetchPublicCampaign,
@@ -31,94 +32,6 @@ interface PendingReward {
   emoji: string
   code?: string
   trigger: 'surprise' | 'big'
-}
-
-function StampGrid({
-  total,
-  stamps,
-  prefill,
-  surpriseFrom,
-  surpriseTo,
-  bigFrom,
-  bigTo,
-  surpriseTriggerAt,
-  bigTriggerAt,
-  surpriseAwarded,
-  bigAwarded,
-  highlightStamp,
-}: {
-  total: number
-  stamps: number
-  prefill: number
-  surpriseFrom: number
-  surpriseTo: number
-  bigFrom: number
-  bigTo: number
-  surpriseTriggerAt: number | null
-  bigTriggerAt: number | null
-  surpriseAwarded: boolean
-  bigAwarded: boolean
-  highlightStamp?: number | null
-}) {
-  function slotIcon(n: number, isFilled: boolean): string {
-    if (!isFilled) {
-      const inSurpriseRange = n >= surpriseFrom && n <= surpriseTo
-      const inBigRange = n >= bigFrom && n <= bigTo
-      return inSurpriseRange ? '?' : inBigRange ? '🏆' : String(n)
-    }
-    if (surpriseTriggerAt === n && surpriseAwarded) return '🎁'
-    if (bigTriggerAt === n && bigAwarded) return '🏆'
-    return '✓'
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2 justify-center mb-4">
-      {Array.from({ length: total }, (_, i) => {
-        const n = i + 1
-        const isFilled = n <= stamps
-        const isPrefilled = n <= prefill
-        const isEndowedPrefill = isPrefilled && !isFilled
-        const isSurpriseRange = n >= surpriseFrom && n <= surpriseTo
-        const isBigRange = n >= bigFrom && n <= bigTo
-        const isSurpriseTrigger = surpriseTriggerAt === n
-        const isBigTrigger = bigTriggerAt === n
-        const isHighlighted = highlightStamp === n
-        const showSurpriseStyle = isSurpriseRange && (!isFilled || isSurpriseTrigger)
-        const showBigStyle = isBigRange && (!isFilled || isBigTrigger)
-
-        return (
-          <motion.div
-            key={n}
-            animate={isHighlighted ? { scale: [1, 1.2, 1], boxShadow: ['0 0 0 rgba(245,197,24,0)', '0 0 24px rgba(245,197,24,0.8)', '0 0 0 rgba(245,197,24,0)'] } : {}}
-            transition={{ duration: 0.8, repeat: isHighlighted ? 2 : 0 }}
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg border-2 ${
-              showBigStyle
-                ? isFilled ? 'border-yellow-300/80 bg-yellow-300/20' : 'border-yellow-300/80 bg-black/20'
-                : showSurpriseStyle
-                  ? isFilled ? 'border-white/60 bg-white/20' : 'border-white/60 border-dashed bg-black/10'
-                  : isEndowedPrefill
-                    ? 'border-purple-300/80 bg-purple-400/25'
-                    : isPrefilled && isFilled
-                      ? 'border-purple-300 bg-purple-400/30'
-                      : isFilled
-                        ? 'border-white/60 bg-white/30'
-                        : 'border-white/20 bg-black/20'
-            }`}
-          >
-            {isFilled ? (
-              <span>{slotIcon(n, true)}</span>
-            ) : isEndowedPrefill ? (
-              <span className="text-purple-200 text-sm">✓</span>
-            ) : (
-              <span className={`text-sm font-bold ${isFilled ? '' : 'text-white/30'}`}>
-                {slotIcon(n, false)}
-              </span>
-            )}
-          </motion.div>
-        )
-      })}
-    </div>
-  )
 }
 
 export function CustomerStampPage() {
@@ -292,7 +205,7 @@ export function CustomerStampPage() {
 
   if (campaignLoading || stateLoading || !stampState || !campaign) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(145deg, #1A0545 0%, #2D1B69 45%, #0D0B1E 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(145deg, #f5f0ff 0%, #ffffff 45%, #fef7f3 100%)' }}>
         <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
       </div>
     )
@@ -355,29 +268,28 @@ export function CustomerStampPage() {
     return (
       <div
         className="min-h-screen flex flex-col items-center justify-center px-6 text-center"
-        style={{ background: 'linear-gradient(145deg, #1A0545 0%, #2D1B69 45%, #0D0B1E 100%)' }}
+        style={{ background: 'linear-gradient(145deg, #f5f0ff 0%, #ffffff 45%, #fef7f3 100%)' }}
       >
         <div className="w-20 h-20 rounded-full bg-red-500/15 border border-red-400/30 flex items-center justify-center mb-6">
           <AlertTriangle className="w-10 h-10 text-red-300" />
         </div>
-        <h1 className="text-2xl font-extrabold text-white mb-2">Stamp Card Expired</h1>
-        <p className="text-sm text-white/60 max-w-xs mb-2">
+        <h1 className="text-2xl font-extrabold text-[#2b2827] mb-2">Stamp Card Expired</h1>
+        <p className="text-sm text-[#6b6461] max-w-xs mb-2">
           The claim period has ended. This card can no longer collect stamps.
         </p>
         {stampState.claimDeadline && (
-          <p className="text-xs text-white/40 flex items-center justify-center gap-1.5 mb-8">
+          <p className="text-xs text-[#888] flex items-center justify-center gap-1.5 mb-8">
             <Clock className="w-3.5 h-3.5" />
             Claim deadline was {fmtCampaignDate(stampState.claimDeadline)}
           </p>
         )}
-        <p className="text-sm text-white/50 mb-6">
-          Final progress: <span className="font-bold text-white">{stamps}/{total}</span> stamps
+        <p className="text-sm text-[#6b6461] mb-6">
+          Final progress: <span className="font-bold text-[#5b0e81]">{stamps}/{total}</span> stamps
         </p>
         <button
           type="button"
           onClick={() => navigate('/customer')}
-          className="px-6 py-3 rounded-2xl font-bold text-sm border-0 cursor-pointer"
-          style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}
+          className="px-6 py-3 rounded-full font-bold text-sm border-0 cursor-pointer bg-[#5b0e81] text-white"
         >
           Back to campaigns
         </button>
@@ -386,135 +298,126 @@ export function CustomerStampPage() {
   }
 
   return (
-    <div
-      className="min-h-screen flex flex-col px-5 pt-12 pb-8"
-      style={{ background: 'linear-gradient(145deg, #1A0545 0%, #2D1B69 45%, #0D0B1E 100%)' }}
-    >
-      <button
-        onClick={goBack}
-        className="flex items-center gap-1.5 text-white/50 hover:text-white/70 transition-colors text-sm mb-6 self-start"
-      >
-        <ArrowLeft size={16} />
-        Back
-      </button>
+    <div className="min-h-dvh flex flex-col bg-white">
+      <div className="relative bg-[#43036d] h-56 shrink-0 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#631cbb]/40 to-transparent" />
+        <button
+          type="button"
+          onClick={goBack}
+          className="absolute top-12 left-4 size-9 rounded-full bg-black/25 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
+        >
+          <ArrowLeft size={16} className="text-[#d4a8ff]" />
+        </button>
+        <span className="absolute top-12 right-4 bg-[#fef3c7] text-[#92400e] text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wide">
+          Stamp
+        </span>
+      </div>
 
-      <div className="text-center mb-6">
-        <h1 className="text-2xl font-extrabold text-white mb-1">{campaign.name}</h1>
-        <p className="text-sm text-white/60">
+      <div className="flex-1 px-5 -mt-6 pb-8">
+        <h1 className="text-sm font-bold text-[#101828] mb-1">{campaign.name}</h1>
+        <p className="text-xs text-[#6a7282] mb-4">
           {stampState.cardComplete
             ? 'Card complete!'
             : showCollectButton && canCollect
-              ? 'Tap below to collect today\'s stamp'
+              ? "Open me. You'll like what's inside."
               : `Collect all ${total} stamps for the big reward`}
         </p>
-      </div>
 
-      <motion.div
-        className="rounded-3xl overflow-hidden mb-6 relative"
-        style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)' }}
-        animate={{ scale: [1, 1.01, 1] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-          <span className="text-8xl opacity-10">🎯</span>
-        </div>
+        <motion.div
+          className="rounded-[20px] overflow-hidden mb-6 relative bg-[#43036d] p-[18px]"
+          animate={{ scale: [1, 1.005, 1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <div className="absolute bottom-[-30px] right-[-30px] size-[120px] rounded-[60px] bg-[#631cbb]/50 pointer-events-none" />
 
-        <div className="relative p-5">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] font-bold text-white bg-black/20 px-2 py-0.5 rounded-full uppercase tracking-wide">
-              STAMP CARD
-            </span>
-            <motion.span
-              key={stamps}
-              initial={{ scale: 1.3, color: '#FDE68A' }}
-              animate={{ scale: 1, color: 'rgba(255,255,255,0.8)' }}
-              className="text-xs font-bold"
-            >
-              {stamps}/{total}
-            </motion.span>
+          <div className="relative">
+            <p className="text-[9px] text-[#c084fc] tracking-widest mb-0.5">LOYALTY CARD</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-base font-bold text-white">{campaign.name}</p>
+              <motion.span
+                key={stamps}
+                initial={{ scale: 1.2 }}
+                animate={{ scale: 1 }}
+                className="text-xs font-bold text-[#c084fc]"
+              >
+                {stamps}/{total}
+              </motion.span>
+            </div>
+
+            <StampGameGrid
+              total={total}
+              stamps={stamps}
+              prefill={prefill}
+              surpriseFrom={surpriseFrom}
+              surpriseTo={surpriseTo}
+              bigFrom={bigFrom}
+              bigTo={bigTo}
+              surpriseTriggerAt={stampState.surpriseTriggerAt}
+              bigTriggerAt={stampState.bigTriggerAt}
+              surpriseAwarded={stampState.surpriseAwarded}
+              bigAwarded={stampState.bigAwarded}
+              highlightStamp={highlightStamp}
+            />
+
+            <div className="flex flex-wrap gap-3 text-[9px] text-[#c084fc]/80">
+              {prefill > 0 && <span>● Pre-filled ({prefill})</span>}
+              <span>● Surprise slots</span>
+              <span>● Big reward</span>
+            </div>
           </div>
+        </motion.div>
 
-          <StampGrid
-            total={total}
-            stamps={stamps}
-            prefill={prefill}
-            surpriseFrom={surpriseFrom}
-            surpriseTo={surpriseTo}
-            bigFrom={bigFrom}
-            bigTo={bigTo}
-            surpriseTriggerAt={stampState.surpriseTriggerAt}
-            bigTriggerAt={stampState.bigTriggerAt}
-            surpriseAwarded={stampState.surpriseAwarded}
-            bigAwarded={stampState.bigAwarded}
-            highlightStamp={highlightStamp}
-          />
-
-          <div className="flex flex-wrap gap-3 text-[10px] text-white/70">
-            {prefill > 0 && <span>● Pre-filled ({prefill})</span>}
-            <span>● Surprise range</span>
-            <span>● Big reward range</span>
-          </div>
-        </div>
-      </motion.div>
-
-      {error && (
-        <p className="text-sm text-red-300 text-center mb-4">{error}</p>
-      )}
-
-      <AnimatePresence mode="wait">
-        {showCollectButton && canCollect ? (
-          <motion.button
-            key="collect"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              scale: phase === 'collecting' ? 1 : [1, 1.03, 1],
-            }}
-            transition={{
-              opacity: { duration: 0.3 },
-              y: { duration: 0.3 },
-              scale: phase === 'collecting' ? { duration: 0 } : { duration: 1.2, repeat: Infinity },
-            }}
-            whileTap={{ scale: 0.96 }}
-            onClick={startCollect}
-            disabled={phase === 'collecting'}
-            className="w-full py-5 rounded-2xl text-base font-bold transition-all disabled:opacity-80"
-            style={{
-              background: 'linear-gradient(135deg, #F5C518, #F59E0B)',
-              color: '#08071A',
-              boxShadow: '0 8px 32px rgba(245,197,24,0.35)',
-            }}
-          >
-            {phase === 'collecting' ? (
-              <span className="inline-flex items-center gap-2 justify-center w-full">
-                <Loader2 className="w-5 h-5 animate-spin" /> Collecting…
-              </span>
-            ) : stampState.enrolled ? (
-              'Collect Stamp ✦'
-            ) : (
-              'Collect Stamp & Start Card ✦'
-            )}
-          </motion.button>
-        ) : (
-          <motion.div
-            key="status"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="w-full py-5 rounded-2xl text-base font-bold text-center"
-            style={{
-              background: stampState.cardComplete ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.08)',
-              color: 'rgba(255,255,255,0.7)',
-            }}
-          >
-            {stampState.cardComplete
-              ? 'Card Complete! 🎉'
-              : !stampState.enrolled && !stampState.enrollmentOpen
-                ? 'Enrollment full'
-                : 'Come back tomorrow ✦'}
-          </motion.div>
+        {error && (
+          <p className="text-sm text-red-500 text-center mb-4">{error}</p>
         )}
-      </AnimatePresence>
+
+        <AnimatePresence mode="wait">
+          {showCollectButton && canCollect ? (
+            <motion.button
+              key="collect"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: phase === 'collecting' ? 1 : [1, 1.02, 1],
+              }}
+              transition={{
+                opacity: { duration: 0.3 },
+                y: { duration: 0.3 },
+                scale: phase === 'collecting' ? { duration: 0 } : { duration: 1.2, repeat: Infinity },
+              }}
+              whileTap={{ scale: 0.96 }}
+              onClick={startCollect}
+              disabled={phase === 'collecting'}
+              className="w-full py-4 rounded-3xl text-base font-bold text-white border-0 cursor-pointer disabled:opacity-80 shadow-[0px_8px_14px_rgba(245,158,11,0.33)]"
+              style={{ background: 'linear-gradient(139deg, #c46a0a 0%, #d97706 100%)' }}
+            >
+              {phase === 'collecting' ? (
+                <span className="inline-flex items-center gap-2 justify-center w-full">
+                  <Loader2 className="w-5 h-5 animate-spin" /> Collecting…
+                </span>
+              ) : stampState.enrolled ? (
+                'Collect Stamp ☕'
+              ) : (
+                'Collect Stamp & Start Card ☕'
+              )}
+            </motion.button>
+          ) : (
+            <motion.div
+              key="status"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="w-full py-4 rounded-3xl text-base font-bold text-center bg-[#f5f0ff] text-[#5b0e81]"
+            >
+              {stampState.cardComplete
+                ? 'Card Complete! 🎉'
+                : !stampState.enrolled && !stampState.enrollmentOpen
+                  ? 'Enrollment full'
+                  : 'Come back tomorrow ☕'}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

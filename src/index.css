@@ -33,6 +33,14 @@
   --color-vs-text-3: #5b5897;
 
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-nav: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --color-c-primary: #5b0e81;
+  --color-c-text: #2b2827;
+  --color-c-muted: #6b6461;
+  --color-c-border: #e5e0dc;
+  --color-c-nav: #fff5f0;
+  --color-c-nav-muted: #646464;
   --radius-xl: 1.25rem;
 }
 
@@ -169,6 +177,19 @@
   .customer-bg {
     background: linear-gradient(145deg, #1a0545 0%, #2d1b69 45%, #0d0b1e 100%);
     min-height: 100vh;
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 
   .customer-game-bg {

@@ -1,191 +1,403 @@
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Bell, Loader2, CheckCircle2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Bell, ChevronRight, Loader2 } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
-import { Button } from '@/components/ui/button'
-import { MECHANIC_META, formatDate } from '@/lib/utils'
+import { RedemptionScreen } from '@/components/customer/wallet/RedemptionScreen'
+import { WalletActiveCard } from '@/components/customer/wallet/WalletActiveCard'
+import { WalletHistoryCard } from '@/components/customer/wallet/WalletHistoryCard'
+import type { WalletCardContext } from '@/components/customer/wallet/WalletActiveCard'
+import {
+  getCampaignGradient,
+  walletDaysUntil,
+} from '@/lib/customer-ui'
+import { getApiErrorMessage } from '@/lib/api'
+import {
+  useBusinessesWithCampaigns,
+  useCustomerLoyaltyProfiles,
+  useCustomerRewards,
+  useRequestRedemption,
+} from '@/hooks/useCustomerData'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
-import { useCustomerRewards, useRequestRedemption } from '@/hooks/useCustomerData'
-import type { CustomerRewardDto } from '@/lib/api'
+import type { BusinessWithCampaigns, CustomerRewardDto } from '@/lib/api'
 
 type Tab = 'active' | 'history'
 
-function ActiveRewardCard({ reward }: { reward: CustomerRewardDto }) {
-  const meta = MECHANIC_META[reward.mechanic as keyof typeof MECHANIC_META] ?? MECHANIC_META.shake
-  const requestRedemption = useRequestRedemption()
-  const [requested, setRequested] = useState(false)
-  const isQueued = reward.status === 'pending' || requested
-
-  const handleRedeem = () => {
-    requestRedemption.mutate(reward.id, {
-      onSuccess: () => setRequested(true),
-    })
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm"
-    >
-      <div
-        className="relative h-28 flex items-end p-3"
-        style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, ${meta.cardTo})` }}
-      >
-        <span
-          className="absolute top-3 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full"
-          style={{ background: meta.badgeBg, color: meta.badgeText }}
-        >
-          {meta.label}
-        </span>
-        <div className="absolute bottom-3 right-3 text-2xl">{reward.icon || meta.emoji}</div>
-      </div>
-      <div className="p-4">
-        <p className="text-xs text-gray-400 mb-0.5">{reward.campaignName}</p>
-        <h3 className="text-sm font-bold text-gray-900 mb-1">{reward.reward}</h3>
-        <span className="font-mono text-[10px] bg-gray-100 px-2 py-0.5 rounded text-gray-600">{reward.code}</span>
-        <p className="text-[10px] text-gray-400 mt-2">Earned {formatDate(reward.earnedAt.slice(0, 10))}</p>
-
-        <div className="mt-3">
-          {isQueued ? (
-            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200">
-              <CheckCircle2 className="w-4 h-4" />
-              Show this code at the counter — staff will confirm
-            </div>
-          ) : (
-            <Button
-              variant="primary"
-              size="sm"
-              className="w-full"
-              disabled={requestRedemption.isPending}
-              onClick={handleRedeem}
-            >
-              {requestRedemption.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                'Redeem Now'
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  )
+function darkenHex(hex: string): string {
+  if (!hex.startsWith('#') || hex.length < 7) return '#43036d'
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.max(0, ((n >> 16) & 255) - 40)
+  const g = Math.max(0, ((n >> 8) & 255) - 40)
+  const b = Math.max(0, (n & 255) - 40)
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
 }
 
-function HistoryRewardCard({ reward }: { reward: CustomerRewardDto }) {
-  const meta = MECHANIC_META[reward.mechanic as keyof typeof MECHANIC_META] ?? MECHANIC_META.shake
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm opacity-75"
-    >
-      <div className="flex gap-3 p-4">
-        <div
-          className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0"
-          style={{ background: `linear-gradient(135deg, ${meta.cardFrom}, ${meta.cardTo})` }}
-        >
-          {reward.icon || meta.emoji}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-gray-900 truncate">{reward.campaignName}</p>
-          <p className="text-xs text-gray-700 mt-1 font-medium">{reward.reward}</p>
-          <span className="font-mono text-[10px] bg-gray-100 px-2 py-0.5 rounded text-gray-600 mt-1 inline-block">{reward.code}</span>
-        </div>
-      </div>
-    </motion.div>
-  )
+function buildCardContext(
+  reward: CustomerRewardDto,
+  businesses: BusinessWithCampaigns[] | undefined,
+): WalletCardContext {
+  const business = businesses?.find(b => b.campaigns.some(c => c.id === reward.campaignId))
+  const campaign = business?.campaigns.find(c => c.id === reward.campaignId)
+  const grad = getCampaignGradient(reward.mechanic)
+  const from = business?.brandColor ?? grad.from
+  return {
+    businessName: business?.name ?? 'Vendor',
+    businessEmoji: reward.icon || grad.emoji,
+    bgFrom: from,
+    bgTo: business?.brandColor ? darkenHex(business.brandColor) : grad.to,
+    expiresAt: campaign?.endDate ?? null,
+  }
 }
 
 export function CustomerWalletPage() {
-  const [tab, setTab] = useState<Tab>('active')
   const { firstName } = useCustomerSession()
-  const { data: rewards = [], isLoading } = useCustomerRewards()
+  const [tab, setTab] = useState<Tab>('active')
+  const [redeemError, setRedeemError] = useState('')
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [countdowns, setCountdowns] = useState<Record<string, number>>({})
+  const [sessionRedeemed, setSessionRedeemed] = useState<Record<string, string>>({})
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const activeRewards = rewards.filter(r => r.status === 'earned' || r.status === 'pending')
-  const historyRewards = rewards.filter(r => r.status === 'redeemed')
-  const shown = tab === 'active' ? activeRewards : historyRewards
+  const { data: rewards = [], isLoading } = useCustomerRewards()
+  const { data: businesses } = useBusinessesWithCampaigns()
+  const { data: loyaltyProfiles = [] } = useCustomerLoyaltyProfiles()
+  const redeemMutation = useRequestRedemption()
+
+  const cardContext = useMemo(() => {
+    const map = new Map<string, WalletCardContext>()
+    for (const r of rewards) {
+      map.set(r.id, buildCardContext(r, businesses))
+    }
+    return map
+  }, [rewards, businesses])
+
+  useEffect(() => {
+    const running = Object.entries(countdowns).filter(([, s]) => s > 0)
+    if (running.length === 0) {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      return
+    }
+    intervalRef.current = setInterval(() => {
+      setCountdowns(prev => {
+        const next = { ...prev }
+        const justDone: string[] = []
+        for (const id in next) {
+          if (next[id] > 0) {
+            next[id] -= 1
+            if (next[id] === 0) justDone.push(id)
+          }
+        }
+        if (justDone.length > 0) {
+          const now = new Date().toISOString()
+          justDone.forEach(id => setSessionRedeemed(sr => ({ ...sr, [id]: now })))
+        }
+        return next
+      })
+    }, 1000)
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [JSON.stringify(Object.keys(countdowns))])
+
+  const startRedeem = (reward: CustomerRewardDto) => {
+    setRedeemError('')
+    const openScreen = () => {
+      setCountdowns(prev => ({ ...prev, [reward.id]: 60 }))
+      setOpenId(reward.id)
+    }
+
+    if (reward.status === 'earned') {
+      redeemMutation.mutate(reward.id, {
+        onSuccess: openScreen,
+        onError: err => setRedeemError(getApiErrorMessage(err, 'Could not request redemption')),
+      })
+      return
+    }
+
+    openScreen()
+  }
+
+  const closeScreen = () => setOpenId(null)
+  const openReward = openId ? (rewards.find(r => r.id === openId) ?? null) : null
+
+  const pendingRewards = rewards
+    .filter(r => r.status === 'earned' || r.status === 'pending' || sessionRedeemed[r.id])
+    .sort((a, b) => {
+      if (sessionRedeemed[a.id] && !sessionRedeemed[b.id]) return 1
+      if (sessionRedeemed[b.id] && !sessionRedeemed[a.id]) return -1
+      const ctxA = cardContext.get(a.id)
+      const ctxB = cardContext.get(b.id)
+      const da = ctxA?.expiresAt ? walletDaysUntil(ctxA.expiresAt) : 999
+      const db = ctxB?.expiresAt ? walletDaysUntil(ctxB.expiresAt) : 999
+      return da - db
+    })
+
+  const historyRewards = rewards
+    .filter(r => r.status === 'redeemed' && !sessionRedeemed[r.id])
+    .sort(
+      (a, b) =>
+        new Date(b.redeemedAt ?? b.earnedAt).getTime() - new Date(a.redeemedAt ?? a.earnedAt).getTime(),
+    )
+
+  const toRedeemCount = pendingRewards.filter(r => !sessionRedeemed[r.id]).length
+  const totalPoints = loyaltyProfiles.reduce((sum, p) => sum + p.loyaltyPoints, 0)
+  const topStreak = Math.max(0, ...loyaltyProfiles.map(p => p.totalCheckIns))
+
+  const urgentCount = pendingRewards.filter(r => {
+    if (sessionRedeemed[r.id]) return false
+    const exp = cardContext.get(r.id)?.expiresAt
+    return exp ? walletDaysUntil(exp) <= 3 : false
+  }).length
+
+  const openView =
+    openReward && cardContext.has(openReward.id)
+      ? {
+          reward: openReward,
+          businessName: cardContext.get(openReward.id)!.businessName,
+          businessEmoji: cardContext.get(openReward.id)!.businessEmoji,
+          bgFrom: cardContext.get(openReward.id)!.bgFrom,
+          bgTo: cardContext.get(openReward.id)!.bgTo,
+        }
+      : null
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div
-        className="px-5 lg:px-8 pt-12 pb-6"
-        style={{ background: 'linear-gradient(135deg, #4C1D95, #5B21B6)' }}
-      >
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-purple-300 text-xs">Welcome Back</p>
-              <h1 className="text-white text-xl font-extrabold">{firstName} 👋</h1>
-            </div>
-            <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border-0 cursor-pointer">
-              <Bell className="w-5 h-5 text-white" />
-            </button>
-          </div>
+    <div className="min-h-dvh bg-gray-50 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+      <AnimatePresence>
+        {openView && (
+          <RedemptionScreen
+            view={openView}
+            countdown={countdowns[openView.reward.id] ?? 0}
+            redeemedAt={sessionRedeemed[openView.reward.id] ?? null}
+            onClose={closeScreen}
+          />
+        )}
+      </AnimatePresence>
 
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl p-5"
+      <div
+        className="relative px-5 pt-14 pb-6 overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #43036d 0%, #5b0e81 50%, #43036d 100%)' }}
+      >
+        <div
+          className="absolute inset-0 opacity-[0.05]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)',
+            backgroundSize: '24px 24px',
+          }}
+        />
+
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative flex items-center justify-between mb-5"
+        >
+          <div>
+            <p className="text-purple-200 text-xs font-medium tracking-wide">Your Rewards</p>
+            <h1 className="text-white text-xl font-extrabold mt-0.5">{firstName}&apos;s Wallet</h1>
+          </div>
+          <button
+            type="button"
+            className="relative w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm border-0"
+            aria-label="Notifications"
           >
-            <p className="text-xs text-gray-400 text-center mb-3 font-medium uppercase tracking-widest">Your Wallet</p>
-            <div className="flex items-center">
-              <div className="flex-1 text-center">
-                <p className="text-2xl font-black text-gray-900">{activeRewards.length}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Active rewards</p>
+            <Bell className="w-5 h-5 text-white" />
+            {urgentCount > 0 && (
+              <motion.div
+                className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center"
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 1.4, repeat: Infinity }}
+              >
+                <span className="text-[9px] font-black text-white">{urgentCount}</span>
+              </motion.div>
+            )}
+          </button>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 0.1, type: 'spring', stiffness: 280, damping: 22 }}
+          className="relative rounded-2xl overflow-hidden"
+          style={{
+            background: 'rgba(255,255,255,0.10)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.14)',
+          }}
+        >
+          <div className="flex divide-x divide-white/10">
+            {[
+              { value: toRedeemCount, label: 'To Redeem' },
+              { value: topStreak, label: 'Day Streak 🔥' },
+              {
+                value: totalPoints >= 1000 ? `${(totalPoints / 1000).toFixed(1)}k` : totalPoints,
+                label: 'Points ⭐',
+              },
+            ].map(({ value, label }, i) => (
+              <div key={label} className="flex-1 text-center py-4 px-2">
+                <motion.p
+                  className="text-2xl font-black text-white"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 18, delay: 0.18 + i * 0.05 }}
+                >
+                  {value}
+                </motion.p>
+                <p className="text-[10px] text-purple-200 font-semibold mt-0.5 uppercase tracking-wide">
+                  {label}
+                </p>
               </div>
-              <div className="w-px h-10 bg-gray-200" />
-              <div className="flex-1 text-center">
-                <p className="text-2xl font-black text-gray-900">{historyRewards.length}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Redeemed</p>
-              </div>
-            </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {urgentCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="relative mt-3 flex items-center gap-2.5 rounded-xl px-3.5 py-2.5"
+            style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)' }}
+          >
+            <motion.span
+              className="text-base"
+              animate={{ rotate: [0, -8, 8, -4, 0] }}
+              transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2.5 }}
+            >
+              ⏰
+            </motion.span>
+            <p className="text-sm font-semibold text-red-200">
+              {urgentCount} reward{urgentCount !== 1 ? 's' : ''} expiring soon — redeem before they&apos;re
+              gone!
+            </p>
           </motion.div>
-        </div>
+        )}
       </div>
 
-      <div className="px-5 lg:px-8 pt-5 max-w-3xl mx-auto">
-        <div className="flex items-center gap-2 mb-5 bg-gray-100 rounded-xl p-1">
-          {(['active', 'history'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold capitalize transition-all border-0 cursor-pointer ${
-                tab === t ? 'bg-white text-purple-800 shadow-sm' : 'text-gray-500'
-              }`}
-            >
-              {t === 'active' ? 'Active' : 'History'}
-            </button>
-          ))}
+      <div className="bg-white rounded-t-3xl -mt-3 pt-5 min-h-[50vh]">
+        <div className="px-5 mb-5">
+          <div className="flex gap-1.5 bg-gray-100 rounded-xl p-1">
+            {(['active', 'history'] as Tab[]).map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`relative flex-1 py-2 rounded-lg text-sm font-semibold transition-colors border-0 cursor-pointer ${
+                  tab === t ? 'text-[#43036d]' : 'text-gray-400'
+                }`}
+              >
+                {tab === t && (
+                  <motion.div
+                    layoutId="wallet-tab"
+                    className="absolute inset-0 bg-white rounded-lg shadow-sm"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">
+                  {t === 'active' ? `Active (${toRedeemCount})` : `History (${historyRewards.length})`}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
-          </div>
-        ) : (
-          <div className="space-y-4">
+        {redeemError && <p className="text-xs text-red-500 text-center px-5 mb-4">{redeemError}</p>}
+
+        <div className="px-5">
+          {isLoading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="size-8 text-[#5b0e81] animate-spin" />
+            </div>
+          ) : (
             <AnimatePresence mode="wait">
-              {shown.length === 0 ? (
+              {tab === 'active' ? (
                 <motion.div
-                  key="empty"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-center py-16 text-gray-400 text-sm"
+                  key="active"
+                  initial={{ opacity: 0, x: -24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 24 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                  className="space-y-4 pb-6"
                 >
-                  {tab === 'active' ? 'No active rewards. Play games to win!' : 'No redeemed rewards yet.'}
+                  {pendingRewards.length === 0 ? (
+                    <div className="text-center py-16">
+                      <p className="text-4xl mb-3">🎮</p>
+                      <p className="text-gray-500 font-semibold">No active rewards yet</p>
+                      <p className="text-gray-400 text-sm mt-1">Play games at your favourite spots to win!</p>
+                      <Link to="/customer" className="no-underline">
+                        <motion.div
+                          whileTap={{ scale: 0.97 }}
+                          className="mt-5 inline-block px-5 py-2.5 rounded-xl text-sm font-bold text-white"
+                          style={{ background: 'linear-gradient(135deg, #5b0e81, #43036d)' }}
+                        >
+                          Explore Campaigns →
+                        </motion.div>
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
+                      {pendingRewards.map((r, i) => (
+                        <WalletActiveCard
+                          key={r.id}
+                          reward={r}
+                          context={cardContext.get(r.id)!}
+                          index={i}
+                          isRedeemed={!!sessionRedeemed[r.id]}
+                          redeemedAt={sessionRedeemed[r.id] ?? null}
+                          redeeming={redeemMutation.isPending && redeemMutation.variables === r.id}
+                          onRedeem={() => startRedeem(r)}
+                        />
+                      ))}
+                      <Link to="/customer" className="block no-underline">
+                        <div
+                          className="flex items-center justify-between rounded-2xl px-4 py-3.5"
+                          style={{
+                            background: 'linear-gradient(135deg, #f3e8ff, #faf5ff)',
+                            border: '1px solid #e9d5ff',
+                          }}
+                        >
+                          <div>
+                            <p className="text-sm font-bold text-[#43036d]">Win more rewards</p>
+                            <p className="text-xs text-[#7c3aed] mt-0.5">Campaigns ready to play today</p>
+                          </div>
+                          <div
+                            className="w-9 h-9 rounded-xl flex items-center justify-center"
+                            style={{ background: 'linear-gradient(135deg, #5b0e81, #43036d)' }}
+                          >
+                            <ChevronRight className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      </Link>
+                    </>
+                  )}
                 </motion.div>
               ) : (
-                shown.map(r =>
-                  tab === 'active'
-                    ? <ActiveRewardCard key={r.id} reward={r} />
-                    : <HistoryRewardCard key={r.id} reward={r} />
-                )
+                <motion.div
+                  key="history"
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -24 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                  className="space-y-2.5 pb-6"
+                >
+                  {historyRewards.length === 0 ? (
+                    <div className="text-center py-16 text-gray-400 text-sm">
+                      <p className="text-3xl mb-3">📋</p>
+                      No redeemed rewards yet.
+                    </div>
+                  ) : (
+                    historyRewards.map((r, i) => (
+                      <WalletHistoryCard
+                        key={r.id}
+                        reward={r}
+                        context={cardContext.get(r.id)!}
+                        index={i}
+                      />
+                    ))
+                  )}
+                </motion.div>
               )}
             </AnimatePresence>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <BottomNav />

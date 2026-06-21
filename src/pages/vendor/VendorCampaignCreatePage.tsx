@@ -14,6 +14,7 @@ import { calcDailyWinners, calcTotalWinners, formatWinnerCount, maxTotalWinners,
 import { computeCreateDates, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
 import { todayInCampaignTz } from '@/lib/campaign-dates'
 import type { MechanicType } from '@/lib/types'
+import { isMechanicLive } from '@/lib/live-mechanics'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
@@ -173,11 +174,8 @@ export function VendorCampaignCreatePage() {
   const maxWinners = maxTotalWinners(basics.userCap, basics.playsPerDay)
 
   const selectMechanic = (m: MechanicType) => {
+    if (!isMechanicLive(m)) return
     setMechanic(m)
-    // Auto-reset duration if it's not valid for lottery
-    if (m === 'lottery' && !['7d', '14d', '1m'].includes(basics.durationMode)) {
-      setBasics(p => ({ ...p, durationMode: '1m' }))
-    }
   }
 
   const dates = computeDates(basics.durationMode, basics.customStart, basics.customEnd)
@@ -207,7 +205,7 @@ export function VendorCampaignCreatePage() {
   }
 
   const canProceed = () => {
-    if (step === 0) return mechanic !== null
+    if (step === 0) return mechanic !== null && isMechanicLive(mechanic)
     if (step === 1) return basics.name.trim().length > 0 && !!durationValid
     if (step === 2) return step2Valid()
     return true
@@ -351,12 +349,24 @@ export function VendorCampaignCreatePage() {
               {MECHANICS.map(m => {
                 const selected = mechanic === m.type
                 const color = getMechanicColor(m.type)
+                const comingSoon = !isMechanicLive(m.type)
                 return (
-                  <motion.div key={m.type} whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}>
-                    <button onClick={() => selectMechanic(m.type)} className={`w-full text-left rounded-2xl p-5 border-2 transition-all duration-200 ${selected ? '' : 'border-v-border bg-white hover:border-v-border-b'}`} style={selected ? { borderColor: color, background: `${color}08` } : {}}>
+                  <motion.div key={m.type} whileHover={comingSoon ? {} : { y: -3 }} whileTap={comingSoon ? {} : { scale: 0.97 }}>
+                    <button
+                      type="button"
+                      disabled={comingSoon}
+                      onClick={() => selectMechanic(m.type)}
+                      className={`w-full text-left rounded-2xl p-5 border-2 transition-all duration-200 ${selected ? '' : 'border-v-border bg-white hover:border-v-border-b'} ${comingSoon ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      style={selected ? { borderColor: color, background: `${color}08` } : {}}
+                    >
                       <div className="text-4xl mb-3">{getMechanicEmoji(m.type)}</div>
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className="text-sm font-bold text-v-text">{getMechanicLabel(m.type)}</span>
+                        {comingSoon && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            Live soon
+                          </span>
+                        )}
                         {selected && <Check className="w-4 h-4" style={{ color }} />}
                       </div>
                       <p className="text-xs text-v-text-3 mb-3 leading-relaxed">{m.desc}</p>

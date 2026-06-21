@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Sparkles, Delete, Loader2, Gift, Star } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import {
   fetchLoyaltyState,
   verifyCampaignPin,
@@ -11,15 +11,16 @@ import {
 } from '@/lib/api'
 import { setPlaySession } from '@/lib/customer-game'
 import { LoyaltyPointsSplash } from '@/components/customer/loyalty-points-splash'
+import { PinKeypad } from '@/components/customer/PinKeypad'
 
-type Phase = 'welcome' | 'pin' | 'checking-in' | 'splash' | 'done'
+type Phase = 'overview' | 'pin' | 'checking-in' | 'splash'
 
 export function CustomerCheckInPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const campaignParam = searchParams.get('campaign')
+  const campaignId = searchParams.get('campaign')
 
-  const [phase, setPhase] = useState<Phase>('welcome')
+  const [phase, setPhase] = useState<Phase>('overview')
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [checkInResult, setCheckInResult] = useState<{
@@ -28,8 +29,6 @@ export function CustomerCheckInPage() {
     businessName: string
     milestonesUnlocked: { name: string; icon: string; code: string }[]
   } | null>(null)
-
-  const campaignId = campaignParam
 
   const { data: loyaltyState, isLoading: stateLoading } = useQuery({
     queryKey: ['loyalty-state', campaignId],
@@ -63,8 +62,12 @@ export function CustomerCheckInPage() {
     },
   })
 
+  const handleBack = () => {
+    if (loyaltyState?.businessId) navigate(`/customer/business/${loyaltyState.businessId}`)
+    else navigate('/customer')
+  }
+
   const handleSplashComplete = useCallback(() => {
-    setPhase('done')
     const dest = loyaltyState?.businessId
       ? `/customer/business/${loyaltyState.businessId}`
       : '/customer'
@@ -72,9 +75,7 @@ export function CustomerCheckInPage() {
   }, [navigate, loyaltyState?.businessId])
 
   useEffect(() => {
-    if (!campaignId) {
-      navigate('/customer', { replace: true })
-    }
+    if (!campaignId) navigate('/customer', { replace: true })
   }, [campaignId, navigate])
 
   useEffect(() => {
@@ -86,23 +87,22 @@ export function CustomerCheckInPage() {
 
   if (stateLoading || !campaignId || !loyaltyState) {
     return (
-      <div className="min-h-dvh flex items-center justify-center customer-game-bg">
-        <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
+      <div className="min-h-dvh flex items-center justify-center bg-[#f5f0ff]">
+        <Loader2 className="size-10 text-[#631cbb] animate-spin" />
       </div>
     )
   }
 
-  if (loyaltyState.checkedInToday && phase === 'welcome') {
+  if (loyaltyState.checkedInToday && phase === 'overview') {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center px-6 text-center customer-game-bg">
+      <div className="min-h-dvh flex flex-col items-center justify-center px-6 text-center bg-[#f5f0ff]">
         <div className="text-5xl mb-4">✅</div>
-        <h1 className="text-xl font-extrabold text-white mb-2">Already checked in today!</h1>
-        <p className="text-sm text-white/60 mb-6">You have {loyaltyState.loyaltyPoints} loyalty points</p>
+        <h1 className="text-xl font-bold text-[#1a0030] mb-2">Already checked in today!</h1>
+        <p className="text-sm text-[#888] mb-6">{loyaltyState.loyaltyPoints} loyalty points</p>
         <button
           type="button"
-          onClick={() => navigate(loyaltyState.businessId ? `/customer/business/${loyaltyState.businessId}` : '/customer', { replace: true })}
-          className="px-6 py-3 rounded-2xl font-bold text-sm border-0 cursor-pointer"
-          style={{ background: 'linear-gradient(135deg, #7C3AED, #F5C518)', color: '#1A0545' }}
+          onClick={handleBack}
+          className="px-6 py-3 rounded-[22px] font-bold text-sm text-white bg-[#631cbb] border-0 cursor-pointer"
         >
           Back to {loyaltyState.businessName}
         </button>
@@ -111,10 +111,7 @@ export function CustomerCheckInPage() {
   }
 
   return (
-    <div
-      className="min-h-dvh flex flex-col relative overflow-hidden"
-      style={{ background: 'linear-gradient(160deg, #1A0545 0%, #2D1B69 40%, #0D0B1E 100%)' }}
-    >
+    <div className="min-h-dvh bg-[#f5f0ff] relative flex flex-col">
       <AnimatePresence>
         {phase === 'splash' && checkInResult && (
           <LoyaltyPointsSplash
@@ -128,168 +125,130 @@ export function CustomerCheckInPage() {
       </AnimatePresence>
 
       {phase !== 'splash' && (
-        <div className="relative z-10 flex flex-col min-h-dvh px-5 pt-[max(3rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] max-w-md mx-auto w-full">
-          {phase === 'welcome' && (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex-1 flex flex-col items-center justify-center text-center"
+        <>
+          <div className="bg-[#43036d] h-[190px] relative shrink-0">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="absolute top-12 left-4 size-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
+              aria-label="Go back"
             >
-              <motion.div
-                animate={{ scale: [1, 1.08, 1], rotate: [0, 5, -5, 0] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="w-28 h-28 rounded-full flex items-center justify-center text-6xl mb-6"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(124,58,237,0.4), rgba(245,197,24,0.3))',
-                  border: '3px solid rgba(167,139,250,0.5)',
-                  boxShadow: '0 0 60px rgba(124,58,237,0.4)',
-                }}
-              >
-                ⭐
-              </motion.div>
+              <ArrowLeft className="size-4 text-[#d4a8ff]" />
+            </button>
+            <div className="absolute top-12 right-4 bg-[#631cbb] px-2.5 py-1 rounded-full">
+              <span className="text-[8px] font-bold text-[#d4a8ff] tracking-wide">CHECK-IN</span>
+            </div>
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 size-[90px] rounded-full bg-[#631cbb] flex flex-col items-center justify-center shadow-lg border-4 border-[#9b59e8]/30">
+              <span className="text-2xl font-bold text-white">{loyaltyState.totalCheckIns}</span>
+              <span className="text-[9px] text-[#9b59e8]">days</span>
+            </div>
+          </div>
 
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 mb-4"
-              >
-                <MapPin className="w-3.5 h-3.5 text-purple-300" />
-                <span className="text-xs font-bold text-purple-200">{loyaltyState.businessName}</span>
-              </motion.div>
-
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-2 leading-tight">
-                Welcome back!<br />Time to check in
-              </h1>
-              <p className="text-sm text-white/55 mb-6 max-w-xs">
-                Earn <span className="text-amber-300 font-bold">+{loyaltyState.pointsPerCheckIn} loyalty points</span> with today&apos;s visit
+          <div className="flex-1 px-5 pt-14 pb-8">
+            <div className="bg-white border border-[#ede7f6] rounded-[20px] p-4 shadow-sm mb-6">
+              <h1 className="text-base font-bold text-[#1a0030] mb-1">Daily Check-in</h1>
+              <p className="text-[8.4px] text-[#9b59e8] mb-4 leading-relaxed">
+                Check in every day and earn {loyaltyState.pointsPerCheckIn} points per visit.
               </p>
 
-              {loyaltyState.enrolled && (
-                <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/8 border border-white/10 mb-6">
-                  <Star className="w-5 h-5 text-amber-400" />
-                  <div className="text-left">
-                    <p className="text-[10px] text-white/50 uppercase tracking-wider">Your points</p>
-                    <p className="text-2xl font-black text-white">{loyaltyState.loyaltyPoints}</p>
-                  </div>
-                  {loyaltyState.nextMilestone && (
-                    <div className="text-left border-l border-white/10 pl-3">
-                      <p className="text-[10px] text-white/50">Next reward</p>
-                      <p className="text-xs font-semibold text-amber-200">{loyaltyState.nextMilestone.pointsNeeded} pts to {loyaltyState.nextMilestone.name}</p>
-                    </div>
+              <div className="bg-[#43036d] rounded-xl px-3.5 py-6 mb-4 flex items-center justify-between">
+                <span className="text-[8px] font-bold text-[#c084fc] tracking-wide">TOTAL POINTS</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-bold text-[#e8b050]">{loyaltyState.loyaltyPoints}</span>
+                  <span className="text-[9px] text-[#c084fc]">pts</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 mb-4">
+                <div className="bg-[#f5f0ff] rounded-[10px] p-2.5">
+                  <p className="text-[7px] font-bold text-[#9b59e8] tracking-wide mb-1">STREAK</p>
+                  <p className="text-[17px] font-bold text-[#1a0030]">
+                    {loyaltyState.totalCheckIns}
+                    <span className="text-[9px] text-[#888] font-normal ml-1">days</span>
+                  </p>
+                </div>
+                <div className="bg-[#f5f0ff] rounded-[10px] p-2.5">
+                  <p className="text-[7px] font-bold text-[#9b59e8] tracking-wide mb-1">NEXT REWARD</p>
+                  {loyaltyState.nextMilestone ? (
+                    <p className="text-[17px] font-bold text-[#1a0030]">
+                      {loyaltyState.nextMilestone.pointsNeeded}
+                      <span className="text-[9px] text-[#888] font-normal ml-1">pts</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm font-bold text-[#1a0030]">—</p>
                   )}
                 </div>
-              )}
+              </div>
 
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setPhase('pin')}
-                className="w-full max-w-xs py-4 rounded-2xl text-base font-extrabold border-0 cursor-pointer flex items-center justify-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #7C3AED, #F5C518)',
-                  color: '#1A0545',
-                  boxShadow: '0 12px 40px rgba(124,58,237,0.5)',
-                }}
-              >
-                <Sparkles className="w-5 h-5" /> Check In Now
-              </motion.button>
+              <div className="border border-[#ede7f6] rounded-[10px] px-2.5 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[7px] font-bold text-[#9b59e8] tracking-wide">DURATION</p>
+                  <p className="text-[9px] font-bold text-[#1a0030]">Ongoing</p>
+                </div>
+                <p className="text-xs text-[#888]">{loyaltyState.currentUsers ?? 0} players</p>
+              </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => navigate(loyaltyState.businessId ? `/customer/business/${loyaltyState.businessId}` : '/customer', { replace: true })}
-                className="mt-4 text-xs text-white/40 bg-transparent border-0 cursor-pointer hover:text-white/60"
-              >
-                Back to cafe
-              </button>
-            </motion.div>
-          )}
+            <p className="text-[10px] text-[#888] mb-0.5">Offered by</p>
+            <p className="text-xs font-bold text-[#1a0030] mb-6">{loyaltyState.businessName}</p>
 
-          {(phase === 'pin' || phase === 'checking-in') && (
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex-1 flex flex-col"
+            <button
+              type="button"
+              onClick={() => setPhase('pin')}
+              disabled={phase === 'checking-in'}
+              className="w-full py-5 rounded-[22px] font-bold text-xs text-white border-0 cursor-pointer disabled:opacity-60"
+              style={{ background: 'linear-gradient(to right, #400560, #2d110e)' }}
             >
-              <button
-                type="button"
-                onClick={() => { setPhase('welcome'); setPin(''); setError('') }}
-                className="text-sm text-white/50 mb-6 w-fit bg-transparent border-0 cursor-pointer"
+              {phase === 'checking-in' ? 'Checking in…' : 'Play Now'}
+            </button>
+          </div>
+
+          <AnimatePresence>
+            {(phase === 'pin' || phase === 'checking-in') && (
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-[440px] bg-[#1c0038] rounded-t-3xl px-5 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
               >
-                ← Back
-              </button>
-
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/8 border border-white/10 mb-3">
-                  <Gift className="w-3.5 h-3.5 text-purple-300" />
-                  <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Staff PIN</span>
-                </div>
-                <h2 className="text-xl font-extrabold text-white">Show at the counter</h2>
-                <p className="text-sm text-white/50 mt-1">Ask staff for today&apos;s 3-digit PIN</p>
-              </div>
-
-              <div className="flex justify-center gap-4 mb-6">
-                {[0, 1, 2].map(i => (
-                  <div
-                    key={i}
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center border-2 text-2xl font-black text-white"
-                    style={{
-                      borderColor: pin[i] ? '#7C3AED' : 'rgba(255,255,255,0.15)',
-                      background: pin[i] ? 'rgba(124,58,237,0.25)' : 'rgba(0,0,0,0.2)',
-                    }}
-                  >
-                    {pin[i] ?? ''}
-                  </div>
-                ))}
-              </div>
-
-              {error && <p className="text-center text-xs text-red-400 mb-4">{error}</p>}
-
-              {phase === 'checking-in' ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <Loader2 className="w-10 h-10 text-purple-400 animate-spin mx-auto mb-3" />
-                    <p className="text-sm text-white/60">Checking you in…</p>
+                <div className="w-12 h-1 bg-[#260448] rounded-full mx-auto mb-4" />
+                <button
+                  type="button"
+                  onClick={() => { setPhase('overview'); setPin(''); setError('') }}
+                  className="absolute top-4 left-4 size-7 rounded-full bg-white/10 flex items-center justify-center border-0 cursor-pointer"
+                >
+                  <ArrowLeft className="size-3.5 text-[#d4a8ff]" />
+                </button>
+                <div className="flex justify-center mb-4">
+                  <div className="size-[90px] rounded-full bg-[#631cbb]/50 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-bold text-white">☕</span>
                   </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-2 mt-auto">
-                  {[1,2,3,4,5,6,7,8,9].map(n => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => { if (pin.length < 3) setPin(p => p + n); setError('') }}
-                      disabled={verifyMutation.isPending}
-                      className="h-12 rounded-2xl text-lg font-bold text-white border-0 cursor-pointer"
-                      style={{ background: 'rgba(255,255,255,0.08)' }}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                  <div />
-                  <button
-                    type="button"
-                    onClick={() => { if (pin.length < 3) setPin(p => p + '0'); setError('') }}
-                    className="h-12 rounded-2xl text-lg font-bold text-white border-0 cursor-pointer"
-                    style={{ background: 'rgba(255,255,255,0.08)' }}
-                  >
-                    0
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPin(p => p.slice(0, -1))}
-                    className="h-12 rounded-2xl text-white/50 border-0 cursor-pointer flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.05)' }}
-                  >
-                    <Delete className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-
-              <p className="text-center text-[10px] text-white/30 mt-4">PIN refreshes every 2 min on staff screen</p>
-            </motion.div>
+                {phase === 'checking-in' ? (
+                  <div className="flex flex-col items-center py-8">
+                    <Loader2 className="size-10 text-[#d4a8ff] animate-spin mb-3" />
+                    <p className="text-sm text-[#9b59e8]">Checking you in…</p>
+                  </div>
+                ) : (
+                  <div className="[&_h2]:text-white [&_p]:text-[#9b59e8] [&_button]:bg-[#631cbb]">
+                    <PinKeypad
+                      pin={pin}
+                      error={error}
+                      loading={verifyMutation.isPending}
+                      onKey={k => { if (pin.length < 3) setPin(p => p + k); setError('') }}
+                      onDelete={() => setPin(p => p.slice(0, -1))}
+                      onSubmit={() => pin.length === 3 && verifyMutation.mutate(pin)}
+                      submitLabel="Check in"
+                    />
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {(phase === 'pin' || phase === 'checking-in') && (
+            <div className="fixed inset-0 bg-black/40 z-30" onClick={() => { setPhase('overview'); setPin(''); setError('') }} />
           )}
-        </div>
+        </>
       )}
     </div>
   )

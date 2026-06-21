@@ -1,5 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchBusinessesWithCampaigns, fetchCustomerRewards, requestRewardRedemption } from '@/lib/api'
+import {
+  fetchBusinessesWithCampaigns,
+  fetchCustomerLoyaltyProfile,
+  fetchCustomerRewards,
+  requestRewardRedemption,
+} from '@/lib/api'
 import { getUser } from '@/lib/auth'
 
 export function useBusinessesWithCampaigns() {
@@ -14,6 +19,15 @@ export function useCustomerRewards() {
   return useQuery({
     queryKey: ['customer-rewards'],
     queryFn: fetchCustomerRewards,
+    enabled: session?.role === 'customer',
+  })
+}
+
+export function useCustomerLoyaltyProfiles() {
+  const session = getUser('customer')
+  return useQuery({
+    queryKey: ['customer-loyalty-profile'],
+    queryFn: fetchCustomerLoyaltyProfile,
     enabled: session?.role === 'customer',
   })
 }

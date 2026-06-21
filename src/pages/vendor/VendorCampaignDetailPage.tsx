@@ -5,6 +5,8 @@ import { Card, ProgressBar } from '@/components/ui/card'
 import { MechanicBadge, StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { LivePIN } from '@/components/vendor/live-pin'
+import { MechanicComingSoonBanner } from '@/components/vendor/MechanicComingSoonBanner'
+import { isMechanicComingSoon } from '@/lib/live-mechanics'
 import { useCampaign } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, formatDate, capPercent } from '@/lib/utils'
 import { effectiveCampaignStatus, fmtCampaignDate } from '@/lib/campaign-dates'
@@ -41,7 +43,7 @@ export function VendorCampaignDetailPage() {
     ? Math.round((campaign.redeemedCount / campaign.rewardsClaimed) * 100) : 0
 
   const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate)
-  const pinActive = isStamp ? (stampStats?.pinActive ?? false) : status === 'active'
+  const pinActive = !isMechanicComingSoon(campaign.mechanic) && (isStamp ? (stampStats?.pinActive ?? false) : status === 'active')
 
   const stampMetrics = isStamp && stampStats ? [
     { label: 'Completion Rate', pct: stampStats.completionRate, sub: `${stampStats.completed} / ${stampStats.enrolled} cards complete`, color: '#16A34A' },
@@ -55,6 +57,7 @@ export function VendorCampaignDetailPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <MechanicComingSoonBanner mechanic={campaign.mechanic} />
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <Link to="/vendor/campaigns" className="inline-flex items-center gap-1.5 text-sm text-v-text-2 hover:text-v-text mb-4 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Campaigns
