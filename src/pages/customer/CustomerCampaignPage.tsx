@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
@@ -48,6 +48,8 @@ export function CustomerCampaignPage() {
   const [error, setError] = useState('')
   const [stampCollect, setStampCollect] = useState<StampCollectSession | null>(null)
   const [loyaltySplash, setLoyaltySplash] = useState(false)
+  const stampCollectRef = useRef(stampCollect)
+  stampCollectRef.current = stampCollect
 
   const localSessionOk = isSessionValidForRole('customer') && Boolean(getToken('customer'))
 
@@ -99,6 +101,7 @@ export function CustomerCampaignPage() {
       if (isMechanicComingSoon(campaign!.mechanic)) return
       setPlaySession(id!, data.playSessionToken)
       if (campaign!.mechanic === 'stamp' && stampState) {
+        if (stampCollectRef.current) return
         setStampCollect({
           token: data.playSessionToken,
           stampsBefore: stampState.stampsCollected,
@@ -119,20 +122,21 @@ export function CustomerCampaignPage() {
     },
   })
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (campaign?.businessId) navigate(`/customer/business/${campaign.businessId}`)
     else navigate('/customer')
-  }
+  }, [campaign?.businessId, navigate])
 
-  const handleStampCollectDone = (opts?: { error?: string }) => {
+  const handleStampCollectDone = useCallback((opts?: { error?: string }) => {
     setStampCollect(null)
     setPin('')
     if (opts?.error) {
       setError(opts.error)
       return
     }
-    handleBack()
-  }
+    if (campaign?.businessId) navigate(`/customer/business/${campaign.businessId}`)
+    else navigate('/customer')
+  }, [campaign?.businessId, navigate])
 
   const handleKey = (k: string) => {
     markMotionGesture()
@@ -150,15 +154,15 @@ export function CustomerCampaignPage() {
   const handleSubmit = () => {
     markMotionGesture()
     primeMotionSensors()
-    if (pin.length < 3 || verifyMutation.isPending || !authReady) return
+    if (pin.length < 3 || verifyMutation.isPending || !authReady || stampCollect) return
     verifyMutation.mutate(pin)
   }
 
   useEffect(() => {
-    if (pin.length !== 3 || verifyMutation.isPending || !authReady) return
+    if (pin.length !== 3 || verifyMutation.isPending || !authReady || stampCollect) return
     const t = setTimeout(() => verifyMutation.mutate(pin), 300)
     return () => clearTimeout(t)
-  }, [pin, authReady]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pin, authReady, stampCollect]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const stateStillLoading =
     (campaign?.mechanic === 'shake' && playStateLoading)

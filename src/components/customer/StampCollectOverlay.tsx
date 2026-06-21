@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { StampCollectedSplash, type StampRewardInfo } from '@/components/customer/stamp-collected-splash'
 import { executeStamp, getApiErrorMessage, type StampCollectResult } from '@/lib/api'
@@ -27,16 +27,22 @@ export function StampCollectOverlay({
   const [toCount, setToCount] = useState(stampsBefore)
   const [reward, setReward] = useState<StampRewardInfo | null>(null)
 
+  const onDoneRef = useRef(onDone)
+  const collectStartedRef = useRef(false)
+  const successRef = useRef(false)
+
+  onDoneRef.current = onDone
+
   const finishAndExit = useCallback(() => {
     clearPlaySession(campaignId)
     queryClient.invalidateQueries({ queryKey: ['stamp-state', campaignId] })
     queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
     queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
-    onDone()
-  }, [campaignId, onDone, queryClient])
+    onDoneRef.current()
+  }, [campaignId, queryClient])
 
-  const handleSuccess = useCallback((result: StampCollectResult) => {
-    queryClient.invalidateQueries({ queryKey: ['stamp-state', campaignId] })
+  const applySuccess = useCallback((result: StampCollectResult) => {
+    successRef.current = true
     setToCount(result.stampsCollected)
     setPending(false)
 
@@ -47,26 +53,28 @@ export function StampCollectOverlay({
         code: result.code ?? undefined,
       })
     }
-  }, [campaignId, queryClient])
+  }, [])
 
   useEffect(() => {
+    if (collectStartedRef.current) return
+    collectStartedRef.current = true
+
     let cancelled = false
 
     executeStamp(campaignId, playSessionToken)
       .then(result => {
-        if (!cancelled) handleSuccess(result)
+        if (!cancelled) applySuccess(result)
       })
       .catch(err => {
-        if (!cancelled) {
-          clearPlaySession(campaignId)
-          onDone({ error: getApiErrorMessage(err, 'Could not collect stamp') })
-        }
+        if (cancelled || successRef.current) return
+        clearPlaySession(campaignId)
+        onDoneRef.current({ error: getApiErrorMessage(err, 'Could not collect stamp') })
       })
 
     return () => {
       cancelled = true
     }
-  }, [campaignId, playSessionToken, handleSuccess, onDone])
+  }, [campaignId, playSessionToken, applySuccess])
 
   return (
     <StampCollectedSplash
