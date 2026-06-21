@@ -25,6 +25,13 @@ import {
 import { ShakeCampaignDetail } from '@/components/customer/ShakeCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
+import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
+
+type StampCollectSession = {
+  token: string
+  stampsBefore: number
+  enrolledBefore: boolean
+}
 
 function StatusChip({ children }: { children: ReactNode }) {
   return (
@@ -39,6 +46,7 @@ export function CustomerCampaignPage() {
   const navigate = useNavigate()
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
+  const [stampCollect, setStampCollect] = useState<StampCollectSession | null>(null)
 
   const localSessionOk = isSessionValidForRole('customer') && Boolean(getToken('customer'))
 
@@ -89,6 +97,14 @@ export function CustomerCampaignPage() {
     onSuccess: (data) => {
       if (isMechanicComingSoon(campaign!.mechanic)) return
       setPlaySession(id!, data.playSessionToken)
+      if (campaign!.mechanic === 'stamp' && stampState) {
+        setStampCollect({
+          token: data.playSessionToken,
+          stampsBefore: stampState.stampsCollected,
+          enrolledBefore: stampState.enrolled,
+        })
+        return
+      }
       const route = getGameRouteForMechanic(campaign!.mechanic, id!)
       navigate(route)
     },
@@ -106,6 +122,28 @@ export function CustomerCampaignPage() {
     if (campaign?.businessId) navigate(`/customer/business/${campaign.businessId}`)
     else navigate('/customer')
   }
+
+  const handleStampCollectDone = (opts?: { error?: string }) => {
+    setStampCollect(null)
+    setPin('')
+    if (opts?.error) {
+      setError(opts.error)
+      return
+    }
+    handleBack()
+  }
+
+  const stampCollectOverlay = stampCollect && stampState && campaign?.mechanic === 'stamp' ? (
+    <StampCollectOverlay
+      campaignId={id!}
+      businessId={campaign.businessId}
+      playSessionToken={stampCollect.token}
+      stampsBefore={stampCollect.stampsBefore}
+      enrolledBefore={stampCollect.enrolledBefore}
+      totalStamps={stampState.totalStamps}
+      onDone={handleStampCollectDone}
+    />
+  ) : null
 
   const handleKey = (k: string) => {
     markMotionGesture()
@@ -272,7 +310,9 @@ export function CustomerCampaignPage() {
 
   if (campaign.mechanic === 'shake') {
     return (
-      <ShakeCampaignDetail
+      <>
+        {stampCollectOverlay}
+        <ShakeCampaignDetail
         campaign={campaign}
         pin={pin}
         error={error}
@@ -285,38 +325,47 @@ export function CustomerCampaignPage() {
         onDelete={handleDelete}
         onSubmit={handleSubmit}
       />
+      </>
     )
   }
 
   if (campaign.mechanic === 'check-in-loyalty' && loyaltyState) {
     return (
-      <LoyaltyCampaignDetail
+      <>
+        {stampCollectOverlay}
+        <LoyaltyCampaignDetail
         campaign={campaign}
         loyaltyState={loyaltyState}
         onBack={handleBack}
       />
+      </>
     )
   }
 
   if (campaign.mechanic === 'stamp' && stampState) {
     return (
-      <StampCampaignDetail
-        campaign={campaign}
-        businessName={businessName}
-        stampState={stampState}
-        pin={pin}
-        error={error}
-        loading={verifyMutation.isPending}
+      <>
+        {stampCollectOverlay}
+        <StampCampaignDetail
+          campaign={campaign}
+          businessName={businessName}
+          stampState={stampState}
+          pin={pin}
+          error={error}
+          loading={verifyMutation.isPending || Boolean(stampCollect)}
         onBack={handleBack}
         onKey={handleKey}
         onDelete={handleDelete}
         onSubmit={handleSubmit}
       />
+      </>
     )
   }
 
   return (
-    <CampaignPinShell
+    <>
+      {stampCollectOverlay}
+      <CampaignPinShell
       businessName={businessName}
       campaignName={campaign.name}
       mechanic={campaign.mechanic}
@@ -331,5 +380,6 @@ export function CustomerCampaignPage() {
       submitLabel={submitLabel}
       statusChips={statusChips}
     />
+    </>
   )
 }

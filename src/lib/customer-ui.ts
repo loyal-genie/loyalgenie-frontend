@@ -6,7 +6,7 @@ export function getGameRouteForMechanic(mechanic: MechanicType | string, campaig
     return `/customer/games/coming-soon?mechanic=${encodeURIComponent(mechanic)}`
   }
   const routes: Record<string, string> = {
-    stamp: `/customer/games/stamp?campaign=${campaignId}&collect=1`,
+    stamp: `/customer/campaigns/${campaignId}`,
     shake: `/customer/games/shake?campaign=${campaignId}`,
     spin: `/customer/games/spin?campaign=${campaignId}`,
     dice: `/customer/games/dice?campaign=${campaignId}`,
