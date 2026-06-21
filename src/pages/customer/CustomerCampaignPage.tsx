@@ -159,6 +159,27 @@ export function CustomerCampaignPage() {
     return () => clearTimeout(t)
   }, [pin, authReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const stateStillLoading =
+    (campaign?.mechanic === 'shake' && playStateLoading)
+    || (campaign?.mechanic === 'stamp' && stampStateLoading)
+    || (campaign?.mechanic === 'check-in-loyalty' && loyaltyStateLoading)
+
+  const shakeBlocked = campaign?.mechanic === 'shake' && playState && !playState.canPlay
+  const stampBlocked = campaign?.mechanic === 'stamp' && stampState && (
+    stampState.cardComplete
+    || stampState.status === 'expired'
+    || (stampState.enrolled && !stampState.canCollectToday)
+    || (!stampState.enrolled && !stampState.enrollmentOpen)
+  )
+  const loyaltyBlocked = campaign?.mechanic === 'check-in-loyalty' && loyaltyState?.checkedInToday
+  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked)
+
+  useEffect(() => {
+    if (!blocked || stampCollect || !campaign || sessionLoading || isLoading || stateStillLoading) return
+    const path = campaign.businessId ? `/customer/business/${campaign.businessId}` : '/customer'
+    navigate(path, { replace: true })
+  }, [blocked, stampCollect, campaign, sessionLoading, isLoading, stateStillLoading, navigate])
+
   if (!localSessionOk || sessionError || (serverSession && serverSession.role !== 'customer')) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center px-5 text-center bg-white">
@@ -178,11 +199,6 @@ export function CustomerCampaignPage() {
   }
 
   if (sessionLoading || isLoading) return <CampaignPinLoading />
-
-  const stateStillLoading =
-    (campaign?.mechanic === 'shake' && playStateLoading)
-    || (campaign?.mechanic === 'stamp' && stampStateLoading)
-    || (campaign?.mechanic === 'check-in-loyalty' && loyaltyStateLoading)
 
   if (stateStillLoading) return <CampaignPinLoading />
 
@@ -206,22 +222,6 @@ export function CustomerCampaignPage() {
       />
     )
   }
-
-  const shakeBlocked = campaign.mechanic === 'shake' && playState && !playState.canPlay
-  const stampBlocked = campaign.mechanic === 'stamp' && stampState && (
-    stampState.cardComplete
-    || stampState.status === 'expired'
-    || (stampState.enrolled && !stampState.canCollectToday)
-    || (!stampState.enrolled && !stampState.enrollmentOpen)
-  )
-  const loyaltyBlocked = campaign.mechanic === 'check-in-loyalty' && loyaltyState?.checkedInToday
-  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked)
-
-  useEffect(() => {
-    if (!blocked || stampCollect) return
-    const path = campaign.businessId ? `/customer/business/${campaign.businessId}` : '/customer'
-    navigate(path, { replace: true })
-  }, [blocked, stampCollect, campaign.businessId, navigate])
 
   if (blocked && !stampCollect) return <CampaignPinLoading />
 
