@@ -62,6 +62,7 @@ function sectionOf(globalStep: number) {
 
 function validateStep(step: number, form: FormData): Record<string, string> {
   const errors: Record<string, string> = {}
+  
   if (step === 0) {
     if (!form.name.trim()) errors.name = 'Business name is required'
     if (!form.businessType) errors.businessType = 'Select a business type'
@@ -69,9 +70,27 @@ function validateStep(step: number, form: FormData): Record<string, string> {
     if (form.mobile.replace(/\D/g, '').length < 10) errors.mobile = 'Enter a valid 10-digit mobile number'
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Valid email is required'
   }
+  
   if (step === 1) {
     if (!form.city.trim()) errors.city = 'City is required'
+    
+    // Fix: Validates exactly 6 numeric digits
+   const pincode = form.pincode?.trim() ?? ''
+
+if (!pincode) {
+  errors.pincode = 'Pincode is required'
+} else if (!/^\d{6}$/.test(pincode)) {
+  errors.pincode = 'Enter a valid 6-digit numerical pincode'
+}
+    
+    const address = form.address?.trim() ?? ''
+if (!address) errors.address = 'Full address is required'
+const operatingHours = form.operatingHours?.trim() ?? ''
+    if (!operatingHours) errors.operatingHours = 'Operating hours are required'
+    const weeklyOff = form.weeklyOff?.trim() ?? ''
+    if (!weeklyOff) errors.weeklyOff = 'Weekly off days selection is required'
   }
+  
   return errors
 }
 
@@ -105,12 +124,12 @@ export function OnboardingPage() {
         whatsapp: (form.whatsapp ?? '').replace(/\D/g, ''),
         email: form.email.trim(),
         city: form.city.trim(),
-        pincode: form.pincode,
+        pincode: form.pincode?.trim(),
         landmark: form.landmark,
-        address: form.address,
+        address: form.address?.trim(),
         mapLink: form.mapLink,
-        operatingHours: form.operatingHours,
-        weeklyOff: form.weeklyOff,
+        operatingHours: form.operatingHours?.trim(),
+        weeklyOff: form.weeklyOff?.trim(),
         branchName: form.branchName,
         branchCity: form.branchCity,
         branchAddress: form.branchAddress,
@@ -209,7 +228,6 @@ export function OnboardingPage() {
       <div className="text-center pt-6 pb-8 px-4">
         <h1 className="text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ color: D.text }}>
           Let&apos;s set up your Business
-          
         </h1>
         <p className="text-sm max-w-sm mx-auto" style={{ color: D.textMuted }}>
           A few details and we&apos;ll have your loyalty program, branded app, and counter standee ready to go. Takes about 5 minutes.
@@ -311,26 +329,21 @@ export function OnboardingPage() {
                   <p className="text-sm mb-7" style={{ color: D.textMuted }}>The basics — who you are, what you&apos;re called, and how we reach you.</p>
                   <div className="space-y-5">
                     <div className="grid sm:grid-cols-2 gap-4">
-                      {/* Added required to Name */}
                       <div><OnboardingLabel required>Business Name</OnboardingLabel><OnboardingInput placeholder="e.g. Brew & Co." value={form.name} onChange={set('name')} error={fieldErrors.name} /></div>
                       <div><OnboardingLabel>Tagline</OnboardingLabel><OnboardingInput placeholder="e.g. Brewco Hospitality Pvt. Ltd." value={form.tagline ?? ''} onChange={set('tagline')} /></div>
                     </div>
                     <div><OnboardingLabel>Description</OnboardingLabel><OnboardingTextarea placeholder="e.g. Where every cup tells a story" value={form.description ?? ''} onChange={set('description')} /></div>
-                    {/* Added required to Business Type */}
                     <div><OnboardingLabel required>Business Type</OnboardingLabel><OnboardingSelect value={form.businessType} onChange={set('businessType')} options={businessTypes} placeholder="Select business type" error={fieldErrors.businessType} /></div>
                     <div className="pt-2">
                       <p className="text-base font-bold mb-0.5" style={{ color: D.text }}>Contact information</p>
                       <p className="text-xs mb-4" style={{ color: D.textMuted }}>So we know who to ring when the magic&apos;s ready.</p>
                       <div className="space-y-4">
-                        {/* Added required to Owner Name */}
                         <div><OnboardingLabel required>Owner Name</OnboardingLabel><OnboardingInput placeholder="Full name" value={form.ownerName} onChange={set('ownerName')} error={fieldErrors.ownerName} /></div>
                         <div className="grid sm:grid-cols-2 gap-4">
-                          {/* Added required to Mobile Number */}
                           <div><OnboardingLabel required>Mobile Number</OnboardingLabel><OnboardingInput placeholder="9XXXX XXXXX" value={form.mobile} onChange={set('mobile')} prefix="+91" error={fieldErrors.mobile} /></div>
                           <div><OnboardingLabel>WhatsApp Number</OnboardingLabel><OnboardingInput placeholder="9XXXX XXXXX" value={form.whatsapp ?? ''} onChange={set('whatsapp')} prefix="+91" /></div>
                         </div>
                         <div>
-                          {/* Added required to Email Address */}
                           <OnboardingLabel required>Email Address</OnboardingLabel>
                           <OnboardingInput
                             placeholder="you@yourcafe.com"
@@ -354,19 +367,28 @@ export function OnboardingPage() {
                   <p className="text-sm mb-7" style={{ color: D.textMuted }}>Where customers find you and when you&apos;re open.</p>
                   <div className="space-y-4">
                     <div className="grid sm:grid-cols-2 gap-4">
-                      {/* Added required to City and Pincode */}
                       <div><OnboardingLabel required>City</OnboardingLabel><OnboardingInput placeholder="e.g. Hyderabad" value={form.city} onChange={set('city')} error={fieldErrors.city} /></div>
-                      <div><OnboardingLabel required>Pincode</OnboardingLabel><OnboardingInput placeholder="6 digit Pincode" value={form.pincode ?? ''} onChange={set('pincode')} /></div>
+                      <div><OnboardingLabel required>Pincode</OnboardingLabel><OnboardingInput placeholder="6 digit Pincode" value={form.pincode ?? ''} onChange={set('pincode')} error={fieldErrors.pincode} /></div>
                     </div>
                     <div><OnboardingLabel>Landmark</OnboardingLabel><OnboardingInput placeholder="e.g. Opp wow kids school" value={form.landmark ?? ''} onChange={set('landmark')} /></div>
-                    {/* Added required to Full Address */}
-                    <div><OnboardingLabel required>Full Address</OnboardingLabel><OnboardingTextarea placeholder="Street, Area, Building name etc" value={form.address ?? ''} onChange={set('address')} rows={2} /></div>
+                  {/* Change this block inside step === 1 */}
+<div>
+  <OnboardingLabel required>Full Address</OnboardingLabel>
+  <OnboardingTextarea 
+    placeholder="Street, Area, Building name etc" 
+    value={form.address ?? ''} 
+    onChange={set('address')} 
+    rows={2} 
+    error={fieldErrors.address} 
+  />
+</div>
                     <div><OnboardingLabel>Google Map Link</OnboardingLabel><OnboardingInput placeholder="Paste Google Map location link" value={form.mapLink ?? ''} onChange={set('mapLink')} /></div>
                     <div className="pt-2">
                       <p className="text-base font-bold mb-0.5" style={{ color: D.text }}>Timings</p>
                       <div className="grid sm:grid-cols-2 gap-4 mt-4">
-                        <div><OnboardingLabel>Operating Hours</OnboardingLabel><OnboardingInput placeholder="e.g. 8:00 AM – 10:00 PM" value={form.operatingHours ?? ''} onChange={set('operatingHours')} /></div>
-                        <div><OnboardingLabel>Weekly Off Days</OnboardingLabel><OnboardingInput placeholder="e.g. None / Sunday" value={form.weeklyOff ?? ''} onChange={set('weeklyOff')} /></div>
+                        {/* Fix: Added required prop and validation mapping hooks for timings / weekdays */}
+                        <div><OnboardingLabel required>Operating Hours</OnboardingLabel><OnboardingInput placeholder="e.g. 8:00 AM – 10:00 PM" value={form.operatingHours ?? ''} onChange={set('operatingHours')} error={fieldErrors.operatingHours} /></div>
+                        <div><OnboardingLabel required>Weekly Off Days</OnboardingLabel><OnboardingInput placeholder="e.g. None / Sunday" value={form.weeklyOff ?? ''} onChange={set('weeklyOff')} error={fieldErrors.weeklyOff} /></div>
                       </div>
                     </div>
                   </div>
@@ -481,15 +503,15 @@ export function OnboardingPage() {
                       </div>
                       <div className="grid grid-cols-1 gap-4 mt-4">
                         <div>
-  <OnboardingLabel>Website</OnboardingLabel>
-  <OnboardingInput 
-    placeholder="yoursite.com" 
-    value={form.website ?? ''} 
-    onChange={set('website')} 
-    prefix="https://" 
-    type="url"
-  />
-</div>
+                          <OnboardingLabel>Website</OnboardingLabel>
+                          <OnboardingInput 
+                            placeholder="yoursite.com" 
+                            value={form.website ?? ''} 
+                            onChange={set('website')} 
+                            prefix="https://" 
+                            type="url"
+                          />
+                        </div>
                         <div><OnboardingLabel>Google Review Link</OnboardingLabel><OnboardingInput placeholder="Paste your Google review link" value={form.googleReview ?? ''} onChange={set('googleReview')} /></div>
                       </div>
                     </div>
