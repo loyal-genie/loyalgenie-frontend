@@ -68,22 +68,25 @@ export function OnboardingInput({ placeholder, value, onChange, type = 'text', p
   )
 }
 
-export function OnboardingTextarea({ placeholder, value, onChange, rows = 3 }: FieldProps & { rows?: number }) {
+export function OnboardingTextarea({ placeholder, value, onChange, rows = 3, error }: FieldProps & { rows?: number }) {
   return (
-    <textarea
-      rows={rows}
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none transition-all"
-      style={{
-        background: onboardingTheme.input,
-        border: `1px solid ${onboardingTheme.inputBorder}`,
-        color: onboardingTheme.text,
-      }}
-      onFocus={(e) => { e.currentTarget.style.borderColor = onboardingTheme.inputFocus }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = onboardingTheme.inputBorder }}
-    />
+    <div>
+      <textarea
+        rows={rows}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none transition-all"
+        style={{
+          background: onboardingTheme.input,
+          border: `1px solid ${error ? '#DC2626' : onboardingTheme.inputBorder}`,
+          color: onboardingTheme.text,
+        }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = onboardingTheme.inputFocus }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = error ? '#DC2626' : onboardingTheme.inputBorder }}
+      />
+      {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+    </div>
   )
 }
 
