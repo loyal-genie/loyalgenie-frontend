@@ -21,6 +21,7 @@ import { CustomerLayout } from '@/pages/customer/CustomerLayout'
 import { CustomerPage } from '@/pages/customer/CustomerPage'
 import { CustomerWalletPage } from '@/pages/customer/CustomerWalletPage'
 import { CustomerProfilePage } from '@/pages/customer/CustomerProfilePage'
+import { CompleteProfilePage } from '@/pages/customer/CompleteProfilePage'
 import { CustomerProfileInfoPage } from '@/pages/customer/profile/CustomerProfileInfoPage'
 import { CustomerCheckInPage } from '@/pages/customer/CustomerCheckInPage'
 import { CustomerBusinessPage } from '@/pages/customer/CustomerBusinessPage'
@@ -82,6 +83,7 @@ export function App() {
           }
         >
           <Route index element={<CustomerPage />} />
+          <Route path="complete-profile" element={<CompleteProfilePage />} />
           <Route path="discover" element={<Navigate to="/customer" replace />} />
           <Route path="wallet" element={<CustomerWalletPage />} />
           <Route path="profile" element={<CustomerProfilePage />} />

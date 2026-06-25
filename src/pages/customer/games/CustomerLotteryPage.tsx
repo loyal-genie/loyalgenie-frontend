@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
 import { useInstantWinPlay } from '@/hooks/useInstantWinPlay'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
+import { promptProfileCompletionAfterGame } from '@/lib/profile-completion'
 import { buildLotteryGrid, type LotteryCell } from '@/lib/instant-win-ui'
 
 const TOTAL = 9
@@ -72,7 +73,7 @@ export function CustomerLotteryPage() {
     resetPlay,
   } = useInstantWinPlay()
 
-  const goToCafe = () => navigate(getCustomerBusinessPath(businessId), { replace: true })
+  const goToCafe = () => promptProfileCompletionAfterGame(navigate, getCustomerBusinessPath(businessId))
 
   const tryAgain = () => {
     resetPlay()

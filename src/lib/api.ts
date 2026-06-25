@@ -114,6 +114,7 @@ export interface CustomerOtpLoginResult {
   email?: string
   name?: string
   role?: 'customer'
+  profileComplete?: boolean
 }
 
 export async function loginCustomerWithOtp(phone: string, otp: string) {
@@ -125,13 +126,13 @@ export async function loginCustomerWithOtp(phone: string, otp: string) {
 }
 
 export async function completeCustomerProfile(payload: {
-  profileToken: string
+  profileToken?: string
   name: string
   gender: 'male' | 'female' | 'other'
   dateOfBirth: string
   email?: string
 }) {
-  const { data } = await api.post<{ success: boolean; data: AuthUser & { isNewUser: boolean } }>(
+  const { data } = await api.post<{ success: boolean; data: AuthUser & { isNewUser: boolean; profileComplete?: boolean } }>(
     '/auth/customer/complete-profile',
     payload,
   )

@@ -16,6 +16,7 @@ import {
 } from '@/lib/api'
 import { clearPlaySession, setPlaySession } from '@/lib/customer-game'
 import { getCustomerMechanicChipLabel } from '@/lib/customer-ui'
+import { promptProfileCompletionAfterGame } from '@/lib/profile-completion'
 
 interface LoyaltyCampaignDetailProps {
   campaign: PublicCampaign
@@ -79,7 +80,7 @@ export function LoyaltyCampaignDetail({
     const dest = loyaltyState.businessId
       ? `/customer/business/${loyaltyState.businessId}`
       : '/customer'
-    navigate(dest, { replace: true })
+    promptProfileCompletionAfterGame(navigate, dest)
   }, [campaign.id, navigate, loyaltyState.businessId, queryClient])
 
   const handleKey = (digit: string) => {
