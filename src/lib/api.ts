@@ -224,6 +224,7 @@ export async function completeOnboarding(payload: OnboardingPayload) {
 export async function fetchBusinessBySlug(slug: string) {
   const { data } = await api.get<{
     data: {
+      id: string
       name: string
       qr_slug: string
       joinUrl: string

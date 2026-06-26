@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { Nfc } from 'lucide-react'
-import { displayJoinPath } from '@/lib/reserved-slugs'
+import { customerSignInPath, displayJoinPath } from '@/lib/reserved-slugs'
 
 interface QrStandeeCardProps {
   qrCodeDataUrl: string
@@ -19,7 +19,7 @@ export function QrStandeeCard({
   showActions = false,
   onDownload,
 }: QrStandeeCardProps) {
-  const joinPath = `/${slug}`
+  const joinPath = customerSignInPath(slug)
 
   return (
     <div

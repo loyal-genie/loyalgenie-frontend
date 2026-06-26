@@ -1,11 +1,13 @@
 /** Opens a print dialog with a branded standee layout matching the onboarding QR card. */
+import { customerSignInPath } from '@/lib/reserved-slugs'
+
 export function printQrStandee(opts: {
   qrCodeDataUrl: string
   slug: string
   businessName: string
 }) {
   const { qrCodeDataUrl, slug, businessName } = opts
-  const joinPath = `/${slug}`
+  const joinPath = customerSignInPath(slug)
 
   const html = `<!DOCTYPE html>
 <html>

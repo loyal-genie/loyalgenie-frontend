@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { OtpInput } from '@/components/auth/OtpInput'
 import { PhoneInput } from '@/components/auth/PhoneInput'
 import {
   sendOtp,
   loginCustomerWithOtp,
+  fetchBusinessBySlug,
   getApiErrorMessage,
 } from '@/lib/api'
 import { setSession } from '@/lib/auth'
@@ -20,6 +21,7 @@ export function SignInPage() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const sessionReason = searchParams.get('reason')
+  const businessSlug = searchParams.get('b')
   const [step, setStep] = useState<Step>('phone')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
@@ -30,7 +32,21 @@ export function SignInPage() {
     ?? (fromQuery && fromQuery.startsWith('/') ? fromQuery : null)
     ?? '/customer'
 
+  const { data: joinBusiness } = useQuery({
+    queryKey: ['business-join', businessSlug],
+    queryFn: () => fetchBusinessBySlug(businessSlug!),
+    enabled: Boolean(businessSlug),
+    retry: false,
+  })
+
+  const businessId = joinBusiness?.id as string | undefined
+  const businessName = (joinBusiness?.name as string | undefined) ?? null
+
   function goToCustomerHome() {
+    if (businessId) {
+      navigate(`/customer/business/${businessId}`, { replace: true })
+      return
+    }
     navigate(from.startsWith('/customer') ? from : '/customer', { replace: true })
   }
 
@@ -94,9 +110,11 @@ export function SignInPage() {
     sendMutation.mutate()
   }
 
-  const title = 'Welcome'
+  const title = businessName ? `Join ${businessName}` : 'Welcome'
   const subtitle = step === 'phone'
-    ? 'Enter your mobile number to continue'
+    ? businessName
+      ? 'Enter your mobile number to join the loyalty program'
+      : 'Enter your mobile number to continue'
     : 'Enter the OTP sent to your phone'
 
   return (
