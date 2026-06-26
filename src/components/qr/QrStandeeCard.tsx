@@ -1,6 +1,20 @@
 import { cn } from '@/lib/utils'
-import { Nfc } from 'lucide-react'
-import { customerSignInPath, displayJoinPath } from '@/lib/reserved-slugs'
+import { customerSignInPath } from '@/lib/reserved-slugs'
+
+const STANDEE_STARS = [
+  { top: '5.95%', right: '16.05%' },
+  { top: '23.81%', right: '6.34%' },
+  { bottom: '9.72%', left: '8%' },
+  { bottom: '10.91%', right: '8.62%' },
+  { top: '6.1%', left: '16.57%' },
+  { top: '50%', left: '4%' },
+  { top: '48.51%', right: '4%' },
+  { bottom: '25.05%', left: '3.14%' },
+  { top: '25.89%', left: '4.29%' },
+  { bottom: '29.36%', right: '4.05%' },
+  { bottom: '5.11%', left: '49.14%' },
+  { top: '46.43%', right: '4.05%' },
+] as const
 
 interface QrStandeeCardProps {
   qrCodeDataUrl: string
@@ -24,72 +38,114 @@ export function QrStandeeCard({
   return (
     <div
       className={cn(
-        'relative w-full max-w-sm mx-auto rounded-3xl overflow-hidden',
-        'border border-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.5)]',
+        'relative mx-auto w-[350px] max-w-full overflow-hidden rounded-[20px]',
         className,
       )}
       style={{
-        background: 'linear-gradient(165deg, #1a0b4b 0%, #0d0b28 45%, #12082e 100%)',
+        background: 'linear-gradient(180deg, #420467 58.705%, #2d110d 122.99%)',
       }}
     >
-      <div className="absolute top-4 right-4 flex flex-col items-center gap-0.5 opacity-70">
-        <Nfc className="w-5 h-5 text-white" />
-        <span className="text-[9px] font-bold text-white tracking-wider">NFC</span>
-      </div>
+      {STANDEE_STARS.map((star, index) => (
+        <span
+          key={index}
+          aria-hidden
+          className="pointer-events-none absolute text-[15px] leading-none"
+          style={{ color: 'rgba(250, 212, 153, 0.29)', ...star }}
+        >
+          ★
+        </span>
+      ))}
 
-      <div className="px-6 pt-8 pb-6 text-center">
-        <div className="text-5xl mb-4">🧞</div>
+      <div className="relative flex flex-col items-center px-6 pt-[34px] pb-8 text-center">
+        <img
+          src="/qr/genie.svg"
+          alt=""
+          className="h-[90px] w-[90px] shrink-0"
+          draggable={false}
+        />
 
-        <h3 className="text-xl font-black text-white tracking-tight mb-1">Loyalty Granted</h3>
-        <p className="text-sm font-bold mb-6">
+        <h3 className="mt-[23px] text-[24px] font-semibold capitalize leading-normal text-white">
+          Loyalty Granted
+        </h3>
+
+        <p className="mt-1 text-[14px] font-semibold uppercase leading-normal">
           <span className="text-white">SHAKE IT! </span>
-          <span className="text-gold">GRAB IT!</span>
+          <span className="text-[#f6a800]">WIN IT!</span>
         </p>
 
-        {businessName && (
-          <p className="text-xs text-white/60 mb-4 font-semibold uppercase tracking-widest">{businessName}</p>
-        )}
-
         <div
-          className="mx-auto w-fit p-4 rounded-2xl mb-4"
-          style={{
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            backdropFilter: 'blur(12px)',
-          }}
+          className="mt-5 flex w-[235px] max-w-full flex-col items-center rounded-[10px] border border-[rgba(177,138,70,0.31)] px-5 pt-5 pb-4"
+          style={{ background: 'rgba(217, 217, 217, 0.1)' }}
         >
           <img
             src={qrCodeDataUrl}
             alt={`QR code for ${joinPath}`}
-            className="w-44 h-44 sm:w-48 sm:h-48 bg-white rounded-lg"
+            className="h-[160px] w-[160px] rounded-[10px] bg-white object-contain"
           />
-        </div>
 
-        <p className="text-[11px] font-bold tracking-[0.2em] text-white/80 mb-4">SCAN OR TAP TO JOIN</p>
-
-        <div
-          className="inline-block px-5 py-2 rounded-full text-[10px] font-bold tracking-wider mb-6"
-          style={{ border: '1px solid rgba(240,192,64,0.5)', color: '#f0c040' }}
-        >
-          ONE TAP. INFINITE REWARDS.
-        </div>
-
-        <div className="border-t border-white/10 pt-5">
-          <p className="text-lg font-black">
-            <span className="text-white">Loyal</span>
-            <span className="text-gold">Genie</span>
-            <span className="text-gold text-xs align-super ml-0.5">✦✦✦</span>
+          <p className="mt-[17px] text-[13px] font-semibold leading-normal text-white">
+            SCAN TO JOIN
           </p>
-          <p className="text-[10px] text-white/40 mt-1">Magical Interaction for Businesses</p>
-          <p className="text-xs text-gold/80 mt-3 font-mono font-semibold">{displayJoinPath(slug)}</p>
-          <p className="text-[10px] text-white/35 mt-1">{joinPath}</p>
+
+          <div className="mt-3 flex h-[29px] w-[175px] max-w-full items-center justify-center rounded-[10px] border border-[#b18a46] px-3">
+            <p className="text-[10px] font-medium leading-normal text-[#b18a46]">
+              ONE TAP. <span className="uppercase">Infinite Rewards</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-[53px] flex flex-col items-center">
+          <div className="relative inline-flex items-end justify-center">
+            <p className="text-[24px] font-semibold leading-normal">
+              <span className="text-white">Loyal</span>
+              <span className="text-[#f6a800]">Genie</span>
+            </p>
+            <img
+              src="/qr/star-lg.svg"
+              alt=""
+              aria-hidden
+              className="absolute -top-1 left-[calc(100%-8px)] h-[10px] w-[10px]"
+              draggable={false}
+            />
+            <img
+              src="/qr/star-sm.svg"
+              alt=""
+              aria-hidden
+              className="absolute -top-2 left-[calc(100%+2px)] h-[4px] w-[4px]"
+              draggable={false}
+            />
+            <img
+              src="/qr/star-sm.svg"
+              alt=""
+              aria-hidden
+              className="absolute -top-0.5 left-[calc(100%+10px)] h-[4px] w-[4px]"
+              draggable={false}
+            />
+            <img
+              src="/qr/star-sm.svg"
+              alt=""
+              aria-hidden
+              className="absolute top-0.5 left-[calc(100%-2px)] h-[4px] w-[4px]"
+              draggable={false}
+            />
+          </div>
+
+          <p className="mt-1 text-[10px] font-normal leading-normal text-[#afadad]">
+            Magical Interaction for Businesses
+          </p>
+
+          {businessName && (
+            <p className="mt-3 text-[12px] font-semibold uppercase tracking-[0.15em] text-white/70">
+              {businessName}
+            </p>
+          )}
         </div>
 
         {showActions && onDownload && (
           <button
             type="button"
             onClick={onDownload}
-            className="mt-5 w-full py-2.5 rounded-xl text-xs font-semibold text-white border border-white/20 hover:bg-white/5 transition-colors cursor-pointer bg-transparent"
+            className="mt-5 w-full cursor-pointer rounded-xl border border-white/20 bg-transparent py-2.5 text-xs font-semibold text-white transition-colors hover:bg-white/5"
           >
             Download standee QR
           </button>

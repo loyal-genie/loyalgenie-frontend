@@ -1,13 +1,35 @@
-/** Opens a print dialog with a branded standee layout matching the onboarding QR card. */
-import { customerSignInPath } from '@/lib/reserved-slugs'
+/** Opens a print dialog with a branded standee layout matching the Figma QR card. */
+
+const STANDEE_STARS = [
+  { top: '5.95%', right: '16.05%' },
+  { top: '23.81%', right: '6.34%' },
+  { bottom: '9.72%', left: '8%' },
+  { bottom: '10.91%', right: '8.62%' },
+  { top: '6.1%', left: '16.57%' },
+  { top: '50%', left: '4%' },
+  { top: '48.51%', right: '4%' },
+  { bottom: '25.05%', left: '3.14%' },
+  { top: '25.89%', left: '4.29%' },
+  { bottom: '29.36%', right: '4.05%' },
+  { bottom: '5.11%', left: '49.14%' },
+  { top: '46.43%', right: '4.05%' },
+] as const
+
+function starMarkup() {
+  return STANDEE_STARS.map((star) => {
+    const style = Object.entries(star)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('; ')
+    return `<span class="star" style="${style}">★</span>`
+  }).join('')
+}
 
 export function printQrStandee(opts: {
   qrCodeDataUrl: string
   slug: string
   businessName: string
 }) {
-  const { qrCodeDataUrl, slug, businessName } = opts
-  const joinPath = customerSignInPath(slug)
+  const { qrCodeDataUrl, businessName } = opts
 
   const html = `<!DOCTYPE html>
 <html>
@@ -18,7 +40,7 @@ export function printQrStandee(opts: {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     @page { size: A4 portrait; margin: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -28,93 +50,122 @@ export function printQrStandee(opts: {
       print-color-adjust: exact;
     }
     .standee {
-      width: 320px;
-      border-radius: 24px;
+      position: relative;
+      width: 350px;
       overflow: hidden;
-      background: linear-gradient(165deg, #1a0b4b 0%, #0d0b28 45%, #12082e 100%);
+      border-radius: 20px;
+      background: linear-gradient(180deg, #420467 58.705%, #2d110d 122.99%);
       color: #fff;
       text-align: center;
-      padding: 32px 24px 28px;
-      position: relative;
+      padding: 34px 24px 32px;
     }
-    .nfc {
+    .star {
       position: absolute;
-      top: 16px;
-      right: 16px;
-      opacity: 0.7;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
+      color: rgba(250, 212, 153, 0.29);
+      font-size: 15px;
+      line-height: 1;
+      pointer-events: none;
     }
-    .genie { font-size: 48px; margin-bottom: 16px; }
-    h1 { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
-    .tagline { font-size: 13px; font-weight: 700; margin-bottom: 20px; }
-    .tagline .gold { color: #f0c040; }
+    .content { position: relative; }
+    .genie { width: 90px; height: 90px; display: block; margin: 0 auto; }
+    h1 {
+      margin-top: 23px;
+      font-size: 24px;
+      font-weight: 600;
+      text-transform: capitalize;
+      color: #fff;
+    }
+    .tagline {
+      margin-top: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .tagline .gold { color: #f6a800; }
+    .qr-card {
+      margin: 20px auto 0;
+      width: 235px;
+      padding: 20px 20px 16px;
+      border-radius: 10px;
+      background: rgba(217, 217, 217, 0.1);
+      border: 1px solid rgba(177, 138, 70, 0.31);
+    }
+    .qr-card img {
+      width: 160px;
+      height: 160px;
+      background: #fff;
+      border-radius: 10px;
+      display: block;
+      margin: 0 auto;
+      object-fit: contain;
+    }
+    .scan {
+      margin-top: 17px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .pill {
+      margin: 12px auto 0;
+      width: 175px;
+      height: 29px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      border: 1px solid #b18a46;
+      color: #b18a46;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    .pill .upper { text-transform: uppercase; }
+    .footer { margin-top: 53px; }
+    .logo {
+      position: relative;
+      display: inline-block;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .logo .gold { color: #f6a800; }
+    .sub {
+      margin-top: 4px;
+      font-size: 10px;
+      color: #afadad;
+    }
     .biz-name {
-      font-size: 11px;
+      margin-top: 12px;
+      font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.15em;
-      opacity: 0.6;
-      margin-bottom: 16px;
+      color: rgba(255, 255, 255, 0.7);
     }
-    .qr-wrap {
-      display: inline-block;
-      padding: 16px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      margin-bottom: 16px;
-    }
-    .qr-wrap img {
-      width: 180px;
-      height: 180px;
-      background: #fff;
-      border-radius: 8px;
-      display: block;
-    }
-    .scan { font-size: 11px; font-weight: 700; letter-spacing: 0.2em; opacity: 0.8; margin-bottom: 16px; }
-    .pill {
-      display: inline-block;
-      padding: 8px 20px;
-      border-radius: 999px;
-      border: 1px solid rgba(240,192,64,0.5);
-      color: #f0c040;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      margin-bottom: 24px;
-    }
-    .footer { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; }
-    .logo { font-size: 18px; font-weight: 900; }
-    .logo .gold { color: #f0c040; }
-    .sub { font-size: 10px; opacity: 0.4; margin-top: 4px; }
-    .slug { font-size: 12px; color: rgba(240,192,64,0.8); font-family: monospace; margin-top: 12px; font-weight: 600; }
   </style>
 </head>
 <body>
   <div class="standee">
-    <div class="nfc">NFC</div>
-    <div class="genie">🧞</div>
-    <h1>Loyalty Granted</h1>
-    <p class="tagline">SHAKE IT! <span class="gold">GRAB IT!</span></p>
-    <p class="biz-name">${businessName}</p>
-    <div class="qr-wrap">
-      <img src="${qrCodeDataUrl}" alt="QR Code" />
-    </div>
-    <p class="scan">SCAN OR TAP TO JOIN</p>
-    <div class="pill">ONE TAP. INFINITE REWARDS.</div>
-    <div class="footer">
-      <p class="logo">Loyal<span class="gold">Genie</span> ✦✦✦</p>
-      <p class="sub">Magical Interaction for Businesses</p>
-      <p class="slug">${joinPath}</p>
+    ${starMarkup()}
+    <div class="content">
+      <img class="genie" src="${window.location.origin}/qr/genie.svg" alt="" />
+      <h1>Loyalty Granted</h1>
+      <p class="tagline">SHAKE IT! <span class="gold">WIN IT!</span></p>
+      <div class="qr-card">
+        <img src="${qrCodeDataUrl}" alt="QR Code" />
+        <p class="scan">SCAN TO JOIN</p>
+        <div class="pill">ONE TAP. <span class="upper">Infinite Rewards</span></div>
+      </div>
+      <div class="footer">
+        <p class="logo">Loyal<span class="gold">Genie</span></p>
+        <p class="sub">Magical Interaction for Businesses</p>
+        <p class="biz-name">${businessName}</p>
+      </div>
     </div>
   </div>
   <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=400,height=700')
+  const win = window.open('', '_blank', 'width=400,height=760')
   if (!win) return
   win.document.write(html)
   win.document.close()
