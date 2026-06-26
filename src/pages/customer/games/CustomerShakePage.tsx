@@ -13,7 +13,6 @@ import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage, 
 import { getUser } from '@/lib/auth'
 import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
 import { findBusinessForCampaign, getCustomerBusinessPath } from '@/lib/customer-ui'
-import { promptProfileCompletionAfterGame } from '@/lib/profile-completion'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { useShakeCharge } from '@/hooks/useShakeCharge'
 
@@ -149,7 +148,7 @@ export function CustomerShakePage() {
 
   const handleBackToCafe = useCallback(() => {
     const dest = getCustomerBusinessPath(campaign?.businessId)
-    promptProfileCompletionAfterGame(navigate, dest)
+    navigate(dest, { replace: true })
   }, [navigate, campaign?.businessId])
 
   const handlePlayAgain = () => {

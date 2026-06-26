@@ -9,13 +9,15 @@ import { PromoHeroBanner } from '@/components/customer/PromoHeroBanner'
 import { categoryMatches, type CustomerCategory } from '@/lib/customer-ui'
 import { sortBusinessesByDistance } from '@/lib/business-display'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
-import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
+import { useBusinessesWithCampaigns, useCustomerNotifications } from '@/hooks/useCustomerData'
 import { useUserLocation } from '@/hooks/useUserLocation'
 
 export function CustomerPage() {
   const navigate = useNavigate()
   const { firstName } = useCustomerSession()
   const { data: businesses, isLoading } = useBusinessesWithCampaigns()
+  const { data: notificationData } = useCustomerNotifications()
+  const notificationCount = notificationData?.unreadCount ?? 0
   const userCoords = useUserLocation()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<CustomerCategory>('All')
@@ -63,11 +65,16 @@ export function CustomerPage() {
           </div>
           <button
             type="button"
-            onClick={() => navigate('/customer/profile/settings')}
+            onClick={() => navigate('/customer/notifications')}
             className="relative w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm border-0 cursor-pointer"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5 text-white" />
+            {notificationCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[9px] font-black text-white flex items-center justify-center">
+                {notificationCount}
+              </span>
+            )}
           </button>
         </motion.div>
 

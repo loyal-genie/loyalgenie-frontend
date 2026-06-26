@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, ChevronRight, Loader2 } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
@@ -15,6 +15,7 @@ import { getApiErrorMessage } from '@/lib/api'
 import {
   useBusinessesWithCampaigns,
   useCustomerLoyaltyProfiles,
+  useCustomerNotifications,
   useCustomerRewards,
   useRequestRedemption,
 } from '@/hooks/useCustomerData'
@@ -50,6 +51,7 @@ function buildCardContext(
 }
 
 export function CustomerWalletPage() {
+  const navigate = useNavigate()
   const { firstName } = useCustomerSession()
   const [tab, setTab] = useState<Tab>('active')
   const [redeemError, setRedeemError] = useState('')
@@ -61,6 +63,8 @@ export function CustomerWalletPage() {
   const { data: rewards = [], isLoading } = useCustomerRewards()
   const { data: businesses } = useBusinessesWithCampaigns()
   const { data: loyaltyProfiles = [] } = useCustomerLoyaltyProfiles()
+  const { data: notificationData } = useCustomerNotifications()
+  const notificationCount = notificationData?.unreadCount ?? 0
   const redeemMutation = useRequestRedemption()
 
   const cardContext = useMemo(() => {
@@ -160,6 +164,8 @@ export function CustomerWalletPage() {
         }
       : null
 
+  const badgeCount = urgentCount + notificationCount
+
   return (
     <div className="min-h-dvh bg-gray-50 pb-[calc(5rem+env(safe-area-inset-bottom))]">
       <AnimatePresence>
@@ -196,17 +202,18 @@ export function CustomerWalletPage() {
           </div>
           <button
             type="button"
-            className="relative w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm border-0"
+            onClick={() => navigate('/customer/notifications')}
+            className="relative w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm border-0 cursor-pointer"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5 text-white" />
-            {urgentCount > 0 && (
+            {badgeCount > 0 && (
               <motion.div
-                className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center"
+                className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 flex items-center justify-center"
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 1.4, repeat: Infinity }}
               >
-                <span className="text-[9px] font-black text-white">{urgentCount}</span>
+                <span className="text-[9px] font-black text-white">{badgeCount}</span>
               </motion.div>
             )}
           </button>
