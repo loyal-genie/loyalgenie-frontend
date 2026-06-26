@@ -65,6 +65,27 @@ export interface AuthUser {
   name?: string
   phone?: string
   onboarded?: boolean
+  profileComplete?: boolean
+}
+
+export interface CustomerProfileDto {
+  id: string
+  name: string
+  phone: string
+  email: string
+  dateOfBirth?: string
+  gender?: string
+  profileComplete: boolean
+  missingFields: Array<'dateOfBirth' | 'gender' | 'email'>
+}
+
+export interface CustomerNotificationDto {
+  id: string
+  type: 'profile_incomplete'
+  title: string
+  body: string
+  actionUrl: string
+  createdAt: string
 }
 
 export async function sendBusinessEmailOtp(email: string) {
@@ -126,16 +147,39 @@ export async function loginCustomerWithOtp(phone: string, otp: string) {
 }
 
 export async function completeCustomerProfile(payload: {
-  profileToken?: string
+  profileToken: string
   name: string
-  gender: 'male' | 'female' | 'other'
-  dateOfBirth: string
-  email?: string
 }) {
   const { data } = await api.post<{ success: boolean; data: AuthUser & { isNewUser: boolean; profileComplete?: boolean } }>(
     '/auth/customer/complete-profile',
     payload,
   )
+  return data.data
+}
+
+export async function fetchCustomerProfile() {
+  const { data } = await api.get<{ success: boolean; data: CustomerProfileDto }>('/customer/profile')
+  return data.data
+}
+
+export async function updateCustomerProfile(payload: {
+  name?: string
+  gender?: 'male' | 'female' | 'other' | null
+  dateOfBirth?: string | null
+  email?: string | null
+}) {
+  const { data } = await api.patch<{
+    success: boolean
+    data: AuthUser & { profile: CustomerProfileDto; profileComplete: boolean }
+  }>('/customer/profile', payload)
+  return data.data
+}
+
+export async function fetchCustomerNotifications() {
+  const { data } = await api.get<{
+    success: boolean
+    data: { notifications: CustomerNotificationDto[]; unreadCount: number }
+  }>('/customer/notifications')
   return data.data
 }
 

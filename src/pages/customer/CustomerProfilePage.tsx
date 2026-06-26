@@ -6,6 +6,7 @@ import {
   HelpCircle,
   Info,
   LogOut,
+  Pencil,
   Settings,
   Shield,
   Trash2,
@@ -14,7 +15,7 @@ import { BottomNav } from '@/components/customer/bottom-nav'
 import { clearSession } from '@/lib/auth'
 import { getCampaignGradient, walletTimeAgo } from '@/lib/customer-ui'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
-import { useCustomerLoyaltyProfiles, useCustomerRewards } from '@/hooks/useCustomerData'
+import { useCustomerLoyaltyProfiles, useCustomerProfile, useCustomerRewards } from '@/hooks/useCustomerData'
 
 const menuItems = [
   { label: 'Settings', icon: Settings, action: 'settings' as const },
@@ -27,6 +28,7 @@ const menuItems = [
 export function CustomerProfilePage() {
   const navigate = useNavigate()
   const { displayName, displayPhone, displayEmail } = useCustomerSession()
+  const { data: profile } = useCustomerProfile()
   const { data: rewards = [] } = useCustomerRewards()
   const { data: loyaltyProfiles = [] } = useCustomerLoyaltyProfiles()
 
@@ -61,7 +63,35 @@ export function CustomerProfilePage() {
           <h1 className="text-xl font-extrabold text-gray-900">{displayName}</h1>
           <p className="text-sm text-gray-500 mt-1">{displayPhone}</p>
           {displayEmail && <p className="text-xs text-gray-400 mt-0.5">{displayEmail}</p>}
+          <button
+            type="button"
+            onClick={() => navigate('/customer/profile/edit')}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#5b0e81] text-white text-xs font-semibold px-4 py-2 border-0 cursor-pointer"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Edit profile
+          </button>
         </motion.div>
+
+        {profile && !profile.profileComplete && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3"
+          >
+            <p className="text-sm font-semibold text-amber-900">Complete your profile</p>
+            <p className="text-xs text-amber-800 mt-1">
+              Add your remaining details to get the most out of LoyalGenie.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/customer/profile/edit')}
+              className="mt-2 text-xs font-bold text-[#5b0e81] bg-transparent border-0 cursor-pointer p-0"
+            >
+              Finish setup →
+            </button>
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}

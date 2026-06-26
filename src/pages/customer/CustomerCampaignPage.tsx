@@ -13,7 +13,6 @@ import {
 import { setPlaySession, markMotionGesture } from '@/lib/customer-game'
 import { primeMotionSensors } from '@/lib/shake-motion-sensors'
 import { getGameRouteForMechanic } from '@/lib/customer-ui'
-import { promptProfileCompletionAfterGame } from '@/lib/profile-completion'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { isMechanicComingSoon } from '@/lib/live-mechanics'
 import { MechanicComingSoon } from '@/components/shared/MechanicComingSoon'
@@ -136,11 +135,8 @@ export function CustomerCampaignPage() {
       setError(opts.error)
       return
     }
-    if (campaign?.businessId) {
-      promptProfileCompletionAfterGame(navigate, `/customer/business/${campaign.businessId}`)
-    } else {
-      promptProfileCompletionAfterGame(navigate, '/customer')
-    }
+    if (campaign?.businessId) navigate(`/customer/business/${campaign.businessId}`)
+    else navigate('/customer')
   }, [campaign?.businessId, navigate])
 
   const handleKey = (k: string) => {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { AuthShell } from '@/components/auth/AuthShell'
@@ -7,14 +8,19 @@ import { PhoneInput } from '@/components/auth/PhoneInput'
 import {
   sendOtp,
   loginCustomerWithOtp,
+  completeCustomerProfile,
   fetchBusinessBySlug,
   getApiErrorMessage,
 } from '@/lib/api'
 import { setSession } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/input'
+import { Input, Label } from '@/components/ui/input'
 
-type Step = 'phone' | 'otp'
+type Step = 'phone' | 'otp' | 'profile'
+
+interface ProfileForm {
+  name: string
+}
 
 export function SignInPage() {
   const navigate = useNavigate()
@@ -25,7 +31,12 @@ export function SignInPage() {
   const [step, setStep] = useState<Step>('phone')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
+  const [profileToken, setProfileToken] = useState('')
   const [error, setError] = useState('')
+
+  const profileForm = useForm<ProfileForm>({
+    defaultValues: { name: '' },
+  })
 
   const fromQuery = searchParams.get('from')
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname
@@ -64,7 +75,7 @@ export function SignInPage() {
       role: 'customer',
       name: data.name,
       phone: data.phone,
-      profileComplete: data.profileComplete !== false,
+      profileComplete: data.profileComplete,
     })
   }
 
@@ -82,6 +93,15 @@ export function SignInPage() {
     mutationFn: () => loginCustomerWithOtp(phone, otp),
     onSuccess: async (data) => {
       setError('')
+      if (data.isNewUser) {
+        if (!data.profileToken) {
+          setError('Could not start profile setup. Please try again.')
+          return
+        }
+        setProfileToken(data.profileToken)
+        setStep('profile')
+        return
+      }
       if (!data.token || !data.userId) {
         setError('Could not sign in. Please try again.')
         return
@@ -99,7 +119,20 @@ export function SignInPage() {
     onError: (err) => setError(getApiErrorMessage(err, 'Invalid OTP. Please try again.')),
   })
 
-  const isPending = sendMutation.isPending || loginMutation.isPending
+  const profileMutation = useMutation({
+    mutationFn: (form: ProfileForm) =>
+      completeCustomerProfile({
+        profileToken,
+        name: form.name,
+      }),
+    onSuccess: async (data) => {
+      saveSession(data)
+      await goToCustomerHome()
+    },
+    onError: (err) => setError(getApiErrorMessage(err, 'Could not save your profile. Please try again.')),
+  })
+
+  const isPending = sendMutation.isPending || loginMutation.isPending || profileMutation.isPending
 
   function handleSendOtp() {
     if (phone.length !== 10) {
@@ -110,12 +143,18 @@ export function SignInPage() {
     sendMutation.mutate()
   }
 
-  const title = businessName ? `Join ${businessName}` : 'Welcome'
+  const title = step === 'profile'
+    ? 'Almost there'
+    : businessName
+      ? `Join ${businessName}`
+      : 'Welcome'
   const subtitle = step === 'phone'
     ? businessName
       ? 'Enter your mobile number to join the loyalty program'
       : 'Enter your mobile number to continue'
-    : 'Enter the OTP sent to your phone'
+    : step === 'otp'
+      ? 'Enter the OTP sent to your phone'
+      : 'What should we call you?'
 
   return (
     <AuthShell title={title} subtitle={subtitle} showRoleToggle={false}>
@@ -179,6 +218,42 @@ export function SignInPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {step === 'profile' && (
+        <form
+          onSubmit={profileForm.handleSubmit((d) => {
+            setError('')
+            profileMutation.mutate(d)
+          })}
+          className="space-y-5"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="name">Full name</Label>
+            <Input
+              id="name"
+              placeholder="Priya Sharma"
+              className="rounded-full"
+              autoFocus
+              {...profileForm.register('name', { required: 'Name is required', minLength: 2 })}
+            />
+            {profileForm.formState.errors.name && (
+              <p className="text-xs text-v-danger">{profileForm.formState.errors.name.message}</p>
+            )}
+          </div>
+
+          <p className="text-xs text-v-text-2">
+            You can add your date of birth, gender, and email later from your profile.
+          </p>
+
+          {error && (
+            <p className="text-sm text-v-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
+          )}
+
+          <Button type="submit" variant="primary" className="w-full rounded-full" disabled={isPending}>
+            {profileMutation.isPending ? 'Saving...' : 'Go to dashboard →'}
+          </Button>
+        </form>
       )}
     </AuthShell>
   )
