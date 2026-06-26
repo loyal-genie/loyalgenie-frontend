@@ -22,10 +22,14 @@ export function isReservedSlug(slug: string) {
 }
 
 export function slugPath(slug: string) {
-  return `/${slug}`
+  return customerSignInPath(slug)
+}
+
+export function customerSignInPath(slug: string) {
+  return `/signin?b=${encodeURIComponent(slug)}`
 }
 
 export function displayJoinPath(slug: string) {
   const host = typeof window !== 'undefined' ? window.location.host : 'loyalgenie.in'
-  return `${host}/${slug}`
+  return `${host}${customerSignInPath(slug)}`
 }

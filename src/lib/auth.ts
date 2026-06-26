@@ -12,6 +12,7 @@ export interface StoredUser {
   onboarded?: boolean
   name?: string
   phone?: string
+  profileComplete?: boolean
 }
 
 function tokenKey(role: UserRole) {

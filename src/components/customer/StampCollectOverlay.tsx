@@ -28,7 +28,6 @@ export function StampCollectOverlay({
   const [reward, setReward] = useState<StampRewardInfo | null>(null)
 
   const onDoneRef = useRef(onDone)
-  const collectStartedRef = useRef(false)
   const successRef = useRef(false)
 
   onDoneRef.current = onDone
@@ -56,9 +55,6 @@ export function StampCollectOverlay({
   }, [])
 
   useEffect(() => {
-    if (collectStartedRef.current) return
-    collectStartedRef.current = true
-
     let cancelled = false
 
     executeStamp(campaignId, playSessionToken)

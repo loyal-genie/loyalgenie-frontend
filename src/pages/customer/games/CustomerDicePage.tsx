@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
 import { useInstantWinPlay } from '@/hooks/useInstantWinPlay'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
+import { promptProfileCompletionAfterGame } from '@/lib/profile-completion'
 import { pickDiceFace } from '@/lib/instant-win-ui'
 
 type State = 'idle' | 'rolling' | 'result'
@@ -49,7 +50,7 @@ export function CustomerDicePage() {
     resetPlay,
   } = useInstantWinPlay()
 
-  const goToCafe = () => navigate(getCustomerBusinessPath(businessId), { replace: true })
+  const goToCafe = () => promptProfileCompletionAfterGame(navigate, getCustomerBusinessPath(businessId))
 
   const tryAgain = () => {
     resetPlay()

@@ -372,7 +372,7 @@ export function VendorSettingsPage() {
           {profile?.qrSlug && (
             <Card className="p-4 bg-v-purple/5 border-v-purple/20">
               <p className="text-xs text-v-text-2">
-                Your public join link: <code className="font-mono text-v-purple font-semibold">/{profile.qrSlug}</code>
+                Your public join link: <code className="font-mono text-v-purple font-semibold">/signin?b={profile.qrSlug}</code>
                 {' '}(cannot be changed)
               </p>
             </Card>

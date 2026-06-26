@@ -194,7 +194,7 @@ export function OnboardingPage() {
 
   async function copyUrl() {
     if (!qrResult) return
-    const url = qrResult.joinUrl || `${window.location.origin}/${qrResult.qrSlug}`
+    const url = qrResult.joinUrl || `${window.location.origin}/signin?b=${encodeURIComponent(qrResult.qrSlug)}`
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -282,7 +282,7 @@ export function OnboardingPage() {
               <div className="text-center mb-2">
                 <h2 className="text-2xl font-black mb-1" style={{ color: D.text }}>Your standee is ready!</h2>
                 <p className="text-sm" style={{ color: D.textMuted }}>
-                  Customers visit <span style={{ color: D.gold }}>/{qrResult.qrSlug}</span> or scan the QR to join.
+                  Customers scan the QR or visit <span style={{ color: D.gold }}>/signin?b={qrResult.qrSlug}</span> to join.
                 </p>
               </div>
 
@@ -298,7 +298,7 @@ export function OnboardingPage() {
                 <p className="text-xs font-semibold mb-2" style={{ color: D.label }}>Share link</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 text-xs sm:text-sm truncate font-mono" style={{ color: D.gold }}>
-                    /{qrResult.qrSlug}
+                    /signin?b={qrResult.qrSlug}
                   </code>
                   <button
                     type="button"
