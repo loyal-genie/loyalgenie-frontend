@@ -40,9 +40,18 @@ interface FieldProps {
 export function OnboardingInput({ placeholder, value, onChange, type = 'text', prefix, error, readOnly }: FieldProps) {
   return (
     <div>
-      <div className="relative">
+      <div
+        className="flex w-full items-center rounded-xl transition-all"
+        style={{
+          background: onboardingTheme.input,
+          border: `1px solid ${error ? '#DC2626' : onboardingTheme.inputBorder}`,
+        }}
+      >
         {prefix && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium" style={{ color: onboardingTheme.textMuted }}>
+          <span
+            className="shrink-0 pl-4 text-sm font-medium select-none"
+            style={{ color: onboardingTheme.textMuted }}
+          >
             {prefix}
           </span>
         )}
@@ -52,15 +61,19 @@ export function OnboardingInput({ placeholder, value, onChange, type = 'text', p
           value={value}
           readOnly={readOnly}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
-          style={{
-            background: onboardingTheme.input,
-            border: `1px solid ${error ? '#DC2626' : onboardingTheme.inputBorder}`,
-            color: onboardingTheme.text,
-            paddingLeft: prefix ? '2.5rem' : undefined,
+          className={cn(
+            'min-w-0 flex-1 bg-transparent py-3 text-sm outline-none',
+            prefix ? 'pl-1 pr-4' : 'px-4',
+          )}
+          style={{ color: onboardingTheme.text }}
+          onFocus={(e) => {
+            const wrapper = e.currentTarget.parentElement
+            if (wrapper) wrapper.style.borderColor = onboardingTheme.inputFocus
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = onboardingTheme.inputFocus }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = error ? '#DC2626' : onboardingTheme.inputBorder }}
+          onBlur={(e) => {
+            const wrapper = e.currentTarget.parentElement
+            if (wrapper) wrapper.style.borderColor = error ? '#DC2626' : onboardingTheme.inputBorder
+          }}
         />
       </div>
       {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
