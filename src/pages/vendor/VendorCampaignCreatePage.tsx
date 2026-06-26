@@ -678,13 +678,25 @@ export function VendorCampaignCreatePage() {
                 <Slider label="Total Stamps" displayValue={`${stampConfig.totalStamps} stamps`} min={5} max={20} step={1} value={stampConfig.totalStamps}
                   onChange={e => {
                     const n = Number(e.target.value)
-                    setStampConfig(p => ({ ...p, totalStamps: n, prefillStamps: Math.min(p.prefillStamps, n - 1), surpriseTo: Math.min(p.surpriseTo, Math.floor(n / 2)), bigRewardFrom: Math.min(p.bigRewardFrom, n), bigRewardTo: Math.min(p.bigRewardTo, n) }))
+                    setStampConfig(p => {
+                      const surpriseFrom = Math.min(Math.max(p.surpriseFrom, 1), n)
+                      const bigRewardFrom = Math.min(Math.max(p.bigRewardFrom, 1), n)
+                      return {
+                        ...p,
+                        totalStamps: n,
+                        prefillStamps: Math.min(p.prefillStamps, n),
+                        surpriseFrom,
+                        surpriseTo: Math.min(Math.max(p.surpriseTo, surpriseFrom), n),
+                        bigRewardFrom,
+                        bigRewardTo: Math.min(Math.max(p.bigRewardTo, bigRewardFrom), n),
+                      }
+                    })
                   }}
                 />
 
                 {/* Pre-fill stamps */}
                 <div>
-                  <Stepper label="Pre-fill Stamps" hint="stamps pre-filled" value={stampConfig.prefillStamps} min={0} max={Math.max(0, stampConfig.totalStamps - 1)} onChange={v => setStampConfig(p => ({ ...p, prefillStamps: v }))} />
+                  <Stepper label="Pre-fill Stamps" hint="stamps pre-filled" value={stampConfig.prefillStamps} min={0} max={stampConfig.totalStamps} onChange={v => setStampConfig(p => ({ ...p, prefillStamps: v }))} />
                   <p className="text-xs text-v-text-3 mt-1.5">Customers start with this many stamps already earned — lowers the barrier to the first reward.</p>
                 </div>
 
@@ -695,8 +707,8 @@ export function VendorCampaignCreatePage() {
                     <p className="text-xs font-bold text-v-text-2 uppercase tracking-wider">Surprise Drop</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <Input label="From Stamp #" type="number" min={1} max={Math.floor(stampConfig.totalStamps / 2)} value={stampConfig.surpriseFrom} onChange={e => setStampConfig(p => ({ ...p, surpriseFrom: Number(e.target.value) }))} />
-                    <Input label="To Stamp #"   type="number" min={stampConfig.surpriseFrom} max={Math.floor(stampConfig.totalStamps / 2)} value={stampConfig.surpriseTo} onChange={e => setStampConfig(p => ({ ...p, surpriseTo: Number(e.target.value) }))} />
+                    <Input label="From Stamp #" type="number" min={1} max={stampConfig.totalStamps} value={stampConfig.surpriseFrom} onChange={e => setStampConfig(p => ({ ...p, surpriseFrom: Number(e.target.value) }))} />
+                    <Input label="To Stamp #"   type="number" min={stampConfig.surpriseFrom} max={stampConfig.totalStamps} value={stampConfig.surpriseTo} onChange={e => setStampConfig(p => ({ ...p, surpriseTo: Number(e.target.value) }))} />
                   </div>
                   <p className="text-[11px] text-v-text-3">Triggers at a random stamp within this range.</p>
                   <RewardModeToggle mode={stampConfig.surpriseMode} onChange={m => setStampConfig(p => ({ ...p, surpriseMode: m }))} />
@@ -720,7 +732,7 @@ export function VendorCampaignCreatePage() {
                     <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Big Reward</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <Input label="From Stamp #" type="number" min={Math.floor(stampConfig.totalStamps / 2) + 1} max={stampConfig.totalStamps} value={stampConfig.bigRewardFrom} onChange={e => setStampConfig(p => ({ ...p, bigRewardFrom: Number(e.target.value) }))} />
+                    <Input label="From Stamp #" type="number" min={1} max={stampConfig.totalStamps} value={stampConfig.bigRewardFrom} onChange={e => setStampConfig(p => ({ ...p, bigRewardFrom: Number(e.target.value) }))} />
                     <Input label="To Stamp #"   type="number" min={stampConfig.bigRewardFrom} max={stampConfig.totalStamps} value={stampConfig.bigRewardTo} onChange={e => setStampConfig(p => ({ ...p, bigRewardTo: Number(e.target.value) }))} />
                   </div>
                   <p className="text-[11px] text-amber-600">Triggers at a random stamp within this range.</p>
