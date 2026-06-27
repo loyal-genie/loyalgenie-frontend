@@ -11,8 +11,7 @@ import { SimulateShakeButton } from '@/components/customer/SimulateShakeButton'
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage, type PlayState } from '@/lib/api'
 import { getUser } from '@/lib/auth'
-import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
-import { findBusinessForCampaign, getCustomerBusinessPath } from '@/lib/customer-ui'
+import { getCustomerBusinessPath } from '@/lib/customer-ui'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { useShakeCharge } from '@/hooks/useShakeCharge'
 
@@ -53,19 +52,19 @@ export function CustomerShakePage() {
   const customerId = getUser('customer')?.userId
   const playSession = campaignId ? getPlaySession(campaignId) : null
   const queryClient = useQueryClient()
-  const { data: businesses } = useBusinessesWithCampaigns()
 
   const { data: campaign, isLoading: campaignLoading } = useQuery({
     queryKey: ['public-campaign', campaignId],
     queryFn: () => fetchPublicCampaign(campaignId!),
     enabled: Boolean(campaignId),
+    staleTime: 60_000,
   })
 
   const { data: playState, isLoading: stateLoading } = useQuery({
     queryKey: ['play-state', campaignId, customerId],
     queryFn: () => fetchPlayState(campaignId!),
     enabled: Boolean(campaignId) && Boolean(playSession) && Boolean(customerId),
-    staleTime: 0,
+    staleTime: 10_000,
   })
 
   useEffect(() => {
@@ -144,7 +143,7 @@ export function CustomerShakePage() {
 
   resetIntensityRef.current = resetIntensity
 
-  const businessName = findBusinessForCampaign(businesses, campaignId ?? '', campaign?.businessId)?.name
+  const businessName = campaign?.businessName
 
   const handleBackToCafe = useCallback(() => {
     const dest = getCustomerBusinessPath(campaign?.businessId)

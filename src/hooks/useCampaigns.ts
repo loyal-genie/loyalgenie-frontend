@@ -18,7 +18,7 @@ function pinPollingInterval(query: { state: { data?: { secondsRemaining?: number
   const remaining = query.state.data?.secondsRemaining
   // Before first fetch, poll moderately so countdown never stalls without Realtime
   if (remaining == null) return 15_000
-  if (remaining <= 0) return 1000
+  if (remaining <= 0) return 400
   if (remaining <= 10) return 1000
   if (remaining <= 15) return 2000
   if (remaining <= 30) return 5000

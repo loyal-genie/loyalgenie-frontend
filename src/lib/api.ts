@@ -517,6 +517,7 @@ export interface BusinessWithCampaigns {
 export interface PublicCampaign {
   id: string
   businessId: string
+  businessName?: string
   name: string
   mechanic: string
   startDate: string

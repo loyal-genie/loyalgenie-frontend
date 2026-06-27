@@ -22,6 +22,9 @@ export function LivePIN({ campaignId, active = true, compact = false, daily = fa
   const [seconds, setSeconds] = useState(120)
   const [refreshing, setRefreshing] = useState(false)
   const prevPin = useRef<string | null>(null)
+  const expiresAtRef = useRef<string | null>(null)
+
+  expiresAtRef.current = data?.expiresAt ?? null
 
   // Keep displayed PIN until the server sends a different one (never hide at 0s)
   useEffect(() => {
@@ -34,29 +37,41 @@ export function LivePIN({ campaignId, active = true, compact = false, daily = fa
     setDisplayPin(data.pin)
   }, [data?.pin])
 
-  // Countdown synced to server expiresAt — no local drift
+  // Prefer server secondsRemaining; fall back to expiresAt countdown
+  useEffect(() => {
+    if (data?.secondsRemaining != null) {
+      setSeconds(data.secondsRemaining)
+    } else if (data?.expiresAt) {
+      setSeconds(secondsUntilExpiry(data.expiresAt))
+    }
+  }, [data?.secondsRemaining, data?.expiresAt])
+
   useEffect(() => {
     if (!active || !data?.expiresAt) return
 
-    const tick = () => setSeconds(secondsUntilExpiry(data.expiresAt))
-    tick()
+    const tick = () => {
+      const at = expiresAtRef.current
+      if (!at) return
+      setSeconds(secondsUntilExpiry(at))
+    }
     const interval = setInterval(tick, 250)
     return () => clearInterval(interval)
   }, [active, data?.expiresAt])
 
-  // At expiry, poll until server rotates (scheduler + Realtime are primary; this is backup)
+  // At expiry, poll aggressively until server rotates (API call triggers rotation)
   useEffect(() => {
     if (!active || seconds > 0) return
     void refetch()
-    const interval = setInterval(() => void refetch(), 1000)
+    const interval = setInterval(() => void refetch(), 400)
     return () => clearInterval(interval)
   }, [seconds, active, refetch])
 
   const cycle = data?.cycleSeconds ?? (daily ? 86400 : 120)
   const isDaily = daily || cycle >= 86400
   const urgency = isDaily ? seconds <= 3600 : seconds <= 15
-  const atExpiry = seconds === 0
-  const pct = cycle > 0 ? seconds / cycle : 0
+  const atExpiry = seconds <= 0
+  const waitingForNewPin = atExpiry && isFetching
+  const pct = cycle > 0 ? Math.max(0, seconds) / cycle : 0
   const r = 28
   const circ = 2 * Math.PI * r
   const dash = circ * (1 - pct)
@@ -96,7 +111,7 @@ export function LivePIN({ campaignId, active = true, compact = false, daily = fa
           </motion.span>
         </AnimatePresence>
         <span className={cn('text-[9px] font-semibold flex items-center gap-1', atExpiry || urgency ? 'text-orange-500' : 'text-v-text-3')}>
-          {atExpiry && isFetching ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : null}
+          {waitingForNewPin ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : null}
           {timeLabel}
         </span>
       </div>
@@ -135,7 +150,7 @@ export function LivePIN({ campaignId, active = true, compact = false, daily = fa
             </motion.span>
           </AnimatePresence>
           <span className={cn('text-[10px] font-semibold mt-0.5 flex items-center gap-1', atExpiry || urgency ? 'text-orange-500' : 'text-v-text-3')}>
-            {atExpiry && isFetching ? <RefreshCw className="w-3 h-3 animate-spin" /> : null}
+            {waitingForNewPin ? <RefreshCw className="w-3 h-3 animate-spin" /> : null}
             {timeLabel}
           </span>
         </div>

@@ -10,8 +10,6 @@ import {
 } from '@/lib/api'
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { getUser } from '@/lib/auth'
-import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
-import { findBusinessForCampaign } from '@/lib/customer-ui'
 
 export function useInstantWinPlay() {
   const navigate = useNavigate()
@@ -27,10 +25,10 @@ export function useInstantWinPlay() {
     queryKey: ['public-campaign', campaignId],
     queryFn: () => fetchPublicCampaign(campaignId!),
     enabled: Boolean(campaignId),
+    staleTime: 60_000,
   })
 
-  const { data: businesses } = useBusinessesWithCampaigns()
-  const businessName = findBusinessForCampaign(businesses, campaignId ?? '', campaign?.businessId)?.name
+  const businessName = campaign?.businessName
 
   const { data: playState, isLoading: stateLoading } = useQuery({
     queryKey: ['play-state', campaignId, customerId],
