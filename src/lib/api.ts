@@ -666,7 +666,10 @@ export async function updateCampaign(id: string, payload: UpdateCampaignPayload)
 }
 
 export async function fetchCampaignPin(id: string) {
-  const { data } = await api.get<{ success: boolean; data: CampaignPin }>(`/campaigns/${id}/pin`)
+  const { data } = await api.get<{ success: boolean; data: CampaignPin }>(
+    `/campaigns/${id}/pin`,
+    { params: { _t: Date.now() } },
+  )
   return data.data
 }
 

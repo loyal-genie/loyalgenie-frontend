@@ -8,21 +8,29 @@ import {
   updateCampaign,
   type CreateCampaignPayload,
   type UpdateCampaignPayload,
+  type CampaignPin,
 } from '@/lib/api'
 import { isBusinessAuthenticated } from '@/lib/auth'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime'
 import { useBusinessProfile } from '@/hooks/useBusinessProfile'
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback'
 
-function pinPollingInterval(query: { state: { data?: { secondsRemaining?: number } } }): number | false {
-  const remaining = query.state.data?.secondsRemaining
-  // Before first fetch, poll moderately so countdown never stalls without Realtime
-  if (remaining == null) return 15_000
+function secondsUntilExpiry(expiresAt: string | null | undefined): number {
+  if (!expiresAt) return 0
+  return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 1000))
+}
+
+/** Poll based on live clock vs expiresAt — not stale secondsRemaining from last fetch. */
+function pinPollingInterval(query: { state: { data?: CampaignPin } }): number | false {
+  const pin = query.state.data
+  if (!pin?.expiresAt) return 15_000
+
+  const remaining = secondsUntilExpiry(pin.expiresAt)
   if (remaining <= 0) return 400
   if (remaining <= 10) return 1000
   if (remaining <= 15) return 2000
   if (remaining <= 30) return 5000
-  // Baseline safety net even when Supabase Realtime is connected
   return 30_000
 }
 
@@ -58,18 +66,23 @@ export function useCampaignPin(id: string | undefined, enabled = true) {
   const queryClient = useQueryClient()
   const pinEnabled = Boolean(id) && enabled && isBusinessAuthenticated()
 
-  const invalidatePin = useCallback(() => {
+  const forcePinRefresh = useCallback(() => {
     if (!id) return
-    void queryClient.invalidateQueries({ queryKey: ['campaigns', id, 'pin'] })
-    void queryClient.refetchQueries({ queryKey: ['campaigns', id, 'pin'], type: 'active' })
+    void queryClient.invalidateQueries({ queryKey: ['campaigns', id, 'pin'], refetchType: 'active' })
+    void queryClient.refetchQueries({
+      queryKey: ['campaigns', id, 'pin'],
+      type: 'active',
+    })
   }, [id, queryClient])
+
+  const onRealtimePin = useDebouncedCallback(forcePinRefresh, 150)
 
   useSupabaseRealtime({
     table: 'campaigns',
     event: 'UPDATE',
     filter: id ? `id=eq.${id}` : undefined,
     enabled: pinEnabled && isSupabaseConfigured(),
-    onChange: invalidatePin,
+    onChange: onRealtimePin,
   })
 
   return useQuery({
@@ -77,7 +90,10 @@ export function useCampaignPin(id: string | undefined, enabled = true) {
     queryFn: () => fetchCampaignPin(id!),
     enabled: pinEnabled,
     staleTime: 0,
+    gcTime: 0,
+    structuralSharing: false,
     refetchInterval: pinPollingInterval,
+    refetchIntervalInBackground: true,
   })
 }
 
@@ -87,9 +103,9 @@ export function useVendorPinRealtime() {
   const { data: profile } = useBusinessProfile()
   const businessId = profile?.id
 
-  const onBusinessCampaignChange = useCallback(() => {
+  const onBusinessCampaignChange = useDebouncedCallback(() => {
     refetchActivePinQueries(queryClient)
-  }, [queryClient])
+  }, 150)
 
   useSupabaseRealtime({
     table: 'campaigns',

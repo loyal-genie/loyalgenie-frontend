@@ -19,68 +19,52 @@ function secondsUntilExpiry(expiresAt: string | null | undefined): number {
 export function LivePIN({ campaignId, active = true, compact = false, daily = false }: LivePINProps) {
   const { data, isLoading, isFetching, refetch } = useCampaignPin(campaignId, active)
   const [displayPin, setDisplayPin] = useState('···')
-  const [seconds, setSeconds] = useState(120)
   const [refreshing, setRefreshing] = useState(false)
   const prevPin = useRef<string | null>(null)
-  const expiresAtRef = useRef<string | null>(null)
+  const prevExpiresAt = useRef<string | null>(null)
 
-  expiresAtRef.current = data?.expiresAt ?? null
+  const serverSeconds = data?.expiresAt
+    ? secondsUntilExpiry(data.expiresAt)
+    : (data?.secondsRemaining ?? 0)
 
-  // Keep displayed PIN until the server sends a different one (never hide at 0s)
+  // Sync display PIN; flash when pin OR expiry window changes (rotation)
   useEffect(() => {
     if (!data?.pin) return
-    if (prevPin.current && prevPin.current !== data.pin) {
+    const pinChanged = prevPin.current && prevPin.current !== data.pin
+    const expiryChanged = prevExpiresAt.current && prevExpiresAt.current !== data.expiresAt
+    if (pinChanged || expiryChanged) {
       setRefreshing(true)
       setTimeout(() => setRefreshing(false), 400)
     }
     prevPin.current = data.pin
+    prevExpiresAt.current = data.expiresAt ?? null
     setDisplayPin(data.pin)
-  }, [data?.pin])
-
-  // Prefer server secondsRemaining; fall back to expiresAt countdown
-  useEffect(() => {
-    if (data?.secondsRemaining != null) {
-      setSeconds(data.secondsRemaining)
-    } else if (data?.expiresAt) {
-      setSeconds(secondsUntilExpiry(data.expiresAt))
-    }
-  }, [data?.secondsRemaining, data?.expiresAt])
-
-  useEffect(() => {
-    if (!active || !data?.expiresAt) return
-
-    const tick = () => {
-      const at = expiresAtRef.current
-      if (!at) return
-      setSeconds(secondsUntilExpiry(at))
-    }
-    const interval = setInterval(tick, 250)
-    return () => clearInterval(interval)
-  }, [active, data?.expiresAt])
-
-  // At expiry, poll aggressively until server rotates (API call triggers rotation)
-  useEffect(() => {
-    if (!active || seconds > 0) return
-    void refetch()
-    const interval = setInterval(() => void refetch(), 400)
-    return () => clearInterval(interval)
-  }, [seconds, active, refetch])
+  }, [data?.pin, data?.expiresAt])
 
   const cycle = data?.cycleSeconds ?? (daily ? 86400 : 120)
   const isDaily = daily || cycle >= 86400
-  const urgency = isDaily ? seconds <= 3600 : seconds <= 15
-  const atExpiry = seconds <= 0
+  const urgency = isDaily ? serverSeconds <= 3600 : serverSeconds <= 15
+  const atExpiry = serverSeconds <= 0
   const waitingForNewPin = atExpiry && isFetching
-  const pct = cycle > 0 ? Math.max(0, seconds) / cycle : 0
+  const pct = cycle > 0 ? Math.max(0, serverSeconds) / cycle : 0
   const r = 28
   const circ = 2 * Math.PI * r
   const dash = circ * (1 - pct)
 
   const timeLabel = isDaily
-    ? (atExpiry ? 'Rotating…' : seconds >= 3600 ? `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`)
-    : (atExpiry ? 'Rotating…' : `${seconds}s`)
+    ? (atExpiry ? 'Rotating…' : serverSeconds >= 3600 ? `${Math.floor(serverSeconds / 3600)}h ${Math.floor((serverSeconds % 3600) / 60)}m` : `${Math.floor(serverSeconds / 60)}m ${serverSeconds % 60}s`)
+    : (atExpiry ? 'Rotating…' : `${serverSeconds}s`)
 
   const pinLoading = isLoading || refreshing || (isFetching && !data?.pin)
+
+  // Force network refetch at expiry (don't rely on deduped cache)
+  useEffect(() => {
+    if (!active || !atExpiry) return
+    const pull = () => void refetch({ cancelRefetch: false })
+    pull()
+    const interval = setInterval(pull, 400)
+    return () => clearInterval(interval)
+  }, [active, atExpiry, refetch])
 
   if (!active) {
     return (
@@ -101,7 +85,7 @@ export function LivePIN({ campaignId, active = true, compact = false, daily = fa
       >
         <AnimatePresence mode="wait">
           <motion.span
-            key={displayPin}
+            key={`${displayPin}-${data?.expiresAt ?? ''}`}
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
@@ -139,7 +123,7 @@ export function LivePIN({ campaignId, active = true, compact = false, daily = fa
         <div className="absolute flex flex-col items-center">
           <AnimatePresence mode="wait">
             <motion.span
-              key={displayPin}
+              key={`${displayPin}-${data?.expiresAt ?? ''}`}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 1.1, opacity: 0 }}

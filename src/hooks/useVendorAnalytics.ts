@@ -11,6 +11,7 @@ import { isSupabaseConfigured } from '@/lib/supabase'
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { isBusinessAuthenticated } from '@/lib/auth'
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback'
 
 export function useVendorDashboardStats() {
   return useQuery({
@@ -90,12 +91,12 @@ export function useVendorSessionRealtime() {
     campaignIds.length > 0 ? `campaign_id=in.(${campaignIds.join(',')})` : undefined
   const enabled = isBusinessAuthenticated() && isSupabaseConfigured() && Boolean(filter)
 
-  const refreshVendor = useCallback(() => {
+  const refreshVendor = useDebouncedCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['vendor-dashboard-stats'] })
     void queryClient.invalidateQueries({ queryKey: ['vendor-customers'] })
     void queryClient.invalidateQueries({ queryKey: ['vendor-redemptions'] })
     void queryClient.invalidateQueries({ queryKey: ['campaigns'] })
-  }, [queryClient])
+  }, 300)
 
   useSupabaseRealtime({ table: 'customer_rewards', filter, enabled, onChange: refreshVendor })
   useSupabaseRealtime({ table: 'game_plays', filter, enabled, onChange: refreshVendor })

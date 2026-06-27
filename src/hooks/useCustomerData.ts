@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchBusinessesWithCampaigns,
@@ -12,13 +11,14 @@ import {
 import { getUser } from '@/lib/auth'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime'
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback'
 
 export function useBusinessesWithCampaigns() {
   const queryClient = useQueryClient()
 
-  const refreshDiscover = useCallback(() => {
+  const refreshDiscover = useDebouncedCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
-  }, [queryClient])
+  }, 300)
 
   useSupabaseRealtime({
     table: 'campaigns',
@@ -40,9 +40,9 @@ export function useCustomerRewards() {
   const customerId = session?.userId
   const queryClient = useQueryClient()
 
-  const invalidateRewards = useCallback(() => {
+  const invalidateRewards = useDebouncedCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
-  }, [queryClient])
+  }, 200)
 
   useSupabaseRealtime({
     table: 'customer_rewards',
@@ -67,7 +67,7 @@ export function useCustomerRewards() {
 export function usePublicCampaignRealtime(campaignId: string | undefined) {
   const queryClient = useQueryClient()
 
-  const invalidateCampaign = useCallback(() => {
+  const invalidateCampaign = useDebouncedCallback(() => {
     if (!campaignId) return
     void queryClient.invalidateQueries({ queryKey: ['public-campaign', campaignId] })
     void queryClient.refetchQueries({
@@ -83,7 +83,7 @@ export function usePublicCampaignRealtime(campaignId: string | undefined) {
       },
       type: 'active',
     })
-  }, [campaignId, queryClient])
+  }, 200)
 
   useSupabaseRealtime({
     table: 'campaigns',
@@ -101,7 +101,7 @@ export function useCustomerSessionRealtime() {
   const queryClient = useQueryClient()
   const enabled = Boolean(customerId) && session?.role === 'customer' && isSupabaseConfigured()
 
-  const refreshGameplay = useCallback(() => {
+  const refreshGameplay = useDebouncedCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
     void queryClient.refetchQueries({
       predicate: (q) => {
@@ -120,7 +120,7 @@ export function useCustomerSessionRealtime() {
       },
       type: 'active',
     })
-  }, [queryClient])
+  }, 300)
 
   const customerFilter = customerId ? `customer_id=eq.${customerId}` : undefined
 
@@ -133,11 +133,11 @@ export function useCustomerSessionRealtime() {
 export function useBusinessCampaignStatesRealtime(businessId: string | undefined) {
   const queryClient = useQueryClient()
 
-  const refreshStates = useCallback(() => {
+  const refreshStates = useDebouncedCallback(() => {
     if (!businessId) return
     void queryClient.invalidateQueries({ queryKey: ['business-campaign-states', businessId] })
     void queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
-  }, [businessId, queryClient])
+  }, 300)
 
   useSupabaseRealtime({
     table: 'campaigns',
