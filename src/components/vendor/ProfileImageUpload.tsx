@@ -1,11 +1,12 @@
 import { Upload, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/input'
-import { readFileAsDataUrl, readFilesAsDataUrls } from '@/lib/file-upload'
+import { uploadImageFile, uploadImageFiles, type UploadPurpose } from '@/lib/file-upload'
 
 interface ProfileImageUploadProps {
   label: string
   hint?: string
+  purpose: UploadPurpose
   value?: string
   values?: string[]
   onChange?: (dataUrl: string) => void
@@ -16,6 +17,7 @@ interface ProfileImageUploadProps {
 export function ProfileImageUpload({
   label,
   hint,
+  purpose,
   value,
   values,
   onChange,
@@ -28,10 +30,10 @@ export function ProfileImageUpload({
     if (!fileList?.length) return
     try {
       if (multiple && onMultiChange) {
-        const urls = await readFilesAsDataUrls(fileList)
+        const urls = await uploadImageFiles(fileList, purpose)
         onMultiChange([...(values ?? []), ...urls])
       } else if (onChange) {
-        const url = await readFileAsDataUrl(fileList[0])
+        const url = await uploadImageFile(fileList[0], purpose)
         onChange(url)
       }
     } catch (err) {

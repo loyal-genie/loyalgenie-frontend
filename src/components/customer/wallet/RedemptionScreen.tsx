@@ -28,7 +28,9 @@ export function RedemptionScreen({ view, countdown, redeemedAt, onClose }: Redem
   const meta = getCampaignGradient(reward.mechanic)
   const bgFrom = view.bgFrom ?? meta.from
   const bgTo = view.bgTo ?? meta.to
-  const isDone = redeemedAt !== null
+  const vendorConfirmed = reward.status === 'redeemed'
+  const isDone = vendorConfirmed || redeemedAt !== null
+  const doneAt = vendorConfirmed ? (reward.redeemedAt ?? new Date().toISOString()) : redeemedAt
 
   return (
     <motion.div
@@ -148,7 +150,7 @@ export function RedemptionScreen({ view, countdown, redeemedAt, onClose }: Redem
             className="text-center"
           >
             <p className="text-4xl font-black text-white mb-2">
-              {reward.status === 'redeemed' ? 'Redeemed!' : 'Confirmed!'}
+              {vendorConfirmed ? 'Redeemed!' : 'Confirmed!'}
             </p>
             <p className="text-xl font-bold text-green-300">{reward.reward}</p>
             <p className="text-green-400/70 text-sm font-medium mt-1">{businessName}</p>
@@ -162,23 +164,35 @@ export function RedemptionScreen({ view, countdown, redeemedAt, onClose }: Redem
             style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
           >
             <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-1">
-              {reward.status === 'redeemed' ? 'Redeemed on' : 'Shown on'}
+              {vendorConfirmed ? 'Redeemed on' : 'Shown on'}
             </p>
-            <p className="text-white font-bold text-base">{walletFmtDateTime(redeemedAt!)}</p>
+            <p className="text-white font-bold text-base">{walletFmtDateTime(doneAt!)}</p>
           </motion.div>
 
-          <motion.button
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            whileTap={{ scale: 0.97 }}
-            type="button"
-            onClick={onClose}
-            className="w-full py-4 rounded-2xl text-sm font-bold text-white mt-2 border-0 cursor-pointer"
-            style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}
-          >
-            Done
-          </motion.button>
+          {!vendorConfirmed && (
+            <motion.button
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              whileTap={{ scale: 0.97 }}
+              type="button"
+              onClick={onClose}
+              className="w-full py-4 rounded-2xl text-sm font-bold text-white mt-2 border-0 cursor-pointer"
+              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}
+            >
+              Done
+            </motion.button>
+          )}
+          {vendorConfirmed && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="text-white/50 text-sm text-center"
+            >
+              Moving to history…
+            </motion.p>
+          )}
         </div>
       )}
     </motion.div>

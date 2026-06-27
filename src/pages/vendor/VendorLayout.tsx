@@ -3,7 +3,8 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Megaphone, Users, Settings, ChevronRight, Zap, QrCode, Menu, X, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useBusinessProfile } from '@/hooks/useBusinessProfile'
-import { useCampaigns } from '@/hooks/useCampaigns'
+import { useCampaigns, useVendorPinRealtime } from '@/hooks/useCampaigns'
+import { useVendorSessionRealtime } from '@/hooks/useVendorAnalytics'
 import { effectiveCampaignStatus } from '@/lib/campaign-dates'
 import type { CampaignStatus } from '@/lib/types'
 import { clearSession } from '@/lib/auth' // Imported your auth clearer
@@ -91,6 +92,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function VendorLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  useVendorPinRealtime()
+  useVendorSessionRealtime()
 
   return (
     <div className="vendor-bg min-h-screen flex flex-col lg:flex-row">

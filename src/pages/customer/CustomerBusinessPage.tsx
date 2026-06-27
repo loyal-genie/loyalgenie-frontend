@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -8,19 +9,22 @@ import {
   CampaignListingCard,
   LoyaltyCampaignSectionHeader,
 } from '@/components/customer/CampaignListingCard'
-import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
-import { fetchLoyaltyState, fetchPlayState, fetchStampState } from '@/lib/api'
+import { useBusinessesWithCampaigns, useBusinessCampaignStatesRealtime } from '@/hooks/useCustomerData'
+import {
+  fetchBusinessCampaignStates,
+  type BusinessCampaignStateItem,
+  type LoyaltyState,
+  type PlayState,
+  type StampState,
+} from '@/lib/api'
 
 function StampCampaignBlock({
   campaign,
+  stampState,
 }: {
   campaign: { id: string; name: string; mechanic: string; startDate: string; endDate: string }
+  stampState?: StampState
 }) {
-  const { data: stampState, isLoading } = useQuery({
-    queryKey: ['stamp-state', campaign.id],
-    queryFn: () => fetchStampState(campaign.id),
-  })
-
   const collectedToday = Boolean(
     stampState?.enrolled && !stampState.canCollectToday && !stampState.cardComplete,
   )
@@ -52,9 +56,9 @@ function StampCampaignBlock({
       }
       progressLine={progressLine}
       statsLine={
-        isLoading || !stampState
-          ? undefined
-          : `${stampState.currentUsers}/${stampState.userCap} playing today`
+        stampState
+          ? `${stampState.currentUsers}/${stampState.userCap} playing today`
+          : undefined
       }
     />
   )
@@ -62,6 +66,7 @@ function StampCampaignBlock({
 
 function ShakeCampaignBlock({
   campaign,
+  playState,
 }: {
   campaign: {
     id: string
@@ -72,12 +77,8 @@ function ShakeCampaignBlock({
     winRatePercent?: number
     playsPerDay?: number
   }
+  playState?: PlayState
 }) {
-  const { data: playState } = useQuery({
-    queryKey: ['play-state', campaign.id],
-    queryFn: () => fetchPlayState(campaign.id),
-  })
-
   const blocked = Boolean(playState && !playState.canPlay)
   const quotaUsed = playState?.blockReason === 'no_plays_remaining'
 
@@ -102,14 +103,11 @@ function ShakeCampaignBlock({
 
 function LoyaltyCampaignBlock({
   campaign,
+  state,
 }: {
   campaign: { id: string; name: string; mechanic: string; startDate: string; endDate: string }
+  state?: LoyaltyState
 }) {
-  const { data: state } = useQuery({
-    queryKey: ['loyalty-state', campaign.id],
-    queryFn: () => fetchLoyaltyState(campaign.id),
-  })
-
   const checkedInToday = state?.checkedInToday ?? false
 
   return (
@@ -124,6 +122,12 @@ function LoyaltyCampaignBlock({
   )
 }
 
+function stateMapFromItems(items: BusinessCampaignStateItem[] | undefined) {
+  const map = new Map<string, BusinessCampaignStateItem>()
+  for (const item of items ?? []) map.set(item.campaignId, item)
+  return map
+}
+
 export function CustomerBusinessPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -131,24 +135,26 @@ export function CustomerBusinessPage() {
   const { data: businesses, isLoading, refetch } = useBusinessesWithCampaigns()
   const biz = businesses?.find(b => b.id === id)
 
+  useBusinessCampaignStatesRealtime(id)
+
+  const { data: campaignStates, isLoading: statesLoading } = useQuery({
+    queryKey: ['business-campaign-states', id],
+    queryFn: () => fetchBusinessCampaignStates(id!),
+    enabled: Boolean(id && biz),
+    staleTime: 0,
+    refetchInterval: 15_000,
+  })
+
+  const stateByCampaignId = useMemo(
+    () => stateMapFromItems(campaignStates),
+    [campaignStates],
+  )
+
   const handleRefresh = async () => {
-    const result = await refetch()
-    const refreshed = result.data?.find(b => b.id === id)
-    if (!refreshed) return
-    await Promise.all(
-      refreshed.campaigns.map(c => {
-        if (c.mechanic === 'stamp') {
-          return queryClient.refetchQueries({ queryKey: ['stamp-state', c.id] })
-        }
-        if (c.mechanic === 'shake') {
-          return queryClient.refetchQueries({ queryKey: ['play-state', c.id] })
-        }
-        if (c.mechanic === 'check-in-loyalty') {
-          return queryClient.refetchQueries({ queryKey: ['loyalty-state', c.id] })
-        }
-        return Promise.resolve()
-      }),
-    )
+    await refetch()
+    if (id) {
+      await queryClient.invalidateQueries({ queryKey: ['business-campaign-states', id] })
+    }
   }
 
   if (isLoading) {
@@ -190,16 +196,32 @@ export function CustomerBusinessPage() {
           <LoyaltyCampaignSectionHeader count={biz.campaigns.length}>
             {biz.campaigns.length === 0 ? (
               <p className="text-sm text-[#99a1af] text-center py-12">No active campaigns right now.</p>
+            ) : statesLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="size-6 text-[#5b0e81] animate-spin" />
+              </div>
             ) : (
               <div className="flex flex-col gap-4 pb-4">
                 {stampCampaigns.map(c => (
-                  <StampCampaignBlock key={c.id} campaign={c} />
+                  <StampCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    stampState={stateByCampaignId.get(c.id)?.state as StampState | undefined}
+                  />
                 ))}
                 {shakeCampaigns.map(c => (
-                  <ShakeCampaignBlock key={c.id} campaign={c} />
+                  <ShakeCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    playState={stateByCampaignId.get(c.id)?.state as PlayState | undefined}
+                  />
                 ))}
                 {loyaltyCampaigns.map(c => (
-                  <LoyaltyCampaignBlock key={c.id} campaign={c} />
+                  <LoyaltyCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    state={stateByCampaignId.get(c.id)?.state as LoyaltyState | undefined}
+                  />
                 ))}
                 {otherCampaigns.map(c => (
                   <CampaignListingCard

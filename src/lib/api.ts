@@ -674,6 +674,19 @@ export async function fetchBusinessesWithCampaigns() {
   return data.data
 }
 
+export type BusinessCampaignStateItem = {
+  campaignId: string
+  mechanic: string
+  state: PlayState | StampState | LoyaltyState | null
+}
+
+export async function fetchBusinessCampaignStates(businessId: string) {
+  const { data } = await api.get<{ success: boolean; data: BusinessCampaignStateItem[] }>(
+    `/campaigns/public/businesses/${businessId}/states`,
+  )
+  return data.data
+}
+
 export async function fetchPublicCampaign(id: string) {
   const { data } = await api.get<{ success: boolean; data: PublicCampaign }>(`/campaigns/public/${id}`)
   return data.data

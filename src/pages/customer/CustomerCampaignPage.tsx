@@ -17,7 +17,7 @@ import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { isMechanicComingSoon } from '@/lib/live-mechanics'
 import { MechanicComingSoon } from '@/components/shared/MechanicComingSoon'
 import { getToken, isSessionValidForRole } from '@/lib/auth'
-import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
+import { useBusinessesWithCampaigns, usePublicCampaignRealtime } from '@/hooks/useCustomerData'
 import {
   CampaignPinBlocked,
   CampaignPinLoading,
@@ -65,6 +65,8 @@ export function CustomerCampaignPage() {
   const authReady = localSessionOk && !sessionLoading && !sessionError && serverSession?.role === 'customer'
 
   const { data: businesses } = useBusinessesWithCampaigns()
+
+  usePublicCampaignRealtime(id)
 
   const { data: campaign, isLoading } = useQuery({
     queryKey: ['public-campaign', id],
