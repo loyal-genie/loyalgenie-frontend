@@ -1,12 +1,25 @@
 import type { BusinessWithCampaigns } from '@/lib/api'
 
+export const CUSTOMER_CATEGORIES = ['All', 'Cafe', 'Salon', 'Gym', 'Restaurant', 'Jewellery'] as const
+export type CustomerCategory = (typeof CUSTOMER_CATEGORIES)[number]
+
 export function formatBusinessCategory(type: string): string {
-  const t = type.toLowerCase()
-  if (t.includes('cafe') || t.includes('coffee')) return 'Cafe'
-  if (t.includes('salon')) return 'Salon'
+  const t = type
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+  if (t.includes('cafe') || t.includes('coffee') || t.includes('bakery')) return 'Cafe'
+  if (t.includes('salon') || t.includes('spa') || t.includes('beauty')) return 'Salon'
   if (t.includes('gym') || t.includes('fitness')) return 'Gym'
-  if (t.includes('restaurant')) return 'Restaurant'
+  if (t.includes('restaurant') || t.includes('quick service') || t.includes('dining')) return 'Restaurant'
+  if (t.includes('jewel')) return 'Jewellery'
   return type.split(/[&,/]/)[0]?.trim() || type
+}
+
+export function categoryMatches(businessType: string, category: CustomerCategory): boolean {
+  if (category === 'All') return true
+  if (!businessType?.trim()) return false
+  return formatBusinessCategory(businessType) === category
 }
 
 export function formatBusinessLocation(biz: Pick<

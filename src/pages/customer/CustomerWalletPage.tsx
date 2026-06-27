@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useQueryClient } from '@tanstack/react-query'
 import { Bell, ChevronRight, Loader2 } from 'lucide-react'
 import { BottomNav } from '@/components/customer/bottom-nav'
 import { RedemptionScreen } from '@/components/customer/wallet/RedemptionScreen'
@@ -52,6 +53,7 @@ function buildCardContext(
 
 export function CustomerWalletPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { firstName } = useCustomerSession()
   const [tab, setTab] = useState<Tab>('active')
   const [redeemError, setRedeemError] = useState('')
@@ -76,7 +78,11 @@ export function CustomerWalletPage() {
   }, [rewards, businesses])
 
   useEffect(() => {
-    const running = Object.entries(countdowns).filter(([, s]) => s > 0)
+    const running = Object.entries(countdowns).filter(([id, s]) => {
+      if (s <= 0) return false
+      const reward = rewards.find(r => r.id === id)
+      return reward?.status !== 'redeemed'
+    })
     if (running.length === 0) {
       if (intervalRef.current) clearInterval(intervalRef.current)
       return
@@ -86,6 +92,11 @@ export function CustomerWalletPage() {
         const next = { ...prev }
         const justDone: string[] = []
         for (const id in next) {
+          const reward = rewards.find(r => r.id === id)
+          if (reward?.status === 'redeemed') {
+            delete next[id]
+            continue
+          }
           if (next[id] > 0) {
             next[id] -= 1
             if (next[id] === 0) justDone.push(id)
@@ -101,7 +112,40 @@ export function CustomerWalletPage() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [JSON.stringify(Object.keys(countdowns))])
+  }, [JSON.stringify(Object.keys(countdowns)), rewards])
+
+  const openReward = openId ? (rewards.find(r => r.id === openId) ?? null) : null
+
+  // Poll wallet while redemption screen is open (belt-and-suspenders with Realtime)
+  useEffect(() => {
+    if (!openId) return
+    const poll = window.setInterval(() => {
+      void queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
+    }, 2000)
+    return () => window.clearInterval(poll)
+  }, [openId, queryClient])
+
+  // Vendor marked redeemed → stop timer, show success, redirect to history
+  useEffect(() => {
+    if (!openId || openReward?.status !== 'redeemed') return
+
+    setCountdowns(prev => {
+      if (!(openId in prev)) return prev
+      const { [openId]: _, ...rest } = prev
+      return rest
+    })
+
+    const redirect = window.setTimeout(() => {
+      setOpenId(null)
+      setTab('history')
+      setSessionRedeemed(prev => {
+        const { [openId]: _, ...rest } = prev
+        return rest
+      })
+    }, 2500)
+
+    return () => window.clearTimeout(redirect)
+  }, [openId, openReward?.status, openReward?.redeemedAt])
 
   const startRedeem = (reward: CustomerRewardDto) => {
     setRedeemError('')
@@ -122,7 +166,6 @@ export function CustomerWalletPage() {
   }
 
   const closeScreen = () => setOpenId(null)
-  const openReward = openId ? (rewards.find(r => r.id === openId) ?? null) : null
 
   const pendingRewards = rewards
     .filter(r => r.status === 'earned' || r.status === 'pending' || sessionRedeemed[r.id])
@@ -347,8 +390,8 @@ export function CustomerWalletPage() {
                           reward={r}
                           context={cardContext.get(r.id)!}
                           index={i}
-                          isRedeemed={!!sessionRedeemed[r.id]}
-                          redeemedAt={sessionRedeemed[r.id] ?? null}
+                          isRedeemed={!!sessionRedeemed[r.id] || r.status === 'redeemed'}
+                          redeemedAt={r.redeemedAt ?? sessionRedeemed[r.id] ?? null}
                           redeeming={redeemMutation.isPending && redeemMutation.variables === r.id}
                           onRedeem={() => startRedeem(r)}
                         />

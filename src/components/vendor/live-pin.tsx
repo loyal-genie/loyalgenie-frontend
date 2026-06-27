@@ -22,7 +22,6 @@ export function LivePIN({ campaignId, active = true, compact = false, daily = fa
   const [seconds, setSeconds] = useState(120)
   const [refreshing, setRefreshing] = useState(false)
   const prevPin = useRef<string | null>(null)
-  const syncRef = useRef(false)
 
   // Keep displayed PIN until the server sends a different one (never hide at 0s)
   useEffect(() => {
@@ -33,7 +32,6 @@ export function LivePIN({ campaignId, active = true, compact = false, daily = fa
     }
     prevPin.current = data.pin
     setDisplayPin(data.pin)
-    syncRef.current = false
   }, [data?.pin])
 
   // Countdown synced to server expiresAt — no local drift
@@ -46,11 +44,12 @@ export function LivePIN({ campaignId, active = true, compact = false, daily = fa
     return () => clearInterval(interval)
   }, [active, data?.expiresAt])
 
-  // Sync with server near expiry so vendor + customer stay aligned
+  // At expiry, poll until server rotates (scheduler + Realtime are primary; this is backup)
   useEffect(() => {
-    if (!active || seconds > 2 || syncRef.current) return
-    syncRef.current = true
-    refetch()
+    if (!active || seconds > 0) return
+    void refetch()
+    const interval = setInterval(() => void refetch(), 1000)
+    return () => clearInterval(interval)
   }, [seconds, active, refetch])
 
   const cycle = data?.cycleSeconds ?? (daily ? 86400 : 120)

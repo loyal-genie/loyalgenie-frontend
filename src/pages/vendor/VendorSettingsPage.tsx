@@ -318,12 +318,14 @@ export function VendorSettingsPage() {
               <ProfileImageUpload
                 label="Logo"
                 hint="PNG/SVG, transparent background preferred"
+                purpose="logo"
                 value={logoData}
                 onChange={(v) => setValue('logoData', v)}
               />
               <ProfileImageUpload
                 label="Cover Banner Image"
                 hint="1920×600px recommended"
+                purpose="cover"
                 value={coverBannerData}
                 onChange={(v) => setValue('coverBannerData', v)}
               />
@@ -331,6 +333,7 @@ export function VendorSettingsPage() {
                 <ProfileImageUpload
                   label="Interior Photos"
                   hint="Add a few photos inside"
+                  purpose="interior"
                   values={interiorPhotosData}
                   onMultiChange={(v) => setValue('interiorPhotosData', v)}
                   multiple
@@ -338,6 +341,7 @@ export function VendorSettingsPage() {
                 <ProfileImageUpload
                   label="Exterior Photos"
                   hint="Add photos outside"
+                  purpose="exterior"
                   values={exteriorPhotosData}
                   onMultiChange={(v) => setValue('exteriorPhotosData', v)}
                   multiple

@@ -1,5 +1,13 @@
 import type { MechanicType } from './types'
 import { isMechanicComingSoon } from './live-mechanics'
+import {
+  formatBusinessCategory,
+  categoryMatches,
+  CUSTOMER_CATEGORIES,
+  type CustomerCategory,
+} from './business-display'
+
+export { formatBusinessCategory, categoryMatches, CUSTOMER_CATEGORIES, type CustomerCategory }
 
 export function getGameRouteForMechanic(mechanic: MechanicType | string, campaignId: string): string {
   if (isMechanicComingSoon(mechanic)) {
@@ -15,14 +23,6 @@ export function getGameRouteForMechanic(mechanic: MechanicType | string, campaig
     scratch: `/customer/games/dice?campaign=${campaignId}`,
   }
   return routes[mechanic] ?? routes.shake!
-}
-
-export const CUSTOMER_CATEGORIES = ['All', 'Cafe', 'Salon', 'Gym', 'Restaurant', 'Jewellery'] as const
-export type CustomerCategory = (typeof CUSTOMER_CATEGORIES)[number]
-
-export function categoryMatches(businessType: string, category: CustomerCategory): boolean {
-  if (category === 'All') return true
-  return businessType.toLowerCase() === category.toLowerCase()
 }
 
 export function getCustomerBusinessPath(businessId?: string | null): string {
