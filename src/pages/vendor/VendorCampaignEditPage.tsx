@@ -19,6 +19,7 @@ import {
   formatWinnerCount,
 } from '@/lib/campaign-impact'
 import { useCampaign, useUpdateCampaign } from '@/hooks/useCampaigns'
+import { CampaignDeleteSection } from '@/components/vendor/CampaignDeleteSection'
 import { getMechanicEmoji, getMechanicColor, formatDate } from '@/lib/utils'
 import {
   DURATION_OPTIONS,
@@ -888,6 +889,13 @@ export function VendorCampaignEditPage() {
                   </div>
                 </Card>
               )}
+
+              <CampaignDeleteSection
+                campaignId={campaign.id}
+                campaignName={campaign.name}
+                participations={campaign.participations}
+                onDeleted={() => navigate('/vendor/campaigns')}
+              />
             </div>
           )}
 

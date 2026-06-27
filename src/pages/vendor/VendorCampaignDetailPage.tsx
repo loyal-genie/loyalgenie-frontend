@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Calendar, Pencil, Loader2, Target, Trophy, Clock } from 'lucide-react'
 import { Card, ProgressBar } from '@/components/ui/card'
@@ -8,12 +8,14 @@ import { LivePIN } from '@/components/vendor/live-pin'
 import { MechanicComingSoonBanner } from '@/components/vendor/MechanicComingSoonBanner'
 import { isMechanicComingSoon } from '@/lib/live-mechanics'
 import { useCampaign } from '@/hooks/useCampaigns'
+import { CampaignDeleteSection } from '@/components/vendor/CampaignDeleteSection'
 import { getMechanicEmoji, formatDate, capPercent } from '@/lib/utils'
 import { effectiveCampaignStatus, fmtCampaignDate } from '@/lib/campaign-dates'
 import type { CampaignStatus } from '@/lib/types'
 
 export function VendorCampaignDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { data: campaign, isLoading, isError } = useCampaign(id)
 
   if (isLoading) {
@@ -226,6 +228,15 @@ export function VendorCampaignDetailPage() {
             </p>
           </Card>
         </div>
+      </div>
+
+      <div className="mt-8 max-w-xl">
+        <CampaignDeleteSection
+          campaignId={campaign.id}
+          campaignName={campaign.name}
+          participations={campaign.participations}
+          onDeleted={() => navigate('/vendor/campaigns')}
+        />
       </div>
     </div>
   )

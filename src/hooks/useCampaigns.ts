@@ -6,6 +6,7 @@ import {
   fetchCampaignPin,
   createCampaign,
   updateCampaign,
+  deleteCampaign,
   type CreateCampaignPayload,
   type UpdateCampaignPayload,
   type CampaignPin,
@@ -133,7 +134,22 @@ export function useUpdateCampaign(id: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
       queryClient.invalidateQueries({ queryKey: ['campaigns', id] })
-      queryClient.invalidateQueries({ queryKey: ['vendor-dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['vendor-dashboard-stats'] })
+    },
+  })
+}
+
+export function useDeleteCampaign() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (campaignId: string) => deleteCampaign(campaignId),
+    onSuccess: (_data, campaignId) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+      queryClient.removeQueries({ queryKey: ['campaigns', campaignId] })
+      queryClient.removeQueries({ queryKey: ['campaigns', campaignId, 'pin'] })
+      queryClient.invalidateQueries({ queryKey: ['vendor-dashboard-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['vendor-redemptions'] })
+      queryClient.invalidateQueries({ queryKey: ['vendor-customers'] })
     },
   })
 }

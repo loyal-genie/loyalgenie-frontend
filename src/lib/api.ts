@@ -665,6 +665,21 @@ export async function updateCampaign(id: string, payload: UpdateCampaignPayload)
   return data.data
 }
 
+export interface CampaignDeletionSummary {
+  id: string
+  name: string
+  participations: number
+  gamePlays: number
+  customerRewards: number
+  stampCards: number
+  loyaltyCards: number
+}
+
+export async function deleteCampaign(id: string) {
+  const { data } = await api.delete<{ success: boolean; data: CampaignDeletionSummary }>(`/campaigns/${id}`)
+  return data.data
+}
+
 export async function fetchCampaignPin(id: string) {
   const { data } = await api.get<{ success: boolean; data: CampaignPin }>(
     `/campaigns/${id}/pin`,
