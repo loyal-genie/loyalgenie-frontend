@@ -792,6 +792,14 @@ export async function executeStamp(campaignId: string, playSessionToken: string)
   return data.data
 }
 
+export async function executeStampWithPin(campaignId: string, pin: string) {
+  const { data } = await api.post<{ success: boolean; data: StampCollectResult }>(
+    `/campaigns/${campaignId}/stamp`,
+    { pin },
+  )
+  return data.data
+}
+
 export async function fetchCustomerRewards() {
   const { data } = await api.get<{ success: boolean; data: CustomerRewardDto[] }>('/campaigns/customer/rewards')
   return data.data

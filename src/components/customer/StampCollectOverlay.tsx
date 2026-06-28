@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { StampCollectedSplash, type StampRewardInfo } from '@/components/customer/stamp-collected-splash'
-import { executeStamp, getApiErrorMessage, type StampCollectResult } from '@/lib/api'
+import { executeStampWithPin, getApiErrorMessage, type StampCollectResult } from '@/lib/api'
 import { clearPlaySession } from '@/lib/customer-game'
 
 interface StampCollectOverlayProps {
   campaignId: string
   businessId?: string
-  playSessionToken: string
+  pin: string
   stampsBefore: number
   enrolledBefore: boolean
   totalStamps: number
@@ -16,7 +16,7 @@ interface StampCollectOverlayProps {
 
 export function StampCollectOverlay({
   campaignId,
-  playSessionToken,
+  pin,
   stampsBefore,
   enrolledBefore,
   totalStamps,
@@ -57,7 +57,7 @@ export function StampCollectOverlay({
   useEffect(() => {
     let cancelled = false
 
-    executeStamp(campaignId, playSessionToken)
+    executeStampWithPin(campaignId, pin)
       .then(result => {
         if (!cancelled) applySuccess(result)
       })
@@ -70,7 +70,7 @@ export function StampCollectOverlay({
     return () => {
       cancelled = true
     }
-  }, [campaignId, playSessionToken, applySuccess])
+  }, [campaignId, pin, applySuccess])
 
   return (
     <StampCollectedSplash

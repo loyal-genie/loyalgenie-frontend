@@ -30,7 +30,7 @@ import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
 import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 
 type StampCollectSession = {
-  token: string
+  pin: string
   stampsBefore: number
   enrolledBefore: boolean
 }
@@ -97,22 +97,26 @@ export function CustomerCampaignPage() {
   })
 
   const verifyMutation = useMutation({
-    mutationFn: (enteredPin: string) => {
-      if (!getToken('customer')) return Promise.reject(new Error('NOT_AUTHENTICATED'))
-      return verifyCampaignPin(id!, enteredPin)
+    mutationFn: async (enteredPin: string) => {
+      if (!getToken('customer')) throw new Error('NOT_AUTHENTICATED')
+      if (campaign?.mechanic === 'stamp' && stampState) {
+        return { kind: 'stamp' as const, pin: enteredPin }
+      }
+      const data = await verifyCampaignPin(id!, enteredPin)
+      return { kind: 'verified' as const, ...data }
     },
     onSuccess: (data) => {
-      if (isMechanicComingSoon(campaign!.mechanic)) return
-      setPlaySession(id!, data.playSessionToken)
-      if (campaign!.mechanic === 'stamp' && stampState) {
+      if (data.kind === 'stamp') {
         if (stampCollectRef.current) return
         setStampCollect({
-          token: data.playSessionToken,
-          stampsBefore: stampState.stampsCollected,
-          enrolledBefore: stampState.enrolled,
+          pin: data.pin,
+          stampsBefore: stampState!.stampsCollected,
+          enrolledBefore: stampState!.enrolled,
         })
         return
       }
+      if (isMechanicComingSoon(campaign!.mechanic)) return
+      setPlaySession(id!, data.playSessionToken)
       const route = getGameRouteForMechanic(campaign!.mechanic, id!)
       navigate(route)
     },
@@ -333,7 +337,7 @@ export function CustomerCampaignPage() {
         <StampCollectOverlay
           campaignId={id!}
           businessId={campaign.businessId}
-          playSessionToken={stampCollect.token}
+          pin={stampCollect.pin}
           stampsBefore={stampCollect.stampsBefore}
           enrolledBefore={stampCollect.enrolledBefore}
           totalStamps={stampState.totalStamps}
