@@ -470,12 +470,14 @@ export function OnboardingPage() {
                     <OnboardingUpload
                       label="Logo"
                       hint="PNG/SVG, transparent background preferred"
+                      purpose="logo"
                       value={form.logoData ?? ''}
                       onChange={set('logoData')}
                     />
                     <OnboardingUpload
                       label="Cover Banner Image"
                       hint="1920×600px recommended"
+                      purpose="cover"
                       value={form.coverBannerData ?? ''}
                       onChange={set('coverBannerData')}
                     />
@@ -483,6 +485,7 @@ export function OnboardingPage() {
                       <OnboardingUpload
                         label="Interior Photos"
                         hint="Add a few photos inside"
+                        purpose="interior"
                         values={form.interiorPhotosData ?? []}
                         onMultiChange={setPhotos('interiorPhotosData')}
                         multiple
@@ -490,6 +493,7 @@ export function OnboardingPage() {
                       <OnboardingUpload
                         label="Exterior Photos"
                         hint="Add photos outside"
+                        purpose="exterior"
                         values={form.exteriorPhotosData ?? []}
                         onMultiChange={setPhotos('exteriorPhotosData')}
                         multiple

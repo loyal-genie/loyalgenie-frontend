@@ -88,8 +88,10 @@ export interface CustomerNotificationDto {
   createdAt: string
 }
 
-export async function sendBusinessEmailOtp(email: string) {
-  await api.post('/auth/business/otp/send', { email })
+export type BusinessAuthIntent = 'signin' | 'signup'
+
+export async function sendBusinessEmailOtp(email: string, intent: BusinessAuthIntent = 'signin') {
+  await api.post('/auth/business/otp/send', { email, intent })
 }
 
 export interface BusinessOtpLoginResult {
@@ -101,8 +103,6 @@ export interface BusinessOtpLoginResult {
   isNewUser?: boolean
   businessId?: string
 }
-
-export type BusinessAuthIntent = 'signin' | 'signup'
 
 export async function loginBusinessWithEmailOtp(email: string, otp: string, intent: BusinessAuthIntent = 'signin') {
   const { data } = await api.post<{ success: boolean; data: BusinessOtpLoginResult }>(
@@ -278,27 +278,68 @@ export async function fetchBusinessBySlug(slug: string) {
   return data.data
 }
 
-export function getApiErrorMessage(err: unknown, fallback: string) {
+export interface ApiErrorDetail {
+  message: string
+  status?: number
+  details?: Record<string, string[]>
+  code?: string
+}
+
+export function parseApiError(err: unknown, fallback: string): ApiErrorDetail {
   if (axios.isAxiosError(err)) {
+    const status = err.response?.status
     const body = err.response?.data as { error?: string; details?: Record<string, string[]> } | undefined
-    if (body?.details) {
-      const first = Object.values(body.details).flat()[0]
-      if (first) return first
+    const details = body?.details
+    const code = body?.error
+
+    if (details) {
+      const lines = Object.entries(details).flatMap(([field, msgs]) =>
+        msgs.map(m => (field === 'server' ? m : `${field}: ${m}`)),
+      )
+      if (lines.length > 0) {
+        return { message: lines.join(' · '), status, details, code }
+      }
     }
-    if (body?.error) {
+
+    if (code) {
       const isGenericSession401 =
-        err.response?.status === 401 &&
-        ['Authentication required', 'Invalid or expired token'].includes(body.error)
-      if (!isGenericSession401) return body.error
+        status === 401 &&
+        ['Authentication required', 'Invalid or expired token'].includes(code)
+      if (!isGenericSession401) {
+        return { message: code, status, details, code }
+      }
     }
-    if (err.response?.status === 401) {
-      return 'Your session expired. Please sign in again.'
+
+    if (status === 401) {
+      return { message: 'Your session expired. Please sign in again.', status, code }
     }
-    if (err.response?.status === 404) {
-      return '404: Service endpoint not found'
+    if (status === 404) {
+      return { message: '404: Service endpoint not found', status, code }
+    }
+    if (status === 500) {
+      return {
+        message: code ?? 'Server error — please try again in a moment',
+        status,
+        code,
+      }
+    }
+    if (err.code === 'ECONNABORTED') {
+      return { message: 'Request timed out. The server may be waking up — please try again.', status }
+    }
+    if (err.message === 'Network Error') {
+      return { message: 'Network error — check your connection and try again.', status }
     }
   }
-  return fallback
+
+  if (err instanceof Error && err.message) {
+    return { message: err.message }
+  }
+
+  return { message: fallback }
+}
+
+export function getApiErrorMessage(err: unknown, fallback: string) {
+  return parseApiError(err, fallback).message
 }
 
 export interface BusinessProfile {
@@ -517,6 +558,7 @@ export interface BusinessWithCampaigns {
 export interface PublicCampaign {
   id: string
   businessId: string
+  businessName?: string
   name: string
   mechanic: string
   startDate: string
@@ -664,13 +706,44 @@ export async function updateCampaign(id: string, payload: UpdateCampaignPayload)
   return data.data
 }
 
+export interface CampaignDeletionSummary {
+  id: string
+  name: string
+  participations: number
+  gamePlays: number
+  customerRewards: number
+  stampCards: number
+  loyaltyCards: number
+}
+
+export async function deleteCampaign(id: string) {
+  const { data } = await api.delete<{ success: boolean; data: CampaignDeletionSummary }>(`/campaigns/${id}`)
+  return data.data
+}
+
 export async function fetchCampaignPin(id: string) {
-  const { data } = await api.get<{ success: boolean; data: CampaignPin }>(`/campaigns/${id}/pin`)
+  const { data } = await api.get<{ success: boolean; data: CampaignPin }>(
+    `/campaigns/${id}/pin`,
+    { params: { _t: Date.now() } },
+  )
   return data.data
 }
 
 export async function fetchBusinessesWithCampaigns() {
   const { data } = await api.get<{ success: boolean; data: BusinessWithCampaigns[] }>('/campaigns/public/businesses')
+  return data.data
+}
+
+export type BusinessCampaignStateItem = {
+  campaignId: string
+  mechanic: string
+  state: PlayState | StampState | LoyaltyState | null
+}
+
+export async function fetchBusinessCampaignStates(businessId: string) {
+  const { data } = await api.get<{ success: boolean; data: BusinessCampaignStateItem[] }>(
+    `/campaigns/public/businesses/${businessId}/states`,
+  )
   return data.data
 }
 
@@ -715,6 +788,14 @@ export async function executeStamp(campaignId: string, playSessionToken: string)
   const { data } = await api.post<{ success: boolean; data: StampCollectResult }>(
     `/campaigns/${campaignId}/stamp`,
     { playSessionToken },
+  )
+  return data.data
+}
+
+export async function executeStampWithPin(campaignId: string, pin: string) {
+  const { data } = await api.post<{ success: boolean; data: StampCollectResult }>(
+    `/campaigns/${campaignId}/stamp`,
+    { pin },
   )
   return data.data
 }

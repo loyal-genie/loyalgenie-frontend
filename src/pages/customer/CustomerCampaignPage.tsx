@@ -17,7 +17,7 @@ import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { isMechanicComingSoon } from '@/lib/live-mechanics'
 import { MechanicComingSoon } from '@/components/shared/MechanicComingSoon'
 import { getToken, isSessionValidForRole } from '@/lib/auth'
-import { useBusinessesWithCampaigns } from '@/hooks/useCustomerData'
+import { useBusinessesWithCampaigns, usePublicCampaignRealtime } from '@/hooks/useCustomerData'
 import {
   CampaignPinBlocked,
   CampaignPinLoading,
@@ -27,9 +27,10 @@ import { ShakeCampaignDetail } from '@/components/customer/ShakeCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
+import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 
 type StampCollectSession = {
-  token: string
+  playSessionToken: string
   stampsBefore: number
   enrolledBefore: boolean
 }
@@ -66,7 +67,9 @@ export function CustomerCampaignPage() {
 
   const { data: businesses } = useBusinessesWithCampaigns()
 
-  const { data: campaign, isLoading } = useQuery({
+  usePublicCampaignRealtime(id)
+
+  const { data: campaign, isLoading, isError: campaignLoadError, error: campaignFetchError } = useQuery({
     queryKey: ['public-campaign', id],
     queryFn: () => fetchPublicCampaign(id!),
     enabled: Boolean(id),
@@ -94,22 +97,23 @@ export function CustomerCampaignPage() {
   })
 
   const verifyMutation = useMutation({
-    mutationFn: (enteredPin: string) => {
-      if (!getToken('customer')) return Promise.reject(new Error('NOT_AUTHENTICATED'))
-      return verifyCampaignPin(id!, enteredPin)
+    mutationFn: async (enteredPin: string) => {
+      if (!getToken('customer')) throw new Error('NOT_AUTHENTICATED')
+      const data = await verifyCampaignPin(id!, enteredPin)
+      return { kind: campaign?.mechanic === 'stamp' ? 'stamp' as const : 'verified' as const, ...data }
     },
     onSuccess: (data) => {
-      if (isMechanicComingSoon(campaign!.mechanic)) return
-      setPlaySession(id!, data.playSessionToken)
-      if (campaign!.mechanic === 'stamp' && stampState) {
+      if (data.kind === 'stamp') {
         if (stampCollectRef.current) return
         setStampCollect({
-          token: data.playSessionToken,
-          stampsBefore: stampState.stampsCollected,
-          enrolledBefore: stampState.enrolled,
+          playSessionToken: data.playSessionToken,
+          stampsBefore: stampState!.stampsCollected,
+          enrolledBefore: stampState!.enrolled,
         })
         return
       }
+      if (isMechanicComingSoon(campaign!.mechanic)) return
+      setPlaySession(id!, data.playSessionToken)
       const route = getGameRouteForMechanic(campaign!.mechanic, id!)
       navigate(route)
     },
@@ -205,6 +209,21 @@ export function CustomerCampaignPage() {
   }
 
   if (sessionLoading || isLoading) return <CampaignPinLoading />
+
+  if (campaignLoadError) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center px-5 bg-white">
+        <ApiErrorBanner error={campaignFetchError} fallback="Could not load campaign" className="w-full max-w-sm" />
+        <button
+          type="button"
+          onClick={() => navigate('/customer')}
+          className="mt-6 px-6 py-3 rounded-full font-bold text-sm text-white bg-[#5b0e81] border-0 cursor-pointer"
+        >
+          Back to home
+        </button>
+      </div>
+    )
+  }
 
   if (stateStillLoading) return <CampaignPinLoading />
 
@@ -315,7 +334,7 @@ export function CustomerCampaignPage() {
         <StampCollectOverlay
           campaignId={id!}
           businessId={campaign.businessId}
-          playSessionToken={stampCollect.token}
+          playSessionToken={stampCollect.playSessionToken}
           stampsBefore={stampCollect.stampsBefore}
           enrolledBefore={stampCollect.enrolledBefore}
           totalStamps={stampState.totalStamps}

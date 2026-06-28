@@ -12,7 +12,7 @@ import { MechanicBadge, StatusBadge } from '@/components/ui/badge'
 import { MechanicComingSoonBadge } from '@/components/vendor/MechanicComingSoonBanner'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, getMechanicColor, formatDate, capPercent } from '@/lib/utils'
-import { getApiErrorMessage } from '@/lib/api'
+import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 import type { CampaignDto } from '@/lib/api'
 import {
   campaignDaysLeft,
@@ -473,10 +473,10 @@ export function VendorCampaignsPage() {
               <p className="text-sm text-v-text-3">Loading campaigns…</p>
             </div>
           ) : isError ? (
-            <div className="text-center py-20">
+            <div className="text-center py-20 max-w-md mx-auto">
               <div className="text-5xl mb-4">⚠️</div>
-              <p className="text-sm font-semibold text-v-text-2">Could not load campaigns</p>
-              <p className="text-xs text-v-text-3 mt-1 mb-4">{getApiErrorMessage(error, 'Please try again')}</p>
+              <p className="text-sm font-semibold text-v-text-2 mb-3">Could not load campaigns</p>
+              <ApiErrorBanner error={error} fallback="Please try again" className="mb-4 text-left" />
               <Button variant="secondary" onClick={() => refetch()} disabled={isFetching}>
                 <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Retry
               </Button>

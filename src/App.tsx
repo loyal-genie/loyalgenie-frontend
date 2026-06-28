@@ -1,108 +1,126 @@
+import { Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { HomePage } from '@/pages/HomePage'
-import { DemoLauncherPage } from '@/pages/DemoLauncherPage'
-import { SignInPage } from '@/pages/auth/SignInPage'
-import { BusinessSignInPage } from '@/pages/auth/BusinessSignInPage'
-import { BusinessSignUpPage } from '@/pages/auth/BusinessSignUpPage'
-import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
-import { OnboardingPage } from '@/pages/onboarding/OnboardingPage'
-import { SlugPage } from '@/pages/SlugPage'
-import { VendorLayout } from '@/pages/vendor/VendorLayout'
-import { VendorDashboardPage } from '@/pages/vendor/VendorDashboardPage'
-import { VendorCampaignsPage } from '@/pages/vendor/VendorCampaignsPage'
-import { VendorCampaignDetailPage } from '@/pages/vendor/VendorCampaignDetailPage'
-import { VendorCampaignCreatePage } from '@/pages/vendor/VendorCampaignCreatePage'
-import { VendorCampaignEditPage } from '@/pages/vendor/VendorCampaignEditPage'
-import { VendorCustomersPage } from '@/pages/vendor/VendorCustomersPage'
-import { VendorCustomerDetailPage } from '@/pages/vendor/VendorCustomerDetailPage'
-import { VendorSettingsPage } from '@/pages/vendor/VendorSettingsPage'
-import { VendorQrCodePage } from '@/pages/vendor/VendorQrCodePage'
-import { CustomerLayout } from '@/pages/customer/CustomerLayout'
-import { CustomerPage } from '@/pages/customer/CustomerPage'
-import { CustomerWalletPage } from '@/pages/customer/CustomerWalletPage'
-import { CustomerProfilePage } from '@/pages/customer/CustomerProfilePage'
-import { CustomerProfileEditPage } from '@/pages/customer/profile/CustomerProfileEditPage'
-import { CustomerNotificationsPage } from '@/pages/customer/CustomerNotificationsPage'
-import { CustomerProfileInfoPage } from '@/pages/customer/profile/CustomerProfileInfoPage'
-import { CustomerCheckInPage } from '@/pages/customer/CustomerCheckInPage'
-import { CustomerBusinessPage } from '@/pages/customer/CustomerBusinessPage'
-import { CustomerCampaignPage } from '@/pages/customer/CustomerCampaignPage'
-import { CustomerShakePage } from '@/pages/customer/games/CustomerShakePage'
-import { CustomerStampPage } from '@/pages/customer/games/CustomerStampPage'
-import { CustomerMechanicComingSoonPage } from '@/pages/customer/games/CustomerMechanicComingSoonPage'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { RouteErrorBoundary } from '@/components/shared/RouteErrorBoundary'
+import { lazyWithRetry } from '@/lib/lazy-with-retry'
+
+const HomePage = lazyWithRetry(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
+const DemoLauncherPage = lazyWithRetry(() => import('@/pages/DemoLauncherPage').then(m => ({ default: m.DemoLauncherPage })))
+const SignInPage = lazyWithRetry(() => import('@/pages/auth/SignInPage').then(m => ({ default: m.SignInPage })))
+const BusinessSignInPage = lazyWithRetry(() => import('@/pages/auth/BusinessSignInPage').then(m => ({ default: m.BusinessSignInPage })))
+const BusinessSignUpPage = lazyWithRetry(() => import('@/pages/auth/BusinessSignUpPage').then(m => ({ default: m.BusinessSignUpPage })))
+const ForgotPasswordPage = lazyWithRetry(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+const OnboardingPage = lazyWithRetry(() => import('@/pages/onboarding/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
+const SlugPage = lazyWithRetry(() => import('@/pages/SlugPage').then(m => ({ default: m.SlugPage })))
+const VendorLayout = lazyWithRetry(() => import('@/pages/vendor/VendorLayout').then(m => ({ default: m.VendorLayout })))
+const VendorDashboardPage = lazyWithRetry(() => import('@/pages/vendor/VendorDashboardPage').then(m => ({ default: m.VendorDashboardPage })))
+const VendorCampaignsPage = lazyWithRetry(() => import('@/pages/vendor/VendorCampaignsPage').then(m => ({ default: m.VendorCampaignsPage })))
+const VendorCampaignDetailPage = lazyWithRetry(() => import('@/pages/vendor/VendorCampaignDetailPage').then(m => ({ default: m.VendorCampaignDetailPage })))
+const VendorCampaignCreatePage = lazyWithRetry(() => import('@/pages/vendor/VendorCampaignCreatePage').then(m => ({ default: m.VendorCampaignCreatePage })))
+const VendorCampaignEditPage = lazyWithRetry(() => import('@/pages/vendor/VendorCampaignEditPage').then(m => ({ default: m.VendorCampaignEditPage })))
+const VendorCustomersPage = lazyWithRetry(() => import('@/pages/vendor/VendorCustomersPage').then(m => ({ default: m.VendorCustomersPage })))
+const VendorCustomerDetailPage = lazyWithRetry(() => import('@/pages/vendor/VendorCustomerDetailPage').then(m => ({ default: m.VendorCustomerDetailPage })))
+const VendorSettingsPage = lazyWithRetry(() => import('@/pages/vendor/VendorSettingsPage').then(m => ({ default: m.VendorSettingsPage })))
+const VendorQrCodePage = lazyWithRetry(() => import('@/pages/vendor/VendorQrCodePage').then(m => ({ default: m.VendorQrCodePage })))
+const CustomerLayout = lazyWithRetry(() => import('@/pages/customer/CustomerLayout').then(m => ({ default: m.CustomerLayout })))
+const CustomerPage = lazyWithRetry(() => import('@/pages/customer/CustomerPage').then(m => ({ default: m.CustomerPage })))
+const CustomerWalletPage = lazyWithRetry(() => import('@/pages/customer/CustomerWalletPage').then(m => ({ default: m.CustomerWalletPage })))
+const CustomerProfilePage = lazyWithRetry(() => import('@/pages/customer/CustomerProfilePage').then(m => ({ default: m.CustomerProfilePage })))
+const CustomerProfileEditPage = lazyWithRetry(() => import('@/pages/customer/profile/CustomerProfileEditPage').then(m => ({ default: m.CustomerProfileEditPage })))
+const CustomerNotificationsPage = lazyWithRetry(() => import('@/pages/customer/CustomerNotificationsPage').then(m => ({ default: m.CustomerNotificationsPage })))
+const CustomerProfileInfoPage = lazyWithRetry(() => import('@/pages/customer/profile/CustomerProfileInfoPage').then(m => ({ default: m.CustomerProfileInfoPage })))
+const CustomerCheckInPage = lazyWithRetry(() => import('@/pages/customer/CustomerCheckInPage').then(m => ({ default: m.CustomerCheckInPage })))
+const CustomerBusinessPage = lazyWithRetry(() => import('@/pages/customer/CustomerBusinessPage').then(m => ({ default: m.CustomerBusinessPage })))
+const CustomerCampaignPage = lazyWithRetry(() => import('@/pages/customer/CustomerCampaignPage').then(m => ({ default: m.CustomerCampaignPage })))
+const CustomerShakePage = lazyWithRetry(() => import('@/pages/customer/games/CustomerShakePage').then(m => ({ default: m.CustomerShakePage })))
+const CustomerStampPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerStampPage').then(m => ({ default: m.CustomerStampPage })))
+const CustomerMechanicComingSoonPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerMechanicComingSoonPage').then(m => ({ default: m.CustomerMechanicComingSoonPage })))
+
+function PageLoader({ variant }: { variant?: 'customer' | 'vendor' }) {
+  return (
+    <div className={`min-h-dvh flex items-center justify-center ${variant === 'customer' ? 'bg-white' : 'bg-v-surface min-h-screen'}`}>
+      <div className="w-8 h-8 border-2 border-v-purple border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 export function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/demo" element={<DemoLauncherPage />} />
-        <Route path="/signin" element={<SignInPage />} />
-        <Route path="/signup" element={<Navigate to="/signin" replace />} />
-        <Route path="/business/signin" element={<BusinessSignInPage />} />
-        <Route path="/business/signup" element={<BusinessSignUpPage />} />
-        <Route path="/business/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/forgot-password" element={<Navigate to="/business/forgot-password" replace />} />
-        <Route
-          path="/onboarding"
-          element={
-            <ProtectedRoute>
-              <OnboardingPage />
-            </ProtectedRoute>
-          }
-        />
+      <RouteErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/demo" element={<DemoLauncherPage />} />
+          <Route path="/signin" element={<SignInPage />} />
+          <Route path="/signup" element={<Navigate to="/signin" replace />} />
+          <Route path="/business/signin" element={<BusinessSignInPage />} />
+          <Route path="/business/signup" element={<BusinessSignUpPage />} />
+          <Route path="/business/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/forgot-password" element={<Navigate to="/business/forgot-password" replace />} />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <OnboardingPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/vendor"
-          element={
-            <ProtectedRoute>
-              <VendorLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<VendorDashboardPage />} />
-          <Route path="dashboard" element={<VendorDashboardPage />} />
-          <Route path="campaigns" element={<VendorCampaignsPage />} />
-          <Route path="campaigns/create" element={<VendorCampaignCreatePage />} />
-          <Route path="campaigns/:id" element={<VendorCampaignDetailPage />} />
-          <Route path="campaigns/:id/edit" element={<VendorCampaignEditPage />} />
-          <Route path="customers" element={<VendorCustomersPage />} />
-          <Route path="customers/:id" element={<VendorCustomerDetailPage />} />
-          <Route path="qr-code" element={<VendorQrCodePage />} />
-          <Route path="settings" element={<VendorSettingsPage />} />
-        </Route>
+          <Route
+            path="/vendor"
+            element={
+              <ProtectedRoute>
+                <VendorLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<VendorDashboardPage />} />
+            <Route path="dashboard" element={<VendorDashboardPage />} />
+            <Route path="campaigns" element={<VendorCampaignsPage />} />
+            <Route path="campaigns/create" element={<VendorCampaignCreatePage />} />
+            <Route path="campaigns/:id" element={<VendorCampaignDetailPage />} />
+            <Route path="campaigns/:id/edit" element={<VendorCampaignEditPage />} />
+            <Route path="customers" element={<VendorCustomersPage />} />
+            <Route path="customers/:id" element={<VendorCustomerDetailPage />} />
+            <Route path="qr-code" element={<VendorQrCodePage />} />
+            <Route path="settings" element={<VendorSettingsPage />} />
+          </Route>
 
-        <Route path="/customer/signin" element={<Navigate to="/signin" replace />} />
-        <Route path="/customer/signup" element={<Navigate to="/signin" replace />} />
-        <Route
-          path="/customer"
-          element={
-            <ProtectedRoute role="customer">
-              <CustomerLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<CustomerPage />} />
-          <Route path="discover" element={<Navigate to="/customer" replace />} />
-          <Route path="wallet" element={<CustomerWalletPage />} />
-          <Route path="profile" element={<CustomerProfilePage />} />
-          <Route path="profile/edit" element={<CustomerProfileEditPage />} />
-          <Route path="notifications" element={<CustomerNotificationsPage />} />
-          <Route path="profile/:section" element={<CustomerProfileInfoPage />} />
-          <Route path="check-in" element={<CustomerCheckInPage />} />
-          <Route path="business/:id" element={<CustomerBusinessPage />} />
-          <Route path="campaigns/:id" element={<CustomerCampaignPage />} />
-          <Route path="games/shake" element={<CustomerShakePage />} />
-          <Route path="games/stamp" element={<CustomerStampPage />} />
-          <Route path="games/coming-soon" element={<CustomerMechanicComingSoonPage />} />
-          <Route path="games/spin" element={<Navigate to="/customer/games/coming-soon?mechanic=spin" replace />} />
-          <Route path="games/dice" element={<Navigate to="/customer/games/coming-soon?mechanic=dice" replace />} />
-          <Route path="games/lottery" element={<Navigate to="/customer/games/coming-soon?mechanic=lottery" replace />} />
-        </Route>
+          <Route path="/customer/signin" element={<Navigate to="/signin" replace />} />
+          <Route path="/customer/signup" element={<Navigate to="/signin" replace />} />
+          <Route
+            path="/customer"
+            element={
+              <ProtectedRoute role="customer">
+                <RouteErrorBoundary variant="customer">
+                  <CustomerLayout />
+                </RouteErrorBoundary>
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<CustomerPage />} />
+            <Route path="discover" element={<Navigate to="/customer" replace />} />
+            <Route path="wallet" element={<CustomerWalletPage />} />
+            <Route path="profile" element={<CustomerProfilePage />} />
+            <Route path="profile/edit" element={<CustomerProfileEditPage />} />
+            <Route path="notifications" element={<CustomerNotificationsPage />} />
+            <Route path="profile/:section" element={<CustomerProfileInfoPage />} />
+            <Route path="check-in" element={<CustomerCheckInPage />} />
+            <Route path="business/:id" element={<CustomerBusinessPage />} />
+            <Route path="campaigns/:id" element={<CustomerCampaignPage />} />
+            <Route path="games/shake" element={<CustomerShakePage />} />
+            <Route path="games/stamp" element={<CustomerStampPage />} />
+            <Route path="games/coming-soon" element={<CustomerMechanicComingSoonPage />} />
+            <Route path="games/spin" element={<Navigate to="/customer/games/coming-soon?mechanic=spin" replace />} />
+            <Route path="games/dice" element={<Navigate to="/customer/games/coming-soon?mechanic=dice" replace />} />
+            <Route path="games/lottery" element={<Navigate to="/customer/games/coming-soon?mechanic=lottery" replace />} />
+          </Route>
 
-        <Route path="/:slug" element={<SlugPage />} />
-      </Routes>
+          <Route path="/:slug" element={<SlugPage />} />
+        </Routes>
+        </Suspense>
+      </RouteErrorBoundary>
     </BrowserRouter>
   )
 }

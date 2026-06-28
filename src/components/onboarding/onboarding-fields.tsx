@@ -1,6 +1,6 @@
 import { ChevronDown, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { readFileAsDataUrl, readFilesAsDataUrls } from '@/lib/file-upload'
+import { uploadImageFile, uploadImageFiles, type UploadPurpose } from '@/lib/file-upload'
 
 export const onboardingTheme = {
   bg: '#0D0B28',
@@ -151,6 +151,7 @@ export function OnboardingUpload({
   values,
   onChange,
   onMultiChange,
+  purpose,
   accept = 'image/png,image/jpeg,image/webp,image/svg+xml',
   multiple = false,
 }: {
@@ -160,6 +161,7 @@ export function OnboardingUpload({
   values?: string[]
   onChange?: (dataUrl: string) => void
   onMultiChange?: (dataUrls: string[]) => void
+  purpose: UploadPurpose
   accept?: string
   multiple?: boolean
 }) {
@@ -169,10 +171,10 @@ export function OnboardingUpload({
     if (!fileList?.length) return
     try {
       if (multiple && onMultiChange) {
-        const urls = await readFilesAsDataUrls(fileList)
+        const urls = await uploadImageFiles(fileList, purpose, { onboarding: true })
         onMultiChange([...(values ?? []), ...urls])
       } else if (onChange) {
-        const url = await readFileAsDataUrl(fileList[0])
+        const url = await uploadImageFile(fileList[0], purpose, { onboarding: true })
         onChange(url)
       }
     } catch (err) {

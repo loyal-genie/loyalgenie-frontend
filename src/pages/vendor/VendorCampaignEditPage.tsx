@@ -19,6 +19,7 @@ import {
   formatWinnerCount,
 } from '@/lib/campaign-impact'
 import { useCampaign, useUpdateCampaign } from '@/hooks/useCampaigns'
+import { CampaignDeleteSection } from '@/components/vendor/CampaignDeleteSection'
 import { getMechanicEmoji, getMechanicColor, formatDate } from '@/lib/utils'
 import {
   DURATION_OPTIONS,
@@ -32,6 +33,7 @@ import {
 } from '@/lib/campaign-duration'
 import { effectiveCampaignStatus, singleDayDurationLabel, todayInCampaignTz } from '@/lib/campaign-dates'
 import { getApiErrorMessage, type CampaignDto } from '@/lib/api'
+import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 import { MechanicComingSoonBanner } from '@/components/vendor/MechanicComingSoonBanner'
 import type { CampaignStatus } from '@/lib/types'
 
@@ -190,7 +192,7 @@ export function VendorCampaignEditPage() {
   const [originalUserCapLimited, setOriginalUserCapLimited] = useState(true)
   const [originalPointsPerCheckIn, setOriginalPointsPerCheckIn] = useState(10)
   const [saveState, setSaveState] = useState<'idle' | 'saved'>('idle')
-  const [formError, setFormError] = useState('')
+  const [formError, setFormError] = useState<unknown>(null)
   const [pendingStatus, setPendingStatus] = useState<'paused' | 'active' | 'ended' | null>(null)
   const dailyLimitSyncRef = useRef<string | null>(null)
 
@@ -364,7 +366,7 @@ export function VendorCampaignEditPage() {
   const hasChanges = Object.values(changedFields).some(Boolean)
 
   const handleSave = async () => {
-    setFormError('')
+    setFormError(null)
     try {
       const payload: Parameters<typeof updateMutation.mutateAsync>[0] = {}
       if (changedFields.name) payload.name = name.trim()
@@ -445,12 +447,12 @@ export function VendorCampaignEditPage() {
       setSaveState('saved')
       setTimeout(() => navigate(`/vendor/campaigns/${id}`), 1200)
     } catch (err) {
-      setFormError(getApiErrorMessage(err, 'Failed to save changes'))
+      setFormError(err)
     }
   }
 
   const handleStatusChange = async (nextStatus: 'paused' | 'active' | 'ended') => {
-    setFormError('')
+    setFormError(null)
     setPendingStatus(nextStatus)
     try {
       await updateMutation.mutateAsync({ status: nextStatus })
@@ -460,7 +462,7 @@ export function VendorCampaignEditPage() {
         navigate(`/vendor/campaigns/${id}`)
       }
     } catch (err) {
-      setFormError(getApiErrorMessage(err, 'Failed to update campaign status'))
+      setFormError(err)
       setPendingStatus(null)
     }
   }
@@ -533,8 +535,8 @@ export function VendorCampaignEditPage() {
         </div>
       )}
 
-      {formError && (
-        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">{formError}</div>
+      {formError != null && (
+        <ApiErrorBanner error={formError} fallback="Failed to save campaign" className="mb-4" />
       )}
 
       {isLive && step === 0 && (
@@ -888,6 +890,13 @@ export function VendorCampaignEditPage() {
                   </div>
                 </Card>
               )}
+
+              <CampaignDeleteSection
+                campaignId={campaign.id}
+                campaignName={campaign.name}
+                participations={campaign.participations}
+                onDeleted={() => navigate('/vendor/campaigns')}
+              />
             </div>
           )}
 

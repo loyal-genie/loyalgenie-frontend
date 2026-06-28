@@ -5,9 +5,12 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { getMechanicEmoji, formatRelativeTime } from '@/lib/utils'
 import { usePendingRedemptions, useMarkRedeemed } from '@/hooks/useVendorAnalytics'
+import { useCampaigns } from '@/hooks/useCampaigns'
 
 export function RedemptionQueue() {
-  const { data: queue = [], isLoading } = usePendingRedemptions()
+  const { data: campaigns = [] } = useCampaigns()
+  const campaignIds = campaigns.map(c => c.id)
+  const { data: queue = [], isLoading } = usePendingRedemptions(campaignIds)
   const markRedeemed = useMarkRedeemed()
   const [redeemed, setRedeemed] = useState<string[]>([])
 
