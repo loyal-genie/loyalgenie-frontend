@@ -27,6 +27,7 @@ import { ShakeCampaignDetail } from '@/components/customer/ShakeCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
+import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 
 type StampCollectSession = {
   token: string
@@ -68,7 +69,7 @@ export function CustomerCampaignPage() {
 
   usePublicCampaignRealtime(id)
 
-  const { data: campaign, isLoading } = useQuery({
+  const { data: campaign, isLoading, isError: campaignLoadError, error: campaignFetchError } = useQuery({
     queryKey: ['public-campaign', id],
     queryFn: () => fetchPublicCampaign(id!),
     enabled: Boolean(id),
@@ -207,6 +208,21 @@ export function CustomerCampaignPage() {
   }
 
   if (sessionLoading || isLoading) return <CampaignPinLoading />
+
+  if (campaignLoadError) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center px-5 bg-white">
+        <ApiErrorBanner error={campaignFetchError} fallback="Could not load campaign" className="w-full max-w-sm" />
+        <button
+          type="button"
+          onClick={() => navigate('/customer')}
+          className="mt-6 px-6 py-3 rounded-full font-bold text-sm text-white bg-[#5b0e81] border-0 cursor-pointer"
+        >
+          Back to home
+        </button>
+      </div>
+    )
+  }
 
   if (stateStillLoading) return <CampaignPinLoading />
 

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { FieldInput as Input, Slider, Stepper } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { getMechanicLabel, getMechanicEmoji, getMechanicColor } from '@/lib/utils'
-import { getApiErrorMessage } from '@/lib/api'
+import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
 import { RewardPoolEditor, RewardModeToggle, SingleRewardInput, NumericInput, newRewardEntry, type RewardEntry, type RewardMode } from '@/components/vendor/RewardPoolEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
@@ -137,7 +137,7 @@ export function VendorCampaignCreatePage() {
   })
 
   const [launched, setLaunched] = useState(false)
-  const [launchError, setLaunchError] = useState('')
+  const [launchError, setLaunchError] = useState<unknown>(null)
   const createMutation = useCreateCampaign()
 
   const isLottery        = mechanic === 'lottery'
@@ -230,7 +230,7 @@ export function VendorCampaignCreatePage() {
       setLaunchError('Only Shake & Win, Stamp Card, and Check-in Loyalty are wired to the API in this release.')
       return
     }
-    setLaunchError('')
+    setLaunchError(null)
     try {
       if (mechanic === 'shake') {
         const campaign = await createMutation.mutateAsync({
@@ -315,7 +315,7 @@ export function VendorCampaignCreatePage() {
       setLaunched(true)
       setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
     } catch (err) {
-      setLaunchError(getApiErrorMessage(err, 'Failed to launch campaign'))
+      setLaunchError(err)
     }
   }
 
@@ -1036,8 +1036,8 @@ export function VendorCampaignCreatePage() {
                 {createMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
                 {createMutation.isPending ? 'Launching…' : 'Launch Campaign'}
               </Button>
-              {launchError && (
-                <p className="text-xs text-v-danger text-center mt-2">{launchError}</p>
+              {launchError != null && (
+                <ApiErrorBanner error={launchError} fallback="Failed to launch campaign" className="mt-3" />
               )}
             </div>
           )}
