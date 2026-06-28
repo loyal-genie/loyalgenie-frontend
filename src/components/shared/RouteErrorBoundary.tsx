@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { isChunkLoadFailure, recoverFromChunkLoadFailure } from '@/lib/chunk-load-recovery'
 
 interface Props {
   children: ReactNode
@@ -7,10 +8,6 @@ interface Props {
 
 interface State {
   error: Error | null
-}
-
-function isChunkLoadError(message: string) {
-  return /Loading chunk|Failed to fetch dynamically imported module|Importing a module script failed/i.test(message)
 }
 
 export class RouteErrorBoundary extends Component<Props, State> {
@@ -22,13 +19,16 @@ export class RouteErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[RouteErrorBoundary]', error, info.componentStack)
+    if (isChunkLoadFailure(error)) {
+      recoverFromChunkLoadFailure()
+    }
   }
 
   render() {
     const { error } = this.state
     if (!error) return this.props.children
 
-    const chunk = isChunkLoadError(error.message)
+    const chunk = isChunkLoadFailure(error)
     const isCustomer = this.props.variant === 'customer'
 
     return (

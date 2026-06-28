@@ -2,7 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
+import { clearChunkReloadFlag, installChunkLoadRecovery } from '@/lib/chunk-load-recovery'
 import './index.css'
+
+installChunkLoadRecovery()
+clearChunkReloadFlag()
 
 const queryClient = new QueryClient({
   defaultOptions: {
