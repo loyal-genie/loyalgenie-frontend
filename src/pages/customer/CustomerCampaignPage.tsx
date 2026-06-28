@@ -30,7 +30,7 @@ import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
 import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 
 type StampCollectSession = {
-  pin: string
+  playSessionToken: string
   stampsBefore: number
   enrolledBefore: boolean
 }
@@ -99,17 +99,14 @@ export function CustomerCampaignPage() {
   const verifyMutation = useMutation({
     mutationFn: async (enteredPin: string) => {
       if (!getToken('customer')) throw new Error('NOT_AUTHENTICATED')
-      if (campaign?.mechanic === 'stamp' && stampState) {
-        return { kind: 'stamp' as const, pin: enteredPin }
-      }
       const data = await verifyCampaignPin(id!, enteredPin)
-      return { kind: 'verified' as const, ...data }
+      return { kind: campaign?.mechanic === 'stamp' ? 'stamp' as const : 'verified' as const, ...data }
     },
     onSuccess: (data) => {
       if (data.kind === 'stamp') {
         if (stampCollectRef.current) return
         setStampCollect({
-          pin: data.pin,
+          playSessionToken: data.playSessionToken,
           stampsBefore: stampState!.stampsCollected,
           enrolledBefore: stampState!.enrolled,
         })
@@ -337,7 +334,7 @@ export function CustomerCampaignPage() {
         <StampCollectOverlay
           campaignId={id!}
           businessId={campaign.businessId}
-          pin={stampCollect.pin}
+          playSessionToken={stampCollect.playSessionToken}
           stampsBefore={stampCollect.stampsBefore}
           enrolledBefore={stampCollect.enrolledBefore}
           totalStamps={stampState.totalStamps}
