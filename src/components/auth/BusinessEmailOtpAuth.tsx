@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { OtpInput } from '@/components/auth/OtpInput'
@@ -47,19 +47,30 @@ export function BusinessEmailOtpAuth({
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
+  const [accountNotFound, setAccountNotFound] = useState(false)
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/vendor/dashboard'
 
   const emailForm = useForm<EmailForm>()
 
   const sendMutation = useMutation({
-    mutationFn: (targetEmail: string) => sendBusinessEmailOtp(targetEmail),
+    mutationFn: (targetEmail: string) => sendBusinessEmailOtp(targetEmail, intent),
     onSuccess: () => {
       setError('')
+      setAccountNotFound(false)
       setStep('otp')
       setOtp('')
     },
-    onError: (err) => setError(getApiErrorMessage(err, 'Could not send OTP. Please try again.')),
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { status?: number } }
+      if (intent === 'signin' && apiErr?.response?.status === 404) {
+        setAccountNotFound(true)
+        setError('')
+      } else {
+        setAccountNotFound(false)
+        setError(getApiErrorMessage(err, 'Could not send OTP. Please try again.'))
+      }
+    },
   })
 
   const loginMutation = useMutation({
@@ -93,6 +104,7 @@ export function BusinessEmailOtpAuth({
     }
     setEmail(value)
     setError('')
+    setAccountNotFound(false)
     sendMutation.mutate(value)
   }
 
@@ -132,7 +144,19 @@ export function BusinessEmailOtpAuth({
             )}
           </div>
 
-          {error && (
+          {accountNotFound && (
+            <div className="text-sm bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
+              <p className="text-amber-800 font-medium">No account found for this email.</p>
+              <p className="text-amber-700">
+                Don't have an account?{' '}
+                <Link to="/business/signup" className="font-semibold underline text-amber-900 hover:text-v-purple">
+                  Sign up here
+                </Link>
+              </p>
+            </div>
+          )}
+
+          {error && !accountNotFound && (
             <p className="text-sm text-v-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
           )}
 

@@ -88,8 +88,10 @@ export interface CustomerNotificationDto {
   createdAt: string
 }
 
-export async function sendBusinessEmailOtp(email: string) {
-  await api.post('/auth/business/otp/send', { email })
+export type BusinessAuthIntent = 'signin' | 'signup'
+
+export async function sendBusinessEmailOtp(email: string, intent: BusinessAuthIntent = 'signin') {
+  await api.post('/auth/business/otp/send', { email, intent })
 }
 
 export interface BusinessOtpLoginResult {
@@ -101,8 +103,6 @@ export interface BusinessOtpLoginResult {
   isNewUser?: boolean
   businessId?: string
 }
-
-export type BusinessAuthIntent = 'signin' | 'signup'
 
 export async function loginBusinessWithEmailOtp(email: string, otp: string, intent: BusinessAuthIntent = 'signin') {
   const { data } = await api.post<{ success: boolean; data: BusinessOtpLoginResult }>(
