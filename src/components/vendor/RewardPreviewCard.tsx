@@ -7,7 +7,7 @@ type RewardPreviewCardProps = {
   name: string
   description: string
   pointsRequired: number | string
-  availableRewards: number | string
+  availableRewards?: number | string | null
   expiryLabel: string
   variant?: 'create' | 'list'
   claimBefore?: string
@@ -47,6 +47,7 @@ export function RewardPreviewCard({
     ? Math.min(100, (claimedCount / maxClaims) * 100)
     : 0
   const claimedLabel = maxClaims != null ? `${claimedCount}/${maxClaims}` : `${claimedCount}`
+  const showAvailableRewards = availableRewards != null && availableRewards !== ''
 
   return (
     <div className={cn('w-full overflow-hidden rounded-2xl border border-[#e5e0f8] bg-white', className)}>
@@ -106,9 +107,11 @@ export function RewardPreviewCard({
           )}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className={cn('mt-4 grid gap-2', showAvailableRewards ? 'grid-cols-2' : 'grid-cols-1')}>
           <StatChip label="Points Required" value={pointsRequired} />
-          <StatChip label={isList ? 'Available Rewards' : 'Available Rewards'} value={availableRewards} />
+          {showAvailableRewards && (
+            <StatChip label="Available Rewards" value={availableRewards} />
+          )}
         </div>
 
         <div className="mt-4">

@@ -124,7 +124,7 @@ export function VendorRewardsPage() {
               name={reward.name}
               description={reward.description}
               pointsRequired={reward.pointsRequired}
-              availableRewards={reward.maxClaims ?? 50}
+              availableRewards={reward.maxClaims ?? undefined}
               expiryLabel={reward.claimBefore ?? '31 Dec 2026'}
               claimBefore={reward.claimBefore ?? '31 Dec 2026'}
               claimedCount={reward.claimsCount}

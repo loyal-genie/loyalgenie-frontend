@@ -287,7 +287,7 @@ function VendorRewardFormPage() {
             name={form.name}
             description={form.description}
             pointsRequired={form.pointsRequired ? Number(form.pointsRequired) : '—'}
-            availableRewards={form.maxClaims || 50}
+            availableRewards={form.maxClaims ? Number(form.maxClaims) : undefined}
             expiryLabel={previewExpiry}
             redemptionInstructions={form.redemptionInstructions}
           />
