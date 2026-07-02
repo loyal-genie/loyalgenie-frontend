@@ -6,7 +6,7 @@ type RewardPreviewCardProps = {
   icon: string
   name: string
   description: string
-  pointsRequired: number
+  pointsRequired: number | string
   availableRewards: number | string
   expiryLabel: string
   variant?: 'create' | 'list'

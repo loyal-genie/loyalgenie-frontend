@@ -18,7 +18,7 @@ type RewardFormState = {
   name: string
   description: string
   icon: string
-  pointsRequired: number
+  pointsRequired: string
   maxClaims: string
   claimBefore: string
   redeemExpiryMode: 'fixed' | 'relative'
@@ -32,7 +32,7 @@ const emptyForm: RewardFormState = {
   name: '',
   description: '',
   icon: '🎁',
-  pointsRequired: 50,
+  pointsRequired: '',
   maxClaims: '',
   claimBefore: '',
   redeemExpiryMode: 'relative',
@@ -47,7 +47,7 @@ function rewardToForm(reward: NonNullable<ReturnType<typeof useBusinessReward>['
     name: reward.name,
     description: reward.description ?? '',
     icon: reward.icon || '🎁',
-    pointsRequired: reward.pointsRequired,
+    pointsRequired: String(reward.pointsRequired),
     maxClaims: reward.maxClaims != null ? String(reward.maxClaims) : '',
     claimBefore: reward.claimBefore ?? '',
     redeemExpiryMode: reward.redeemExpiryMode,
@@ -82,7 +82,7 @@ function VendorRewardFormPage() {
     name: form.name.trim(),
     description: form.description.trim() || undefined,
     icon: form.icon,
-    pointsRequired: form.pointsRequired,
+    pointsRequired: Number(form.pointsRequired),
     maxClaims: form.maxClaims ? Number(form.maxClaims) : undefined,
     claimBefore: form.claimBefore || undefined,
     redeemExpiryMode: form.redeemExpiryMode,
@@ -177,7 +177,7 @@ function VendorRewardFormPage() {
                   type="number"
                   min={1}
                   value={form.pointsRequired}
-                  onChange={e => setForm(prev => ({ ...prev, pointsRequired: Number(e.target.value) }))}
+                  onChange={e => setForm(prev => ({ ...prev, pointsRequired: e.target.value }))}
                   placeholder="eg. 30"
                 />
                 <Input
@@ -268,7 +268,7 @@ function VendorRewardFormPage() {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isPending || !form.name.trim()}
+              disabled={isPending || !form.name.trim() || !form.pointsRequired || Number(form.pointsRequired) < 1}
               className="rounded-full px-5 text-sm"
             >
               {isPending ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : '+ Create Reward')}
@@ -286,7 +286,7 @@ function VendorRewardFormPage() {
             icon={form.icon}
             name={form.name}
             description={form.description}
-            pointsRequired={form.pointsRequired}
+            pointsRequired={form.pointsRequired ? Number(form.pointsRequired) : '—'}
             availableRewards={form.maxClaims || 50}
             expiryLabel={previewExpiry}
             redemptionInstructions={form.redemptionInstructions}
