@@ -6,6 +6,7 @@ import {
 } from '@/lib/customer-ui'
 import type { CustomerRewardDto } from '@/lib/api'
 import type { WalletCardContext } from '@/components/customer/wallet/WalletActiveCard'
+import { renderRewardIcon } from '@/components/vendor/IconPicker'
 
 interface WalletHistoryCardProps {
   reward: CustomerRewardDto
@@ -51,7 +52,10 @@ export function WalletHistoryCard({ reward, context, index }: WalletHistoryCardP
               >
                 {getMechanicHeaderChipShort(reward.mechanic)}
               </span>
-              <span className="text-lg leading-none">{context.businessEmoji ?? reward.icon ?? meta.emoji}</span>
+              <span className="text-lg leading-none">
+                {context.businessEmoji ?? (reward.icon?.length <= 2 ? reward.icon : null) ?? meta.emoji}
+                {reward.icon && reward.icon.length > 2 && <span className="inline-flex">{renderRewardIcon(reward.icon, 'h-4 w-4', '#ffffff')}</span>}
+              </span>
             </div>
           </div>
 

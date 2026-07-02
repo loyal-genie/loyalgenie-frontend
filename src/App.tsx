@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { RouteErrorBoundary } from '@/components/shared/RouteErrorBoundary'
 import { lazyWithRetry } from '@/lib/lazy-with-retry'
@@ -22,6 +22,9 @@ const VendorCustomersPage = lazyWithRetry(() => import('@/pages/vendor/VendorCus
 const VendorCustomerDetailPage = lazyWithRetry(() => import('@/pages/vendor/VendorCustomerDetailPage').then(m => ({ default: m.VendorCustomerDetailPage })))
 const VendorSettingsPage = lazyWithRetry(() => import('@/pages/vendor/VendorSettingsPage').then(m => ({ default: m.VendorSettingsPage })))
 const VendorQrCodePage = lazyWithRetry(() => import('@/pages/vendor/VendorQrCodePage').then(m => ({ default: m.VendorQrCodePage })))
+const VendorRewardsPage = lazyWithRetry(() => import('@/pages/vendor/VendorRewardsPage').then(m => ({ default: m.VendorRewardsPage })))
+const VendorRewardCreatePage = lazyWithRetry(() => import('@/pages/vendor/VendorRewardCreatePage').then(m => ({ default: m.VendorRewardCreatePage })))
+const VendorRewardEditPage = lazyWithRetry(() => import('@/pages/vendor/VendorRewardCreatePage').then(m => ({ default: m.VendorRewardEditPage })))
 const CustomerLayout = lazyWithRetry(() => import('@/pages/customer/CustomerLayout').then(m => ({ default: m.CustomerLayout })))
 const CustomerPage = lazyWithRetry(() => import('@/pages/customer/CustomerPage').then(m => ({ default: m.CustomerPage })))
 const CustomerWalletPage = lazyWithRetry(() => import('@/pages/customer/CustomerWalletPage').then(m => ({ default: m.CustomerWalletPage })))
@@ -32,6 +35,14 @@ const CustomerProfileInfoPage = lazyWithRetry(() => import('@/pages/customer/pro
 const CustomerCheckInPage = lazyWithRetry(() => import('@/pages/customer/CustomerCheckInPage').then(m => ({ default: m.CustomerCheckInPage })))
 const CustomerBusinessPage = lazyWithRetry(() => import('@/pages/customer/CustomerBusinessPage').then(m => ({ default: m.CustomerBusinessPage })))
 const CustomerCampaignPage = lazyWithRetry(() => import('@/pages/customer/CustomerCampaignPage').then(m => ({ default: m.CustomerCampaignPage })))
+const CustomerRewardClaimPage = lazyWithRetry(() => import('@/pages/customer/CustomerRewardClaimPage').then(m => ({ default: m.CustomerRewardClaimPage })))
+
+// Forces a full remount when navigating between different rewards, so rub/claim state
+// (progress, revealed, etc.) never leaks from a previously claimed reward onto the next one.
+function CustomerRewardClaimPageWithKey() {
+  const { rewardId } = useParams()
+  return <CustomerRewardClaimPage key={rewardId} />
+}
 const CustomerShakePage = lazyWithRetry(() => import('@/pages/customer/games/CustomerShakePage').then(m => ({ default: m.CustomerShakePage })))
 const CustomerStampPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerStampPage').then(m => ({ default: m.CustomerStampPage })))
 const CustomerMechanicComingSoonPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerMechanicComingSoonPage').then(m => ({ default: m.CustomerMechanicComingSoonPage })))
@@ -82,6 +93,9 @@ export function App() {
             <Route path="campaigns/:id" element={<VendorCampaignDetailPage />} />
             <Route path="campaigns/:id/edit" element={<VendorCampaignEditPage />} />
             <Route path="customers" element={<VendorCustomersPage />} />
+            <Route path="rewards" element={<VendorRewardsPage />} />
+            <Route path="rewards/create" element={<VendorRewardCreatePage />} />
+            <Route path="rewards/:rewardId/edit" element={<VendorRewardEditPage />} />
             <Route path="customers/:id" element={<VendorCustomerDetailPage />} />
             <Route path="qr-code" element={<VendorQrCodePage />} />
             <Route path="settings" element={<VendorSettingsPage />} />
@@ -109,6 +123,7 @@ export function App() {
             <Route path="check-in" element={<CustomerCheckInPage />} />
             <Route path="business/:id" element={<CustomerBusinessPage />} />
             <Route path="campaigns/:id" element={<CustomerCampaignPage />} />
+            <Route path="rewards/:rewardId/claim" element={<CustomerRewardClaimPageWithKey />} />
             <Route path="games/shake" element={<CustomerShakePage />} />
             <Route path="games/stamp" element={<CustomerStampPage />} />
             <Route path="games/coming-soon" element={<CustomerMechanicComingSoonPage />} />

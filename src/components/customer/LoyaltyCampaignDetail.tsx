@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { LoyaltyMilestonesList } from '@/components/customer/LoyaltyMilestonesList'
@@ -11,6 +11,7 @@ import {
   executeCheckIn,
   getApiErrorMessage,
   verifyCampaignPin,
+  type CustomerBusinessRewardsDto,
   type LoyaltyState,
   type PublicCampaign,
 } from '@/lib/api'
@@ -25,6 +26,35 @@ interface LoyaltyCampaignDetailProps {
 }
 
 type Phase = 'overview' | 'checking-in' | 'splash'
+
+function refreshBusinessPointsAfterCheckIn(
+  queryClient: QueryClient,
+  businessId: string,
+  campaignId: string,
+  loyaltyPoints: number,
+) {
+  queryClient.setQueryData<CustomerBusinessRewardsDto>(
+    ['customer-business-rewards', businessId],
+    old => {
+      if (!old) return old
+      return {
+        ...old,
+        points: loyaltyPoints,
+        rewards: old.rewards.map(reward => ({
+          ...reward,
+          claimable: reward.status === 'active' && loyaltyPoints >= reward.pointsRequired,
+          lockedByPoints: loyaltyPoints < reward.pointsRequired,
+        })),
+      }
+    },
+  )
+  void queryClient.invalidateQueries({ queryKey: ['customer-business-rewards', businessId] })
+  void queryClient.invalidateQueries({ queryKey: ['loyalty-state', campaignId] })
+  void queryClient.invalidateQueries({ queryKey: ['business-campaign-states', businessId] })
+  void queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
+  void queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
+  void queryClient.invalidateQueries({ queryKey: ['customer-loyalty-profile'] })
+}
 
 export function LoyaltyCampaignDetail({
   campaign,
@@ -52,6 +82,14 @@ export function LoyaltyCampaignDetail({
       setPhase('checking-in')
       try {
         const result = await executeCheckIn(campaign.id, data.playSessionToken)
+        if (loyaltyState.businessId) {
+          refreshBusinessPointsAfterCheckIn(
+            queryClient,
+            loyaltyState.businessId,
+            campaign.id,
+            result.loyaltyPoints,
+          )
+        }
         setCheckInResult({
           pointsBefore,
           loyaltyPoints: result.loyaltyPoints,
@@ -73,14 +111,23 @@ export function LoyaltyCampaignDetail({
 
   const handleSplashComplete = useCallback(() => {
     clearPlaySession(campaign.id)
-    queryClient.invalidateQueries({ queryKey: ['loyalty-state', campaign.id] })
-    queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
-    queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
+    if (loyaltyState.businessId && checkInResult) {
+      refreshBusinessPointsAfterCheckIn(
+        queryClient,
+        loyaltyState.businessId,
+        campaign.id,
+        checkInResult.loyaltyPoints,
+      )
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['loyalty-state', campaign.id] })
+      queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
+    }
     const dest = loyaltyState.businessId
       ? `/customer/business/${loyaltyState.businessId}`
       : '/customer'
     navigate(dest, { replace: true })
-  }, [campaign.id, navigate, loyaltyState.businessId, queryClient])
+  }, [campaign.id, checkInResult, navigate, loyaltyState.businessId, queryClient])
 
   const handleKey = (digit: string) => {
     if (pin.length < 3) setPin(prev => prev + digit)

@@ -1,15 +1,23 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { BottomNav } from '@/components/customer/bottom-nav'
 import { BusinessDetailHero } from '@/components/customer/BusinessDetailHero'
+import {
+  BusinessTabBar,
+  LockedRewardsSectionHeader,
+  RewardsSectionHeader,
+} from '@/components/customer/BusinessTabBar'
+import { CustomerRewardCard } from '@/components/customer/CustomerRewardCard'
 import { PullToRefresh } from '@/components/customer/PullToRefresh'
 import {
   CampaignListingCard,
   LoyaltyCampaignSectionHeader,
 } from '@/components/customer/CampaignListingCard'
 import { useBusinessesWithCampaigns, useBusinessCampaignStatesRealtime } from '@/hooks/useCustomerData'
+import { useCustomerBusinessRewards } from '@/hooks/useRewards'
+import { getClaimableTheme, getLockedTheme } from '@/lib/customer-reward-themes'
 import {
   fetchBusinessCampaignStates,
   type BusinessCampaignStateItem,
@@ -128,6 +136,20 @@ function stateMapFromItems(items: BusinessCampaignStateItem[] | undefined) {
   return map
 }
 
+function rewardAvailabilityLabel(reward: {
+  maxClaims: number | null
+  claimsCount: number
+  availableCount: number | null
+}) {
+  if (reward.maxClaims != null) {
+    return `${reward.claimsCount}/${reward.maxClaims} Claimed`
+  }
+  if (reward.availableCount != null) {
+    return `${reward.availableCount} available`
+  }
+  return 'Available'
+}
+
 export function CustomerBusinessPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -144,10 +166,21 @@ export function CustomerBusinessPage() {
     staleTime: 0,
     refetchInterval: 15_000,
   })
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'rewards'>('campaigns')
+  const { data: businessRewards } = useCustomerBusinessRewards(id)
 
   const stateByCampaignId = useMemo(
     () => stateMapFromItems(campaignStates),
     [campaignStates],
+  )
+
+  const claimableRewards = useMemo(
+    () => (businessRewards?.rewards ?? []).filter(item => item.claimable),
+    [businessRewards?.rewards],
+  )
+  const lockedRewards = useMemo(
+    () => (businessRewards?.rewards ?? []).filter(item => !item.claimable),
+    [businessRewards?.rewards],
   )
 
   const handleRefresh = async () => {
@@ -190,9 +223,12 @@ export function CustomerBusinessPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="min-h-dvh bg-white pb-[calc(5rem+env(safe-area-inset-bottom))]">
-        <BusinessDetailHero biz={biz} />
+        <BusinessDetailHero biz={biz} points={businessRewards?.points ?? 0} />
 
-        <div className="px-5">
+        <BusinessTabBar activeTab={activeTab} onChange={setActiveTab} />
+
+        <div className="flex w-full flex-col px-5">
+          {activeTab === 'campaigns' ? (
           <LoyaltyCampaignSectionHeader count={biz.campaigns.length}>
             {biz.campaigns.length === 0 ? (
               <p className="text-sm text-[#99a1af] text-center py-12">No active campaigns right now.</p>
@@ -235,6 +271,50 @@ export function CustomerBusinessPage() {
               </div>
             )}
           </LoyaltyCampaignSectionHeader>
+          ) : (
+            <div className="flex flex-col gap-4 pb-4">
+              <RewardsSectionHeader count={claimableRewards.length} />
+
+              {claimableRewards.map((reward, index) => (
+                <CustomerRewardCard
+                  key={reward.id}
+                  icon={reward.icon}
+                  name={reward.name}
+                  description={reward.description}
+                  pointsRequired={reward.pointsRequired}
+                  availabilityLabel={rewardAvailabilityLabel(reward)}
+                  claimBefore={reward.claimBefore}
+                  redeemBefore={reward.redeemBefore}
+                  theme={getClaimableTheme(index)}
+                  onClick={() => navigate(`/customer/rewards/${reward.id}/claim?businessId=${id}`)}
+                />
+              ))}
+
+              {lockedRewards.length > 0 && (
+                <>
+                  <LockedRewardsSectionHeader />
+                  {lockedRewards.map((reward, index) => (
+                    <CustomerRewardCard
+                      key={reward.id}
+                      icon={reward.icon}
+                      name={reward.name}
+                      description={reward.description}
+                      pointsRequired={reward.pointsRequired}
+                      availabilityLabel={`${Math.max(0, reward.pointsRequired - (businessRewards?.points ?? 0))} pts needed`}
+                      claimBefore={reward.claimBefore}
+                      redeemBefore={reward.redeemBefore}
+                      theme={getLockedTheme(index)}
+                      locked
+                    />
+                  ))}
+                </>
+              )}
+
+              {(businessRewards?.rewards ?? []).length === 0 && (
+                <p className="py-12 text-center text-sm text-[#99a1af]">No rewards available yet.</p>
+              )}
+            </div>
+          )}
         </div>
 
         <BottomNav />
