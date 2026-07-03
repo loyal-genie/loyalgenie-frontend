@@ -18,10 +18,11 @@ import type { BusinessWithCampaigns } from '@/lib/api'
 
 interface BusinessDetailHeroProps {
   biz: BusinessWithCampaigns
+  points?: number
   className?: string
 }
 
-export function BusinessDetailHero({ biz, className }: BusinessDetailHeroProps) {
+export function BusinessDetailHero({ biz, points = 0, className }: BusinessDetailHeroProps) {
   const campaignMechanics = [...new Set(biz.campaigns.map(c => c.mechanic))]
   const mechanics =
     biz.mechanicTags && biz.mechanicTags.length > 0 ? biz.mechanicTags : campaignMechanics
@@ -121,13 +122,18 @@ export function BusinessDetailHero({ biz, className }: BusinessDetailHeroProps) 
           {category}
         </span>
 
-        <div className="relative min-h-[27.5px]">
-          <h1 className="text-[22px] font-extrabold text-[#2b2827] leading-[27.5px] pr-16">{biz.name}</h1>
-          {distance && (
-            <span className="absolute right-0 top-1.5 text-sm text-[#99a1af] font-medium leading-5">
-              {distance}
+        <div className="relative min-h-[27.5px] flex items-start justify-between gap-3">
+          <h1 className="text-[22px] font-extrabold text-[#2b2827] leading-[27.5px]">{biz.name}</h1>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-[#4c066f] px-3 py-1.5 text-sm font-extrabold text-white whitespace-nowrap">
+              🎁 {points} pts
             </span>
-          )}
+            {distance && (
+              <span className="text-sm text-[#99a1af] font-medium leading-5">
+                {distance}
+              </span>
+            )}
+          </div>
         </div>
 
         {location && (

@@ -517,7 +517,7 @@ export interface CreateCheckInLoyaltyCampaignPayload {
   endDate: string
   userCap: number
   checkInConfig: { pointsPerCheckIn: number }
-  milestones: { name: string; description?: string; icon: string; pointsThreshold: number }[]
+  milestones?: { name: string; description?: string; icon: string; pointsThreshold: number }[]
 }
 
 export interface BusinessWithCampaigns {
@@ -638,7 +638,7 @@ export interface ShakeResult {
 
 export interface CustomerRewardDto {
   id: string
-  campaignId: string
+  campaignId: string | null
   campaignName: string
   mechanic: string
   reward: string
@@ -985,4 +985,163 @@ export async function fetchPendingRedemptions() {
 
 export async function markRedemptionRedeemed(rewardId: string) {
   await api.patch(`/business/redemptions/${rewardId}/redeem`)
+}
+
+// ── Standalone Rewards module ────────────────────────────────────────────────
+
+export interface RewardCategoryDto {
+  id: string
+  name: string
+  createdAt?: string
+}
+
+export interface BusinessRewardDto {
+  id: string
+  name: string
+  description: string
+  icon: string
+  categoryId: string | null
+  categoryName: string | null
+  pointsRequired: number
+  maxClaims: number | null
+  claimsCount: number
+  claimBefore: string | null
+  redeemExpiryMode: 'fixed' | 'relative'
+  redeemFixedDate: string | null
+  redeemRelativeAmount: number | null
+  redeemRelativeUnit: 'day' | 'week' | 'month' | null
+  redemptionInstructions: string
+  status: 'active' | 'expired' | 'depleted'
+  createdAt: string
+}
+
+export interface VendorRewardsOverviewDto {
+  totalRewards: number
+  activeRewards: number
+  totalRedeemed: number
+  expiredRewards: number
+}
+
+export interface VendorRedeemedRewardDto {
+  id: string
+  customerName: string
+  customerPhone: string
+  rewardName: string
+  icon: string
+  source: string
+  claimedAt: string | null
+  earnedAt: string
+  redeemedAt: string | null
+}
+
+export interface CustomerBusinessRewardsDto {
+  points: number
+  rewards: {
+    id: string
+    name: string
+    description: string
+    icon: string
+    category: string
+    pointsRequired: number
+    availableCount: number | null
+    maxClaims: number | null
+    claimsCount: number
+    claimBefore: string | null
+    redeemBefore: string | null
+    redemptionInstructions: string
+    status: 'active' | 'expired' | 'depleted'
+    claimable: boolean
+    lockedByPoints: boolean
+  }[]
+}
+
+export async function fetchRewardCategories() {
+  const { data } = await api.get<{ success: boolean; data: RewardCategoryDto[] }>('/rewards/categories')
+  return data.data
+}
+
+export async function createRewardCategory(name: string) {
+  const { data } = await api.post<{ success: boolean; data: RewardCategoryDto }>('/rewards/categories', { name })
+  return data.data
+}
+
+export async function fetchBusinessReward(id: string) {
+  const { data } = await api.get<{ success: boolean; data: BusinessRewardDto }>(`/rewards/${id}`)
+  return data.data
+}
+
+export async function fetchBusinessRewards(status?: 'active' | 'expired' | 'depleted') {
+  const { data } = await api.get<{ success: boolean; data: BusinessRewardDto[] }>('/rewards', {
+    params: status ? { status } : undefined,
+  })
+  return data.data
+}
+
+export async function fetchRewardsOverview() {
+  const { data } = await api.get<{ success: boolean; data: VendorRewardsOverviewDto }>('/rewards/overview')
+  return data.data
+}
+
+export async function createBusinessReward(payload: {
+  name: string
+  description?: string
+  icon: string
+  categoryId?: string
+  categoryName?: string
+  pointsRequired: number
+  maxClaims?: number
+  claimBefore?: string
+  redeemExpiryMode: 'fixed' | 'relative'
+  redeemFixedDate?: string
+  redeemRelativeAmount?: number
+  redeemRelativeUnit?: 'day' | 'week' | 'month'
+  redemptionInstructions?: string
+}) {
+  const { data } = await api.post<{ success: boolean; data: BusinessRewardDto }>('/rewards', payload)
+  return data.data
+}
+
+export async function updateBusinessReward(id: string, payload: Partial<{
+  name: string
+  description: string
+  icon: string
+  categoryId: string
+  categoryName: string
+  pointsRequired: number
+  maxClaims: number
+  claimBefore: string
+  redeemExpiryMode: 'fixed' | 'relative'
+  redeemFixedDate: string
+  redeemRelativeAmount: number
+  redeemRelativeUnit: 'day' | 'week' | 'month'
+  redemptionInstructions: string
+  status: 'active' | 'expired' | 'depleted'
+}>) {
+  const { data } = await api.patch<{ success: boolean; data: BusinessRewardDto }>(`/rewards/${id}`, payload)
+  return data.data
+}
+
+export async function deleteBusinessReward(id: string) {
+  await api.delete(`/rewards/${id}`)
+}
+
+export async function fetchRedeemedRewards(params?: { fromDate?: string; toDate?: string }) {
+  const { data } = await api.get<{ success: boolean; data: VendorRedeemedRewardDto[] }>('/rewards/redeemed', {
+    params,
+  })
+  return data.data
+}
+
+export async function fetchCustomerBusinessRewards(businessId: string) {
+  const { data } = await api.get<{ success: boolean; data: CustomerBusinessRewardsDto }>(
+    `/rewards/customer/business/${businessId}`,
+  )
+  return data.data
+}
+
+export async function claimCustomerBusinessReward(rewardId: string) {
+  const { data } = await api.post<{ success: boolean; data: { success: boolean; code: string; rewardName: string; icon: string } }>(
+    `/rewards/customer/${rewardId}/claim`,
+  )
+  return data.data
 }

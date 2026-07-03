@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Megaphone, Users, Settings, ChevronRight, Zap, QrCode, Menu, X, LogOut } from 'lucide-react'
+import { LayoutDashboard, Megaphone, Users, Settings, ChevronRight, Zap, QrCode, Menu, X, LogOut, Gift } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useBusinessProfile } from '@/hooks/useBusinessProfile'
 import { useCampaigns, useVendorPinRealtime } from '@/hooks/useCampaigns'
@@ -12,6 +12,7 @@ import { clearSession } from '@/lib/auth' // Imported your auth clearer
 const nav = [
   { label: 'Dashboard', href: '/vendor/dashboard', icon: LayoutDashboard },
   { label: 'Campaigns', href: '/vendor/campaigns', icon: Megaphone },
+  { label: 'Rewards', href: '/vendor/rewards', icon: Gift },
   { label: 'Customers', href: '/vendor/customers', icon: Users },
   { label: 'My QR Code', href: '/vendor/qr-code', icon: QrCode },
   { label: 'Settings', href: '/vendor/settings', icon: Settings },

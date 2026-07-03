@@ -8,6 +8,7 @@ import {
   walletTimeAgo,
 } from '@/lib/customer-ui'
 import type { CustomerRewardDto } from '@/lib/api'
+import { renderRewardIcon } from '@/components/vendor/IconPicker'
 
 export interface WalletCardContext {
   businessName: string
@@ -90,7 +91,10 @@ export function WalletActiveCard({
               >
                 {getMechanicHeaderChipShort(reward.mechanic)}
               </span>
-              <span className="text-lg leading-none">{context.businessEmoji ?? reward.icon ?? meta.emoji}</span>
+              <span className="text-lg leading-none">
+                {context.businessEmoji ?? (reward.icon?.length <= 2 ? reward.icon : null) ?? meta.emoji}
+                {reward.icon && reward.icon.length > 2 && <span className="inline-flex">{renderRewardIcon(reward.icon, 'h-4 w-4', '#ffffff')}</span>}
+              </span>
             </div>
           </div>
 

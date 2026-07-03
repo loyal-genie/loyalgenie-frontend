@@ -3,15 +3,15 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, ArrowRight, Lock, Check, Save, AlertTriangle, AlertCircle,
-  Play, Pause, StopCircle, Loader2, CalendarDays, Plus, Trash2,
+  Play, Pause, StopCircle, Loader2, CalendarDays,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldInput as Input, Slider, Stepper } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { StatusBadge, MechanicBadge } from '@/components/ui/badge'
 import {
-  RewardPoolEditor, RewardModeToggle, SingleRewardInput, NumericInput,
-  REWARD_ICONS, newRewardEntry, rewardShareTotal, rewardsAreValid, rewardPoolValid,
+  RewardPoolEditor, RewardModeToggle, SingleRewardInput,
+  newRewardEntry, rewardShareTotal, rewardsAreValid, rewardPoolValid,
   type RewardEntry, type RewardMode,
 } from '@/components/vendor/RewardPoolEditor'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
@@ -41,14 +41,6 @@ const UNLIMITED_USER_CAP = 1_000_000
 const CLAIM_DURATION_OPTIONS = DURATION_OPTIONS.filter(o => o.key !== 'custom')
 const TODAY = todayInCampaignTz()
 const EDIT_STEPS = ['Edit', 'Review']
-
-interface MilestoneEntry {
-  id: string
-  name: string
-  description: string
-  icon: string
-  pointsThreshold: number
-}
 
 function LockedField({ label, value, reason }: { label: string; value: string; reason?: string }) {
   return (
@@ -123,33 +115,11 @@ function hydrateStampFromCampaign(campaign: CampaignDto) {
   }
 }
 
-function hydrateMilestones(campaign: CampaignDto): MilestoneEntry[] {
-  const rows = campaign.rewards.filter(r => r.rewardTier === 'milestone')
-  if (rows.length === 0) {
-    return [{ id: Math.random().toString(36).slice(2), name: '', description: '', icon: '🎁', pointsThreshold: 50 }]
-  }
-  return rows.map(r => ({
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    icon: r.icon,
-    pointsThreshold: r.sharePercent,
-  }))
-}
-
 function rewardsEqual(a: RewardEntry[], b: RewardEntry[]) {
   if (a.length !== b.length) return false
   return a.every((r, i) => {
     const o = b[i]
     return r.id === o.id && r.name === o.name && r.description === o.description && r.icon === o.icon && r.probability === o.probability
-  })
-}
-
-function milestonesEqual(a: MilestoneEntry[], b: MilestoneEntry[]) {
-  if (a.length !== b.length) return false
-  return a.every((m, i) => {
-    const o = b[i]
-    return m.id === o.id && m.name === o.name && m.description === o.description && m.icon === o.icon && m.pointsThreshold === o.pointsThreshold
   })
 }
 
@@ -185,9 +155,7 @@ export function VendorCampaignEditPage() {
     bigPool: [newRewardEntry()] as RewardEntry[],
   }))
   const [pointsPerCheckIn, setPointsPerCheckIn] = useState(10)
-  const [milestones, setMilestones] = useState<MilestoneEntry[]>([])
   const [originalStampConfig, setOriginalStampConfig] = useState(stampConfig)
-  const [originalMilestones, setOriginalMilestones] = useState<MilestoneEntry[]>([])
   const [originalClaimDurationMode, setOriginalClaimDurationMode] = useState<DurationMode>('14d')
   const [originalUserCapLimited, setOriginalUserCapLimited] = useState(true)
   const [originalPointsPerCheckIn, setOriginalPointsPerCheckIn] = useState(10)
@@ -221,9 +189,6 @@ export function VendorCampaignEditPage() {
     }
 
     if (campaign.mechanic === 'check-in-loyalty') {
-      const ms = hydrateMilestones(campaign)
-      setMilestones(ms)
-      setOriginalMilestones(ms)
       const pts = campaign.loyaltyStats?.checkInConfig?.pointsPerCheckIn ?? 10
       setPointsPerCheckIn(pts)
       setOriginalPointsPerCheckIn(pts)
@@ -336,7 +301,6 @@ export function VendorCampaignEditPage() {
     claimPeriod: isStamp && claimDurationMode !== originalClaimDurationMode,
     stampConfig: stampConfigChanged(),
     pointsPerCheckIn: isLoyalty && pointsPerCheckIn !== originalPointsPerCheckIn,
-    milestones: isLoyalty && !milestonesEqual(milestones, originalMilestones),
   }
 
   const stampFormValid = () => {
@@ -349,11 +313,7 @@ export function VendorCampaignEditPage() {
     return sValid && bValid
   }
 
-  const loyaltyFormValid = () => {
-    const thresholds = milestones.map(m => m.pointsThreshold)
-    const unique = new Set(thresholds)
-    return milestones.every(m => m.name.trim() && m.pointsThreshold > 0) && unique.size === thresholds.length
-  }
+  const loyaltyFormValid = () => pointsPerCheckIn > 0
 
   const formValid = (() => {
     if (!name.trim() || endDate < campaign.startDate) return false
@@ -426,20 +386,9 @@ export function VendorCampaignEditPage() {
         }
       }
 
-      if (isLoyalty && (changedFields.pointsPerCheckIn || changedFields.milestones || changedFields.userCap)) {
+      if (isLoyalty && (changedFields.pointsPerCheckIn || changedFields.userCap)) {
         if (changedFields.pointsPerCheckIn) {
           payload.checkInConfig = { pointsPerCheckIn }
-        }
-        if (changedFields.milestones) {
-          payload.milestones = milestones
-            .filter(m => m.name.trim())
-            .map(m => ({
-              id: m.id,
-              name: m.name.trim(),
-              description: m.description,
-              icon: m.icon,
-              pointsThreshold: m.pointsThreshold,
-            }))
         }
       }
 
@@ -489,13 +438,11 @@ export function VendorCampaignEditPage() {
     ...(isLoyalty ? [
       { label: 'User Cap', value: userCapLimited ? `${userCap} users` : 'All customers (no limit)', changed: changedFields.userCap || changedFields.userCapLimited, previous: originalUserCapLimited ? `${campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap} users` : 'All customers (no limit)' },
       { label: 'Points per Check-in', value: `+${pointsPerCheckIn} pts`, changed: changedFields.pointsPerCheckIn, previous: `+${originalPointsPerCheckIn} pts` },
-      { label: 'Milestones', value: `${milestones.filter(m => m.name).length} reward${milestones.filter(m => m.name).length !== 1 ? 's' : ''}`, changed: changedFields.milestones },
     ] : []),
   ]
 
   const mechanicTitle = isShake ? 'Shake & Win — Reward Distribution'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
-    : isLoyalty ? 'Check-in Loyalty — Points & Milestones'
     : 'Campaign Configuration'
 
   return (
@@ -690,6 +637,11 @@ export function VendorCampaignEditPage() {
                             )}
                           </>
                         )}
+                        {isEnded ? (
+                          <LockedField label="Points per Check-in" value={`+${pointsPerCheckIn} pts`} />
+                        ) : (
+                          <Stepper label="Points per Check-in" hint="points earned per visit" value={pointsPerCheckIn} min={1} max={1000} onChange={setPointsPerCheckIn} />
+                        )}
                       </div>
                     )}
 
@@ -703,13 +655,14 @@ export function VendorCampaignEditPage() {
                     {isLoyalty && (
                       <div className="flex items-start gap-2.5 p-3.5 bg-purple-50 border border-purple-200 rounded-xl text-xs text-v-text-2">
                         <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
-                        <p>Staff PIN refreshes every 2 minutes. Customers check in daily to earn points and unlock milestone rewards.</p>
+                        <p>Staff PIN refreshes every 2 minutes on your dashboard. Customers check in daily to earn points.</p>
                       </div>
                     )}
                   </div>
                 </div>
               </Card>
 
+              {(isShake || isStamp) && (
               <Card className="p-6">
                 <h2 className="text-base font-bold text-v-text mb-1">{mechanicTitle}</h2>
 
@@ -814,63 +767,8 @@ export function VendorCampaignEditPage() {
                     )}
                   </>
                 )}
-
-                {isLoyalty && (
-                  <>
-                    <p className="text-xs text-v-text-3 mb-5">Customers earn points on each daily check-in. Configure rewards when they reach point thresholds.</p>
-                    {isEnded ? (
-                      <div className="space-y-2">
-                        <LockedField label="Points per Check-in" value={`+${pointsPerCheckIn} pts`} />
-                        {milestones.filter(m => m.name).map(m => (
-                          <div key={m.id} className="flex justify-between p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
-                            <span>{m.icon} {m.name}</span>
-                            <span className="text-v-purple font-bold">{m.pointsThreshold} pts</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="space-y-5">
-                        <Stepper label="Points per Check-in" hint="points earned per visit" value={pointsPerCheckIn} min={1} max={999} onChange={setPointsPerCheckIn} />
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[11px] font-semibold text-v-text-2 uppercase tracking-wider">Reward Milestones</span>
-                            <Button variant="secondary" size="sm" onClick={() => setMilestones(p => [...p, { id: Math.random().toString(36).slice(2), name: '', description: '', icon: '🎁', pointsThreshold: (p.at(-1)?.pointsThreshold ?? 0) + 50 }])}>
-                              <Plus className="w-3 h-3" /> Add Milestone
-                            </Button>
-                          </div>
-                          <div className="space-y-2">
-                            {milestones.map(m => (
-                              <div key={m.id} className="p-3 bg-v-surface-2 border border-v-border rounded-xl">
-                                <div className="flex items-start gap-2">
-                                  <select value={m.icon} onChange={e => setMilestones(p => p.map(x => x.id === m.id ? { ...x, icon: e.target.value } : x))} className="text-lg bg-transparent border-none focus:outline-none cursor-pointer pt-0.5">
-                                    {REWARD_ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
-                                  </select>
-                                  <div className="flex-1 space-y-1.5">
-                                    <input className="w-full bg-white border border-v-border rounded-lg px-2.5 py-1.5 text-sm" placeholder="Reward name" value={m.name} onChange={e => setMilestones(p => p.map(x => x.id === m.id ? { ...x, name: e.target.value } : x))} />
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[11px] text-v-text-3 shrink-0">At points:</span>
-                                      <NumericInput value={m.pointsThreshold} onChange={n => setMilestones(p => p.map(x => x.id === m.id ? { ...x, pointsThreshold: n } : x))} min={1} max={99_999} className="w-20 bg-white border border-v-border rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:border-v-purple" />
-                                    </div>
-                                  </div>
-                                  {milestones.length > 1 && (
-                                    <button type="button" onClick={() => setMilestones(p => p.filter(x => x.id !== m.id))} className="p-1 rounded-lg text-v-text-3 hover:text-v-danger">
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
-                          <p className="text-xs font-bold text-v-purple mb-2">Preview</p>
-                          <p className="text-sm text-v-text-2">Check-in = <strong>+{pointsPerCheckIn} pts</strong> per day</p>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
               </Card>
+              )}
 
               {!isEnded && STATUS_ACTIONS[status] && (
                 <Card className="p-6">
@@ -959,7 +857,7 @@ export function VendorCampaignEditPage() {
                   userCap={userCapLimited ? userCap : null}
                   userCapLimited={userCapLimited}
                   pointsPerCheckIn={pointsPerCheckIn}
-                  milestoneCount={milestones.filter(m => m.name).length}
+                  milestoneCount={0}
                   variant="muted"
                 />
               )}

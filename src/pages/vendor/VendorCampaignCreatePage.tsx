@@ -143,6 +143,9 @@ export function VendorCampaignCreatePage() {
   const isLottery        = mechanic === 'lottery'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
+  const hasGameConfigStep = mechanic !== 'check-in-loyalty'
+  const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
+  const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
   const isToday          = basics.durationMode === 'today'
   const durationOptions  = isLottery ? DURATION_LOTTERY : DURATION_ALL
@@ -221,7 +224,7 @@ export function VendorCampaignCreatePage() {
   const canProceed = () => {
     if (step === 0) return mechanic !== null && isMechanicLive(mechanic)
     if (step === 1) return basics.name.trim().length > 0 && !!durationValid
-    if (step === 2) return step2Valid()
+    if (hasGameConfigStep && step === 2) return step2Valid()
     return true
   }
 
@@ -264,14 +267,6 @@ export function VendorCampaignCreatePage() {
           endDate: dates.end,
           userCap: effectiveUserCap,
           checkInConfig: { pointsPerCheckIn: loyaltyConfig.pointsPerCheckIn },
-          milestones: loyaltyConfig.milestones
-            .filter(m => m.name.trim())
-            .map(m => ({
-              name: m.name.trim(),
-              description: m.description,
-              icon: m.icon,
-              pointsThreshold: m.pointsThreshold,
-            })),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -343,13 +338,13 @@ export function VendorCampaignCreatePage() {
 
       {/* Step indicators */}
       <div className="flex items-center gap-2 mb-10">
-        {STEPS.map((s, i) => (
+        {activeSteps.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-all ${i < step ? 'bg-v-success text-white' : i === step ? 'bg-v-purple text-white' : 'bg-v-surface-2 text-v-text-3 border border-v-border'}`}>
               {i < step ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </div>
             <span className={`text-xs font-medium hidden sm:block ${i === step ? 'text-v-text' : 'text-v-text-3'}`}>{s}</span>
-            {i < STEPS.length - 1 && <div className={`h-px w-8 ${i < step ? 'bg-v-success' : 'bg-v-border'}`} />}
+            {i < activeSteps.length - 1 && <div className={`h-px w-8 ${i < step ? 'bg-v-success' : 'bg-v-border'}`} />}
           </div>
         ))}
       </div>
@@ -586,9 +581,22 @@ export function VendorCampaignCreatePage() {
 
                 {/* Loyalty info note */}
                 {isLoyalty && (
+                  <div className="space-y-3">
+                    <Stepper
+                      label="Points per Check-In"
+                      hint="points earned per visit"
+                      value={loyaltyConfig.pointsPerCheckIn}
+                      min={1}
+                      max={1000}
+                      step={1}
+                      onChange={v => setLoyaltyConfig(p => ({ ...p, pointsPerCheckIn: v }))}
+                    />
+                  </div>
+                )}
+                {isLoyalty && (
                   <div className="flex items-start gap-2.5 p-3.5 bg-purple-50 border border-purple-200 rounded-xl text-xs text-v-text-2">
                     <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
-                    <p>Staff PIN refreshes every 2 minutes on your dashboard. Customers check in daily to earn points and unlock milestone rewards.</p>
+                    <p>Staff PIN refreshes every 2 minutes on your dashboard. Customers check in daily to earn points.</p>
                   </div>
                 )}
               </div>
@@ -782,7 +790,7 @@ export function VendorCampaignCreatePage() {
           )}
 
           {/* CHECK-IN LOYALTY */}
-          {step === 2 && mechanic === 'check-in-loyalty' && (
+          {step === 2 && mechanic === 'check-in-loyalty' && hasGameConfigStep && (
             <Card className="p-6">
               <h2 className="text-base font-bold text-v-text mb-1">Check-in Loyalty — Points & Milestones</h2>
               <p className="text-xs text-v-text-3 mb-5">Customers earn points on each daily check-in. Configure rewards when they reach point thresholds.</p>
@@ -945,7 +953,7 @@ export function VendorCampaignCreatePage() {
           )}
 
           {/* ── Step 3: Review & Launch ── */}
-          {step === 3 && (
+          {step === reviewStepIndex && (
             <div className="space-y-4">
               {/* Summary */}
               <Card className="p-6">
@@ -985,7 +993,7 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'spin'    ? `${spinSegments.filter(s => s.isWin && s.reward).length} winning segment${spinSegments.filter(s => s.isWin).length !== 1 ? 's' : ''} · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin).length} of 6 faces win · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}Surprise (${stampConfig.surpriseFrom}–${stampConfig.surpriseTo}) · Big (${stampConfig.bigRewardFrom}–${stampConfig.bigRewardTo})` :
-                        mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in · ${loyaltyConfig.milestones.filter(m => m.name).length} milestone${loyaltyConfig.milestones.filter(m => m.name).length !== 1 ? 's' : ''}` :
+                        mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in` :
                         mechanic === 'lottery' ? `Jackpot + ${lotteryConfig.prizes.length} prize${lotteryConfig.prizes.length !== 1 ? 's' : ''}` : '—',
                     },
                   ].map(item => (
@@ -1017,7 +1025,7 @@ export function VendorCampaignCreatePage() {
                   userCap={effectiveUserCap}
                   userCapLimited={basics.userCapLimited}
                   pointsPerCheckIn={loyaltyConfig.pointsPerCheckIn}
-                  milestoneCount={loyaltyConfig.milestones.filter(m => m.name).length}
+                  milestoneCount={0}
                 />
               )}
               {isLottery && (
@@ -1050,8 +1058,8 @@ export function VendorCampaignCreatePage() {
           <Button variant="ghost" onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)}>
             <ArrowLeft className="w-4 h-4" /> {step === 0 ? 'Cancel' : 'Back'}
           </Button>
-          {step < 3 && (
-            <Button variant="primary" disabled={!canProceed()} onClick={() => setStep(s => s + 1)}>
+          {step < reviewStepIndex && (
+            <Button variant="primary" disabled={!canProceed()} onClick={() => setStep(s => Math.min(reviewStepIndex, s + 1))}>
               Continue <ArrowRight className="w-4 h-4" />
             </Button>
           )}
