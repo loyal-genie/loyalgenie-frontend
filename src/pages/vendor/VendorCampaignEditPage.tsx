@@ -10,10 +10,17 @@ import { FieldInput as Input, Slider, Stepper } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { StatusBadge, MechanicBadge } from '@/components/ui/badge'
 import {
-  RewardPoolEditor, RewardModeToggle, SingleRewardInput,
-  newRewardEntry, rewardShareTotal, rewardsAreValid, rewardPoolValid,
-  type RewardEntry, type RewardMode,
+  RewardPoolEditor, rewardShareTotal, rewardsAreValid,
+  type RewardEntry,
 } from '@/components/vendor/RewardPoolEditor'
+import { StampDropEditor } from '@/components/vendor/StampDropEditor'
+import {
+  buildStampCampaignPayload,
+  defaultStampUiState,
+  hydrateStampUiFromCampaign,
+  isStampDropValid,
+  type StampDropUiState,
+} from '@/lib/stamp-drop-config'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
   formatWinnerCount,
@@ -84,43 +91,25 @@ function toShakeRewards(rewards: CampaignDto['rewards']): RewardEntry[] {
     }))
 }
 
-function tierRewardsToEntries(rewards: CampaignDto['rewards'], tier: string): RewardEntry[] {
-  return rewards
-    .filter(r => r.rewardTier === tier)
-    .map(r => ({
-      id: r.id,
-      name: r.name,
-      description: r.description,
-      icon: r.icon,
-      probability: r.sharePercent,
-      redeemExpiryMode: r.redeemExpiryMode ?? 'relative',
-      redeemFixedDate: r.redeemFixedDate ?? '',
-      redeemRelativeAmount: r.redeemRelativeAmount ?? 7,
-      redeemRelativeUnit: r.redeemRelativeUnit ?? 'day',
-    }))
-}
-
 function hydrateStampFromCampaign(campaign: CampaignDto) {
   const sc = campaign.stampStats?.stampConfig
-  const surpriseRewards = tierRewardsToEntries(campaign.rewards, 'surprise')
-  const bigRewards = tierRewardsToEntries(campaign.rewards, 'big')
-  const surpriseMode: RewardMode = sc?.surpriseMode ?? (surpriseRewards.length <= 1 ? 'single' : 'pool')
-  const bigMode: RewardMode = sc?.bigMode ?? (bigRewards.length <= 1 ? 'single' : 'pool')
+  if (!sc) return defaultStampUiState()
+  return hydrateStampUiFromCampaign(sc, campaign.rewards.map(r => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    icon: r.icon,
+    tier: r.rewardTier,
+    sharePercent: r.sharePercent,
+    redeemExpiryMode: r.redeemExpiryMode,
+    redeemFixedDate: r.redeemFixedDate,
+    redeemRelativeAmount: r.redeemRelativeAmount,
+    redeemRelativeUnit: r.redeemRelativeUnit,
+  })))
+}
 
-  return {
-    totalStamps: sc?.totalStamps ?? 10,
-    prefillStamps: sc?.prefillStamps ?? 0,
-    surpriseFrom: sc?.surpriseRange?.[0] ?? 3,
-    surpriseTo: sc?.surpriseRange?.[1] ?? 5,
-    bigRewardFrom: sc?.bigRange?.[0] ?? 8,
-    bigRewardTo: sc?.bigRange?.[1] ?? 10,
-    surpriseMode,
-    surpriseSingle: surpriseMode === 'single' ? (surpriseRewards[0]?.name ?? '') : '',
-    surprisePool: surpriseMode === 'pool' && surpriseRewards.length > 0 ? surpriseRewards : [newRewardEntry()],
-    bigMode,
-    bigSingle: bigMode === 'single' ? (bigRewards[0]?.name ?? '') : '',
-    bigPool: bigMode === 'pool' && bigRewards.length > 0 ? bigRewards : [newRewardEntry()],
-  }
+function dropsEqual(a: StampDropUiState[], b: StampDropUiState[]) {
+  return JSON.stringify(a) === JSON.stringify(b)
 }
 
 function rewardsEqual(a: RewardEntry[], b: RewardEntry[]) {
@@ -157,22 +146,9 @@ export function VendorCampaignEditPage() {
   const [playsPerDay, setPlaysPerDay] = useState(1)
   const [overallWinners, setOverallWinners] = useState(150)
   const [rewards, setRewards] = useState<RewardEntry[]>([])
-  const [stampConfig, setStampConfig] = useState(() => ({
-    totalStamps: 10,
-    prefillStamps: 0,
-    surpriseFrom: 3,
-    surpriseTo: 5,
-    surpriseMode: 'single' as RewardMode,
-    surpriseSingle: '',
-    surprisePool: [newRewardEntry()] as RewardEntry[],
-    bigRewardFrom: 8,
-    bigRewardTo: 10,
-    bigMode: 'single' as RewardMode,
-    bigSingle: '',
-    bigPool: [newRewardEntry()] as RewardEntry[],
-  }))
+  const [stampConfig, setStampConfig] = useState(defaultStampUiState)
+  const [originalStampConfig, setOriginalStampConfig] = useState(defaultStampUiState)
   const [pointsPerCheckIn, setPointsPerCheckIn] = useState(10)
-  const [originalStampConfig, setOriginalStampConfig] = useState(stampConfig)
   const [originalClaimDurationMode, setOriginalClaimDurationMode] = useState<DurationMode>('14d')
   const [originalUserCapLimited, setOriginalUserCapLimited] = useState(true)
   const [originalPointsPerCheckIn, setOriginalPointsPerCheckIn] = useState(10)
@@ -280,30 +256,13 @@ export function VendorCampaignEditPage() {
     }
   }
 
-  const surprisePoolTotal = stampConfig.surprisePool.reduce((s, r) => s + r.probability, 0)
-  const bigPoolTotal = stampConfig.bigPool.reduce((s, r) => s + r.probability, 0)
-
-  const stampRewardsChanged = () => {
-    if (!isStamp) return false
-    if (stampConfig.surpriseMode !== originalStampConfig.surpriseMode) return true
-    if (stampConfig.bigMode !== originalStampConfig.bigMode) return true
-    if (stampConfig.surpriseSingle !== originalStampConfig.surpriseSingle) return true
-    if (stampConfig.bigSingle !== originalStampConfig.bigSingle) return true
-    if (!rewardsEqual(stampConfig.surprisePool, originalStampConfig.surprisePool)) return true
-    if (!rewardsEqual(stampConfig.bigPool, originalStampConfig.bigPool)) return true
-    return false
-  }
-
   const stampConfigChanged = () => {
     if (!isStamp) return false
     return (
       stampConfig.totalStamps !== originalStampConfig.totalStamps ||
       stampConfig.prefillStamps !== originalStampConfig.prefillStamps ||
-      stampConfig.surpriseFrom !== originalStampConfig.surpriseFrom ||
-      stampConfig.surpriseTo !== originalStampConfig.surpriseTo ||
-      stampConfig.bigRewardFrom !== originalStampConfig.bigRewardFrom ||
-      stampConfig.bigRewardTo !== originalStampConfig.bigRewardTo ||
-      stampRewardsChanged()
+      !dropsEqual(stampConfig.surpriseDrops, originalStampConfig.surpriseDrops) ||
+      !dropsEqual(stampConfig.bigRewards, originalStampConfig.bigRewards)
     )
   }
 
@@ -322,15 +281,10 @@ export function VendorCampaignEditPage() {
     pointsPerCheckIn: isLoyalty && pointsPerCheckIn !== originalPointsPerCheckIn,
   }
 
-  const stampFormValid = () => {
-    const sValid = stampConfig.surpriseMode === 'single'
-      ? stampConfig.surpriseSingle.trim().length > 0
-      : rewardPoolValid(stampConfig.surprisePool)
-    const bValid = stampConfig.bigMode === 'single'
-      ? stampConfig.bigSingle.trim().length > 0
-      : rewardPoolValid(stampConfig.bigPool)
-    return sValid && bValid
-  }
+  const stampFormValid = () =>
+    [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
+      d.to <= stampConfig.totalStamps && isStampDropValid(d),
+    )
 
   const loyaltyFormValid = () => pointsPerCheckIn > 0
 
@@ -379,34 +333,9 @@ export function VendorCampaignEditPage() {
           payload.claimPeriodDays = durationModeToDays(claimDurationMode)
         }
         if (changedFields.stampConfig) {
-          payload.stampConfig = {
-            totalStamps: stampConfig.totalStamps,
-            prefillStamps: stampConfig.prefillStamps,
-            surpriseRange: [stampConfig.surpriseFrom, stampConfig.surpriseTo],
-            bigRange: [stampConfig.bigRewardFrom, stampConfig.bigRewardTo],
-            surpriseMode: stampConfig.surpriseMode,
-            bigMode: stampConfig.bigMode,
-          }
-          payload.rewards = {
-            surprise: stampConfig.surpriseMode === 'single'
-              ? [{ name: stampConfig.surpriseSingle.trim(), icon: '🎁', winPercent: 100 }]
-              : stampConfig.surprisePool.filter(r => r.name).map(r => ({
-                  id: r.id,
-                  name: r.name.trim(),
-                  description: r.description,
-                  icon: r.icon,
-                  winPercent: r.probability,
-                })),
-            big: stampConfig.bigMode === 'single'
-              ? [{ name: stampConfig.bigSingle.trim(), icon: '🏆', winPercent: 100 }]
-              : stampConfig.bigPool.filter(r => r.name).map(r => ({
-                  id: r.id,
-                  name: r.name.trim(),
-                  description: r.description,
-                  icon: r.icon,
-                  winPercent: r.probability,
-                })),
-          }
+          const stampPayload = buildStampCampaignPayload(stampConfig)
+          payload.stampConfig = stampPayload.stampConfig
+          payload.rewards = stampPayload.rewards
         }
       }
 
@@ -457,7 +386,7 @@ export function VendorCampaignEditPage() {
     ...(isStamp ? [
       { label: 'User Cap', value: `${userCap} users`, changed: changedFields.userCap, previous: `${campaign.userCap} users` },
       { label: 'Claim Period', value: `${durationModeToDays(claimDurationMode)} days after enrollment closes`, changed: changedFields.claimPeriod, previous: `${durationModeToDays(originalClaimDurationMode)} days after enrollment closes` },
-      { label: 'Stamp Config', value: `${stampConfig.totalStamps} stamps · Surprise ${stampConfig.surpriseFrom}–${stampConfig.surpriseTo} · Big ${stampConfig.bigRewardFrom}–${stampConfig.bigRewardTo}`, changed: changedFields.stampConfig },
+      { label: 'Stamp Config', value: `${stampConfig.totalStamps} stamps · ${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)`, changed: changedFields.stampConfig },
     ] : []),
     ...(isLoyalty ? [
       { label: 'User Cap', value: userCapLimited ? `${userCap} users` : 'All customers (no limit)', changed: changedFields.userCap || changedFields.userCapLimited, previous: originalUserCapLimited ? `${campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap} users` : 'All customers (no limit)' },
@@ -713,81 +642,50 @@ export function VendorCampaignEditPage() {
 
                 {isStamp && (
                   <>
-                    <p className="text-xs text-v-text-3 mb-5">Set stamp positions for each reward trigger, then configure what gets awarded.</p>
+                    <p className="text-xs text-v-text-3 mb-5">Add surprise drops and big rewards at stamp ranges. Each drop can have its own reward and redeem-before window.</p>
                     {isEnded ? (
-                      <LockedField label="Stamp configuration" value={`${stampConfig.totalStamps} stamps · Surprise ${stampConfig.surpriseFrom}–${stampConfig.surpriseTo} · Big ${stampConfig.bigRewardFrom}–${stampConfig.bigRewardTo}`} />
+                      <LockedField label="Stamp configuration" value={`${stampConfig.totalStamps} stamps · ${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)`} />
                     ) : (
                       <div className="space-y-5">
-                        <Slider label="Total Stamps" displayValue={`${stampConfig.totalStamps} stamps`} min={5} max={20} step={1} value={stampConfig.totalStamps}
+                        <Slider label="Total Stamps" displayValue={`${stampConfig.totalStamps} stamps`} min={5} max={30} step={1} value={stampConfig.totalStamps}
                           onChange={e => {
                             const n = Number(e.target.value)
-                            setStampConfig(p => {
-                              const surpriseFrom = Math.min(Math.max(p.surpriseFrom, 1), n)
-                              const bigRewardFrom = Math.min(Math.max(p.bigRewardFrom, 1), n)
-                              return {
-                                ...p,
-                                totalStamps: n,
-                                prefillStamps: Math.min(p.prefillStamps, n),
-                                surpriseFrom,
-                                surpriseTo: Math.min(Math.max(p.surpriseTo, surpriseFrom), n),
-                                bigRewardFrom,
-                                bigRewardTo: Math.min(Math.max(p.bigRewardTo, bigRewardFrom), n),
-                              }
-                            })
+                            setStampConfig(p => ({
+                              ...p,
+                              totalStamps: n,
+                              prefillStamps: Math.min(p.prefillStamps, n),
+                              surpriseDrops: p.surpriseDrops.map(d => ({
+                                ...d,
+                                from: Math.min(d.from, n),
+                                to: Math.min(Math.max(d.to, d.from), n),
+                              })),
+                              bigRewards: p.bigRewards.map(d => ({
+                                ...d,
+                                from: Math.min(d.from, n),
+                                to: Math.min(Math.max(d.to, d.from), n),
+                              })),
+                            }))
                           }}
                         />
                         <Stepper label="Pre-fill Stamps" hint="stamps pre-filled" value={stampConfig.prefillStamps} min={0} max={stampConfig.totalStamps} onChange={v => setStampConfig(p => ({ ...p, prefillStamps: v }))} />
 
-                        <div className="p-4 bg-v-surface-2 border border-v-border rounded-xl space-y-3">
-                          <div className="flex items-center gap-2 mb-1"><span className="text-base">🎁</span><p className="text-xs font-bold text-v-text-2 uppercase tracking-wider">Surprise Drop</p></div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <Input label="From Stamp #" type="number" min={1} max={stampConfig.totalStamps} value={stampConfig.surpriseFrom} onChange={e => setStampConfig(p => ({ ...p, surpriseFrom: Number(e.target.value) }))} />
-                            <Input label="To Stamp #" type="number" min={stampConfig.surpriseFrom} max={stampConfig.totalStamps} value={stampConfig.surpriseTo} onChange={e => setStampConfig(p => ({ ...p, surpriseTo: Number(e.target.value) }))} />
-                          </div>
-                          <RewardModeToggle mode={stampConfig.surpriseMode} onChange={m => setStampConfig(p => ({ ...p, surpriseMode: m }))} />
-                          {stampConfig.surpriseMode === 'single' ? (
-                            <SingleRewardInput value={stampConfig.surpriseSingle} onChange={v => setStampConfig(p => ({ ...p, surpriseSingle: v }))} placeholder="e.g. Mystery Treat" />
-                          ) : (
-                            <RewardPoolEditor compact rewards={stampConfig.surprisePool} setRewards={r => setStampConfig(p => ({ ...p, surprisePool: r }))} />
-                          )}
-                          {stampConfig.surpriseMode === 'pool' && surprisePoolTotal > 100 && (
-                            <p className="text-xs text-v-danger">Surprise pool total cannot exceed 100%.</p>
-                          )}
-                        </div>
+                        <StampDropEditor
+                          title="Surprise Drops"
+                          emoji="🎁"
+                          tier="surprise"
+                          drops={stampConfig.surpriseDrops}
+                          setDrops={surpriseDrops => setStampConfig(p => ({ ...p, surpriseDrops }))}
+                          totalStamps={stampConfig.totalStamps}
+                        />
 
-                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
-                          <div className="flex items-center gap-2 mb-1"><span className="text-base">🏆</span><p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Big Reward</p></div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <Input label="From Stamp #" type="number" min={1} max={stampConfig.totalStamps} value={stampConfig.bigRewardFrom} onChange={e => setStampConfig(p => ({ ...p, bigRewardFrom: Number(e.target.value) }))} />
-                            <Input label="To Stamp #" type="number" min={stampConfig.bigRewardFrom} max={stampConfig.totalStamps} value={stampConfig.bigRewardTo} onChange={e => setStampConfig(p => ({ ...p, bigRewardTo: Number(e.target.value) }))} />
-                          </div>
-                          <RewardModeToggle mode={stampConfig.bigMode} onChange={m => setStampConfig(p => ({ ...p, bigMode: m }))} />
-                          {stampConfig.bigMode === 'single' ? (
-                            <SingleRewardInput value={stampConfig.bigSingle} onChange={v => setStampConfig(p => ({ ...p, bigSingle: v }))} placeholder="e.g. Free Breakfast Combo" />
-                          ) : (
-                            <RewardPoolEditor compact rewards={stampConfig.bigPool} setRewards={r => setStampConfig(p => ({ ...p, bigPool: r }))} />
-                          )}
-                          {stampConfig.bigMode === 'pool' && bigPoolTotal > 100 && (
-                            <p className="text-xs text-v-danger">Big reward pool total cannot exceed 100%.</p>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="text-[11px] font-semibold text-v-text-2 uppercase tracking-wider mb-2">Card Preview</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {Array.from({ length: stampConfig.totalStamps }, (_, i) => {
-                              const n = i + 1
-                              const isPrefilled = n <= stampConfig.prefillStamps
-                              const isSurprise = n >= stampConfig.surpriseFrom && n <= stampConfig.surpriseTo
-                              const isBig = n >= stampConfig.bigRewardFrom && n <= stampConfig.bigRewardTo
-                              return (
-                                <div key={n} className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold border-2 ${isPrefilled ? 'border-v-purple bg-v-purple text-white' : isBig ? 'border-amber-400 bg-amber-50 text-amber-600' : isSurprise ? 'border-v-purple/40 bg-v-surface-2 text-v-purple' : 'border-v-border text-v-text-3'}`}>
-                                  {isPrefilled ? '✓' : isBig ? '🏆' : isSurprise ? '?' : n}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
+                        <StampDropEditor
+                          title="Big Rewards"
+                          emoji="🏆"
+                          tier="big"
+                          drops={stampConfig.bigRewards}
+                          setDrops={bigRewards => setStampConfig(p => ({ ...p, bigRewards }))}
+                          totalStamps={stampConfig.totalStamps}
+                        />
                       </div>
                     )}
                   </>

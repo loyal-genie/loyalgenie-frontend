@@ -93,10 +93,9 @@ export function StampCampaignDetail({
               <StampLoyaltyGrid
                 total={total}
                 collected={collected}
-                surpriseTriggerAt={stampState.surpriseTriggerAt}
-                bigTriggerAt={stampState.bigTriggerAt}
-                surpriseAwarded={stampState.surpriseAwarded}
-                bigAwarded={stampState.bigAwarded}
+                surpriseDrops={stampState.surpriseDrops}
+                bigRewards={stampState.bigRewards}
+                dropTriggers={stampState.dropTriggers}
               />
 
               <div className="mt-3 flex items-center justify-between gap-2">

@@ -137,7 +137,7 @@ export function VendorCampaignDetailPage() {
               </div>
               {stampStats.stampConfig && (
                 <div className="mt-4 p-3 rounded-xl bg-v-surface-2 text-xs text-v-text-2">
-                  {stampStats.stampConfig.totalStamps} stamps · Surprise {stampStats.stampConfig.surpriseRange.join('–')} · Big {stampStats.stampConfig.bigRange.join('–')}
+                  {stampStats.stampConfig.totalStamps} stamps · {stampStats.stampConfig.surpriseDrops.length} surprise drop(s) · {stampStats.stampConfig.bigRewards.length} big reward(s)
                 </div>
               )}
             </Card>
@@ -213,9 +213,8 @@ export function VendorCampaignDetailPage() {
               {isStamp ? (
                 <>
                   Customers collect <strong className="text-v-text">1 stamp per visit</strong> (PIN required).
-                  Surprise rewards unlock between stamps {stampStats?.stampConfig?.surpriseRange.join('–') ?? '3–5'};
-                  big rewards between {stampStats?.stampConfig?.bigRange.join('–') ?? '8–10'}.
-                  Each customer gets random trigger positions within those ranges.
+                  Vendors can configure multiple surprise drops and big rewards at different stamp ranges.
+                  Each customer gets random trigger positions within each drop&apos;s range.
                 </>
               ) : (
                 <>
