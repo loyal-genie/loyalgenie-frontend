@@ -11,7 +11,7 @@ import { useCreateCampaign } from '@/hooks/useCampaigns'
 import { RewardPoolEditor, RewardModeToggle, SingleRewardInput, NumericInput, newRewardEntry, type RewardEntry, type RewardMode } from '@/components/vendor/RewardPoolEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
-import { computeCreateDates, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
+import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
 import { todayInCampaignTz } from '@/lib/campaign-dates'
 import type { MechanicType } from '@/lib/types'
 import { isMechanicLive } from '@/lib/live-mechanics'
@@ -48,8 +48,8 @@ const DURATION_LOTTERY: { key: DurationMode; label: string; sub: string }[] = [
 const TODAY = todayInCampaignTz()
 function fmtDate(iso: string) { return fmtCampaignDate(iso) }
 function fmtTime(t: string) { const [h, m] = t.split(':').map(Number); const ap = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ap}` }
-function computeDates(mode: DurationMode, cs: string, ce: string) {
-  return computeCreateDates(mode, cs, ce)
+function computeDates(mode: DurationMode, cs: string, ce: string, cst: string, cet: string) {
+  return computeCreateSchedule(mode, cs, ce, cst, cet)
 }
 
 const UNLIMITED_USER_CAP = 1_000_000
@@ -66,6 +66,8 @@ export function VendorCampaignCreatePage() {
     durationMode: '1m' as DurationMode,
     customStart: '',
     customEnd: '',
+    customStartTime: '00:00',
+    customEndTime: '23:59',
     // Active hours
     activeHoursEnabled: false,
     activeStartTime: '09:00',
@@ -195,8 +197,9 @@ export function VendorCampaignCreatePage() {
     setMechanic(m)
   }
 
-  const dates = computeDates(basics.durationMode, basics.customStart, basics.customEnd)
-  const durationValid = basics.durationMode !== 'custom' || (basics.customStart && basics.customEnd)
+  const schedule = computeDates(basics.durationMode, basics.customStart, basics.customEnd, basics.customStartTime, basics.customEndTime)
+  const dates = schedule
+  const durationValid = basics.durationMode !== 'custom' || (basics.customStart && basics.customEnd && basics.customStartTime && basics.customEndTime)
   const effectiveUserCap = basics.userCapLimited ? basics.userCap : UNLIMITED_USER_CAP
 
   const surprisePoolTotal = stampConfig.surprisePool.reduce((s, r) => s + r.probability, 0)
@@ -204,7 +207,12 @@ export function VendorCampaignCreatePage() {
 
   const step2Valid = () => {
     if (!mechanic) return false
-    if (mechanic === 'shake') return shakeRewards.some(r => r.name) && shakePoolTotal === 100
+    if (mechanic === 'shake') {
+      const named = shakeRewards.filter(r => r.name.trim())
+      return named.length > 0 && shakePoolTotal === 100 && named.every(r =>
+        r.redeemExpiryMode === 'fixed' ? Boolean(r.redeemFixedDate) : r.redeemRelativeAmount > 0,
+      )
+    }
     if (mechanic === 'spin')  return spinSegments.some(s => s.isWin && s.reward.trim())
     if (mechanic === 'dice')  return diceOutcomes.some(o => o.isWin && o.reward.trim())
     if (mechanic === 'lottery') return lotteryConfig.jackpotReward.trim().length > 0
@@ -241,6 +249,8 @@ export function VendorCampaignCreatePage() {
           mechanic: 'shake',
           startDate: dates.start,
           endDate: dates.end,
+          startTime: dates.startTime,
+          endTime: dates.endTime,
           userCap: basics.userCap,
           perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
           playsPerDay: basics.playsPerDay,
@@ -252,6 +262,10 @@ export function VendorCampaignCreatePage() {
               description: r.description,
               icon: r.icon,
               sharePercent: r.probability,
+              redeemExpiryMode: r.redeemExpiryMode,
+              redeemFixedDate: r.redeemExpiryMode === 'fixed' ? r.redeemFixedDate : undefined,
+              redeemRelativeAmount: r.redeemExpiryMode === 'relative' ? r.redeemRelativeAmount : undefined,
+              redeemRelativeUnit: r.redeemExpiryMode === 'relative' ? r.redeemRelativeUnit : undefined,
             })),
         })
         setLaunched(true)
@@ -265,6 +279,8 @@ export function VendorCampaignCreatePage() {
           mechanic: 'check-in-loyalty',
           startDate: dates.start,
           endDate: dates.end,
+          startTime: dates.startTime,
+          endTime: dates.endTime,
           userCap: effectiveUserCap,
           checkInConfig: { pointsPerCheckIn: loyaltyConfig.pointsPerCheckIn },
         })
@@ -278,6 +294,8 @@ export function VendorCampaignCreatePage() {
         mechanic: 'stamp',
         startDate: dates.start,
         endDate: dates.end,
+        startTime: dates.startTime,
+        endTime: dates.endTime,
         userCap: basics.userCap,
         claimPeriodDays: durationModeToDays(basics.claimDurationMode),
         stampConfig: {
@@ -407,6 +425,12 @@ export function VendorCampaignCreatePage() {
                         {basics.activeHoursEnabled && ` · ${fmtTime(basics.activeStartTime)}–${fmtTime(basics.activeEndTime)}`}
                       </span>
                     )}
+                    {basics.durationMode === 'custom' && dates.start && dates.end && (
+                      <span className="text-xs text-v-purple font-semibold flex items-center gap-1.5">
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        {`${fmtDate(dates.start)} ${fmtTime(basics.customStartTime)} → ${fmtDate(dates.end)} ${fmtTime(basics.customEndTime)}`}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {durationOptions.map(opt => (
@@ -421,7 +445,9 @@ export function VendorCampaignCreatePage() {
                     {basics.durationMode === 'custom' && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 grid grid-cols-2 gap-4 overflow-hidden">
                         <Input label="Start Date" type="date" value={basics.customStart} onChange={e => setBasics(p => ({ ...p, customStart: e.target.value }))} />
-                        <Input label="End Date"   type="date" value={basics.customEnd}   onChange={e => setBasics(p => ({ ...p, customEnd:   e.target.value }))} />
+                        <Input label="Start Time" type="time" value={basics.customStartTime} onChange={e => setBasics(p => ({ ...p, customStartTime: e.target.value }))} />
+                        <Input label="End Date" type="date" value={basics.customEnd} onChange={e => setBasics(p => ({ ...p, customEnd: e.target.value }))} />
+                        <Input label="End Time" type="time" value={basics.customEndTime} onChange={e => setBasics(p => ({ ...p, customEndTime: e.target.value }))} />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -966,6 +992,9 @@ export function VendorCampaignCreatePage() {
                       label: 'Duration',
                       value: (() => {
                         let dur = isToday ? `Today · ${fmtDate(TODAY)}` : (dates.start && dates.end ? `${fmtDate(dates.start)} → ${fmtDate(dates.end)}` : '—')
+                        if (basics.durationMode === 'custom' && dates.start && dates.end) {
+                          dur = `${fmtDate(dates.start)} ${fmtTime(basics.customStartTime)} → ${fmtDate(dates.end)} ${fmtTime(basics.customEndTime)}`
+                        }
                         if (basics.activeHoursEnabled) dur += ` · ${fmtTime(basics.activeStartTime)}–${fmtTime(basics.activeEndTime)}`
                         return dur
                       })(),

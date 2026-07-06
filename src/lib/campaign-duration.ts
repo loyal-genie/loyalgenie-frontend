@@ -42,6 +42,24 @@ export function computeCreateDates(mode: DurationMode, customStart: string, cust
   return { start, end }
 }
 
+/** Create flow schedule including IST day-boundary times for custom duration. */
+export function computeCreateSchedule(
+  mode: DurationMode,
+  customStart: string,
+  customEnd: string,
+  customStartTime: string,
+  customEndTime: string,
+) {
+  const { start, end } = computeCreateDates(mode, customStart, customEnd)
+  const isCustom = mode === 'custom'
+  return {
+    start,
+    end,
+    startTime: isCustom ? customStartTime : '00:00',
+    endTime: isCustom ? customEndTime : '23:59',
+  }
+}
+
 /** Edit flow: start date is fixed; pills set end date from campaign start. */
 export function computeEndFromStart(mode: DurationMode, startDate: string, customEnd: string) {
   if (mode === 'custom') return customEnd

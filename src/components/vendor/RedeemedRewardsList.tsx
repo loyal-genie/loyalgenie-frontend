@@ -32,10 +32,7 @@ const emptyFilters: RedeemedFilters = {
 
 const GRID_COLS = 'grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.95fr)_minmax(0,1fr)]'
 
-function dateOnly(value?: string | null) {
-  if (!value) return ''
-  return value.slice(0, 10)
-}
+import { formatIstDate, formatIstDateTime } from '@/lib/datetime'
 
 /*
 function matchesDateRange(value: string | null | undefined, from: string, to: string) {
@@ -201,12 +198,12 @@ export function RedeemedRewardsList({ items, isLoading }: RedeemedRewardsListPro
                       </div>
                       <div>
                         <p className="text-v-text-3">Claimed on</p>
-                        <p className="text-v-text">{dateOnly(item.claimedAt ?? item.earnedAt) || '-'}</p>
+                        <p className="text-v-text">{formatIstDate(item.claimedAt ?? item.earnedAt)}</p>
                       </div>
                       <div>
                         <p className="text-v-text-3">Redeemed on</p>
                         <p className="text-v-text">
-                          {item.redeemedAt ? item.redeemedAt.slice(0, 16).replace('T', ' ') : '-'}
+                          {formatIstDateTime(item.redeemedAt)}
                         </p>
                       </div>
                     </div>
@@ -226,9 +223,9 @@ export function RedeemedRewardsList({ items, isLoading }: RedeemedRewardsListPro
                 </div>
                 <p className="truncate text-xs text-v-text-2">{item.source}</p>
                 <p className="truncate font-semibold text-amber-600">{item.rewardName}</p>
-                <p className="text-xs text-v-text">{dateOnly(item.claimedAt ?? item.earnedAt) || '-'}</p>
+                <p className="text-xs text-v-text">{formatIstDate(item.claimedAt ?? item.earnedAt)}</p>
                 <p className="text-xs text-v-text">
-                  {item.redeemedAt ? item.redeemedAt.slice(0, 16).replace('T', ' ') : '-'}
+                  {formatIstDateTime(item.redeemedAt)}
                 </p>
               </div>
             </Card>

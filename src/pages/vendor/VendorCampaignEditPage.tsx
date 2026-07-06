@@ -77,6 +77,10 @@ function toShakeRewards(rewards: CampaignDto['rewards']): RewardEntry[] {
       description: r.description,
       icon: r.icon,
       probability: r.sharePercent,
+      redeemExpiryMode: r.redeemExpiryMode ?? 'relative',
+      redeemFixedDate: r.redeemFixedDate ?? '',
+      redeemRelativeAmount: r.redeemRelativeAmount ?? 7,
+      redeemRelativeUnit: r.redeemRelativeUnit ?? 'day',
     }))
 }
 
@@ -89,6 +93,10 @@ function tierRewardsToEntries(rewards: CampaignDto['rewards'], tier: string): Re
       description: r.description,
       icon: r.icon,
       probability: r.sharePercent,
+      redeemExpiryMode: r.redeemExpiryMode ?? 'relative',
+      redeemFixedDate: r.redeemFixedDate ?? '',
+      redeemRelativeAmount: r.redeemRelativeAmount ?? 7,
+      redeemRelativeUnit: r.redeemRelativeUnit ?? 'day',
     }))
 }
 
@@ -119,7 +127,15 @@ function rewardsEqual(a: RewardEntry[], b: RewardEntry[]) {
   if (a.length !== b.length) return false
   return a.every((r, i) => {
     const o = b[i]
-    return r.id === o.id && r.name === o.name && r.description === o.description && r.icon === o.icon && r.probability === o.probability
+    return r.id === o.id
+      && r.name === o.name
+      && r.description === o.description
+      && r.icon === o.icon
+      && r.probability === o.probability
+      && r.redeemExpiryMode === o.redeemExpiryMode
+      && r.redeemFixedDate === o.redeemFixedDate
+      && r.redeemRelativeAmount === o.redeemRelativeAmount
+      && r.redeemRelativeUnit === o.redeemRelativeUnit
   })
 }
 
@@ -133,6 +149,7 @@ export function VendorCampaignEditPage() {
   const [name, setName] = useState('')
   const [durationMode, setDurationMode] = useState<DurationMode>('1m')
   const [endDate, setEndDate] = useState('')
+  const [endTime, setEndTime] = useState('23:59')
   const [claimDurationMode, setClaimDurationMode] = useState<DurationMode>('14d')
   const [userCap, setUserCap] = useState(100)
   const [userCapLimited, setUserCapLimited] = useState(true)
@@ -168,6 +185,7 @@ export function VendorCampaignEditPage() {
     if (!campaign) return
     setName(campaign.name)
     setEndDate(campaign.endDate)
+    setEndTime(campaign.endTime ?? '23:59')
     setDurationMode(inferDurationMode(campaign.startDate, campaign.endDate))
     setUserCap(campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap)
     setUserCapLimited(campaign.userCap < UNLIMITED_USER_CAP)
@@ -292,6 +310,7 @@ export function VendorCampaignEditPage() {
   const changedFields = {
     name: name !== campaign.name,
     endDate: endDate !== campaign.endDate,
+    endTime: endTime !== (campaign.endTime ?? '23:59'),
     userCap: effectiveUserCap !== campaign.userCap,
     userCapLimited: isLoyalty && userCapLimited !== originalUserCapLimited,
     perDayUserLimit: isShake && perDayUserLimit !== campaign.perDayUserLimit,
@@ -331,6 +350,7 @@ export function VendorCampaignEditPage() {
       const payload: Parameters<typeof updateMutation.mutateAsync>[0] = {}
       if (changedFields.name) payload.name = name.trim()
       if (changedFields.endDate) payload.endDate = endDate
+      if (changedFields.endTime) payload.endTime = endTime
       if (changedFields.userCap || changedFields.userCapLimited) payload.userCap = effectiveUserCap
 
       if (isShake) {
@@ -346,6 +366,10 @@ export function VendorCampaignEditPage() {
               description: r.description,
               icon: r.icon,
               sharePercent: r.probability,
+              redeemExpiryMode: r.redeemExpiryMode,
+              redeemFixedDate: r.redeemExpiryMode === 'fixed' ? r.redeemFixedDate : undefined,
+              redeemRelativeAmount: r.redeemExpiryMode === 'relative' ? r.redeemRelativeAmount : undefined,
+              redeemRelativeUnit: r.redeemExpiryMode === 'relative' ? r.redeemRelativeUnit : undefined,
             }))
         }
       }
@@ -538,8 +562,9 @@ export function VendorCampaignEditPage() {
                         </div>
                         <AnimatePresence>
                           {durationMode === 'custom' && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 overflow-hidden">
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 grid grid-cols-2 gap-4 overflow-hidden">
                               <Input label="End Date" type="date" min={minEndDate} value={endDate} onChange={e => setEndDate(e.target.value)} />
+                              <Input label="End Time" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
                             </motion.div>
                           )}
                         </AnimatePresence>

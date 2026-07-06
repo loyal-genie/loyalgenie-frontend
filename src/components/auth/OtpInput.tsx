@@ -4,12 +4,13 @@ import { cn } from '@/lib/utils'
 interface OtpInputProps {
   value: string
   onChange: (value: string) => void
+  onComplete?: (value: string) => void
   length?: number
   disabled?: boolean
   className?: string
 }
 
-export function OtpInput({ value, onChange, length = 6, disabled, className }: OtpInputProps) {
+export function OtpInput({ value, onChange, onComplete, length = 6, disabled, className }: OtpInputProps) {
   const inputsRef = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
@@ -18,10 +19,17 @@ export function OtpInput({ value, onChange, length = 6, disabled, className }: O
 
   const digits = value.padEnd(length, ' ').slice(0, length).split('')
 
+  function commitValue(next: string) {
+    onChange(next)
+    if (next.length === length && !next.includes(' ')) {
+      onComplete?.(next)
+    }
+  }
+
   function updateAt(index: number, char: string) {
     const next = value.split('')
     next[index] = char
-    onChange(next.join('').slice(0, length))
+    commitValue(next.join('').slice(0, length))
     if (char && index < length - 1) {
       inputsRef.current[index + 1]?.focus()
     }
@@ -51,7 +59,7 @@ export function OtpInput({ value, onChange, length = 6, disabled, className }: O
           onPaste={(e) => {
             e.preventDefault()
             const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, length)
-            if (pasted) onChange(pasted)
+            if (pasted) commitValue(pasted)
           }}
           className="w-11 h-12 sm:w-12 sm:h-14 text-center text-lg font-bold rounded-xl border border-v-border bg-white text-v-text focus:outline-none focus:ring-2 focus:ring-v-purple/40 focus:border-v-purple disabled:opacity-50"
         />

@@ -411,6 +411,10 @@ export interface CampaignRewardDto {
   icon: string
   sharePercent: number
   rewardTier?: string | null
+  redeemExpiryMode?: 'fixed' | 'relative'
+  redeemFixedDate?: string | null
+  redeemRelativeAmount?: number | null
+  redeemRelativeUnit?: 'day' | 'week' | 'month' | null
 }
 
 export interface StampCampaignStatsDto {
@@ -455,6 +459,8 @@ export interface CampaignDto {
   status: string
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   userCap: number
   perDayUserLimit: number
   playsPerDay: number
@@ -480,11 +486,22 @@ export interface CreateShakeCampaignPayload {
   mechanic: 'shake'
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   userCap: number
   perDayUserLimit: number
   playsPerDay: number
   overallWinners: number
-  rewards: { name: string; description?: string; icon: string; sharePercent: number }[]
+  rewards: {
+    name: string
+    description?: string
+    icon: string
+    sharePercent: number
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }[]
 }
 
 export interface CreateStampCampaignPayload {
@@ -492,6 +509,8 @@ export interface CreateStampCampaignPayload {
   mechanic: 'stamp'
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   userCap: number
   claimPeriodDays: number
   stampConfig: {
@@ -515,6 +534,8 @@ export interface CreateCheckInLoyaltyCampaignPayload {
   mechanic: 'check-in-loyalty'
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   userCap: number
   checkInConfig: { pointsPerCheckIn: number }
   milestones?: { name: string; description?: string; icon: string; pointsThreshold: number }[]
@@ -676,6 +697,7 @@ export async function fetchCampaign(id: string) {
 export interface UpdateCampaignPayload {
   name?: string
   endDate?: string
+  endTime?: string
   userCap?: number
   perDayUserLimit?: number
   playsPerDay?: number
@@ -683,7 +705,17 @@ export interface UpdateCampaignPayload {
   winRatePercent?: number
   status?: 'active' | 'paused' | 'ended'
   rewards?:
-    | { id?: string; name: string; description?: string; icon: string; sharePercent: number }[]
+    | {
+        id?: string
+        name: string
+        description?: string
+        icon: string
+        sharePercent: number
+        redeemExpiryMode: 'fixed' | 'relative'
+        redeemFixedDate?: string
+        redeemRelativeAmount?: number
+        redeemRelativeUnit?: 'day' | 'week' | 'month'
+      }[]
     | {
         surprise: { id?: string; name: string; description?: string; icon: string; winPercent: number }[]
         big: { id?: string; name: string; description?: string; icon: string; winPercent: number }[]

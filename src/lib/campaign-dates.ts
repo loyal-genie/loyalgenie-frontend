@@ -7,6 +7,18 @@ export function todayInCampaignTz(date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: CAMPAIGN_TIMEZONE }).format(date)
 }
 
+export function currentTimeInCampaignTz(date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: CAMPAIGN_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const hour = parts.find(p => p.type === 'hour')?.value ?? '00'
+  const minute = parts.find(p => p.type === 'minute')?.value ?? '00'
+  return `${hour}:${minute}`
+}
+
 /** Calendar-safe day arithmetic for YYYY-MM-DD strings (IST calendar). */
 export function addCampaignDays(from: string, days: number): string {
   const [y, mo, d] = from.split('-').map(Number)
