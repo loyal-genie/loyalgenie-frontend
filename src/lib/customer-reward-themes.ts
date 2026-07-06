@@ -13,13 +13,13 @@ export type RewardCardTheme = {
 
 export const REWARD_CARD_THEMES: Record<RewardCardThemeKey, RewardCardTheme> = {
   gold: {
-    gradient: 'linear-gradient(174deg, #fbf3e7 13%, #fdfdfd 89%)',
-    border: 'rgba(154,110,21,0.12)',
-    accent: '#9a6e15',
-    ptsBg: '#f9ecd4',
-    claimedBg: 'rgba(246,227,190,0.55)',
-    iconBg: '#f6e3be',
-    actionBg: '#9a6e15',
+    gradient: 'linear-gradient(174deg, #fdfaf4 13%, #fdfdfd 89%)',
+    border: '#f3e8c8',
+    accent: '#92400e',
+    ptsBg: '#fef3c7',
+    claimedBg: '#fef3c7',
+    iconBg: '#fef3c7',
+    actionBg: '#92400e',
     actionText: '#ffffff',
   },
   purple: {
@@ -89,5 +89,5 @@ export function formatRewardDate(value?: string | null) {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
