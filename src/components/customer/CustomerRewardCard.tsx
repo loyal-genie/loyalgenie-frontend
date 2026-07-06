@@ -14,8 +14,6 @@ type CustomerRewardCardProps = {
   redeemBefore?: string | null
   theme: RewardCardTheme
   locked?: boolean
-  ctaLabel?: string
-  ctaEmoji?: string
   onClick?: () => void
 }
 
@@ -29,8 +27,6 @@ export function CustomerRewardCard({
   redeemBefore,
   theme,
   locked = false,
-  ctaLabel = 'Rub the Lamp',
-  ctaEmoji = '🪔',
   onClick,
 }: CustomerRewardCardProps) {
   const subtitle = description?.trim() || 'Any size · All locations'
@@ -66,14 +62,6 @@ export function CustomerRewardCard({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold leading-tight text-[#1b1410]">{name}</p>
           <p className="mt-0.5 text-[11px] text-[#9a9088]">{subtitle}</p>
-          {!locked && (
-            <span
-              className="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
-              style={{ backgroundColor: theme.ptsBg, color: theme.accent }}
-            >
-              {ctaEmoji} {ctaLabel}
-            </span>
-          )}
         </div>
         {locked ? (
           <div
