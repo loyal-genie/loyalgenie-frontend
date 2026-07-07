@@ -252,9 +252,9 @@ export function RewardPoolEditor({ rewards, setRewards, compact, shareMode, read
               <div className="flex-1 space-y-1.5">
                 <input className="w-full bg-white border border-v-border rounded-lg px-2.5 py-1.5 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Reward name" value={r.name} onChange={e => update(r.id, 'name', e.target.value)} />
                 {!compact && <input className="w-full bg-white border border-v-border rounded-lg px-2.5 py-1.5 text-xs text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Description (optional)" value={r.description} onChange={e => update(r.id, 'description', e.target.value)} />}
-                {redeemBefore && !compact && (
+                {redeemBefore && (
                   <RedeemBeforeField
-                    compact
+                    compact={compact}
                     value={{
                       redeemExpiryMode: r.redeemExpiryMode,
                       redeemFixedDate: r.redeemFixedDate,

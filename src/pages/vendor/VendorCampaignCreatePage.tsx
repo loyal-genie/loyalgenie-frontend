@@ -10,7 +10,8 @@ import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
 import { RewardPoolEditor, NumericInput, newRewardEntry, type RewardEntry } from '@/components/vendor/RewardPoolEditor'
 import { StampDropEditor } from '@/components/vendor/StampDropEditor'
-import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid } from '@/lib/stamp-drop-config'
+import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
+import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid, type StampDropUiState } from '@/lib/stamp-drop-config'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -133,7 +134,7 @@ export function VendorCampaignCreatePage() {
   const isLottery        = mechanic === 'lottery'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
-  const hasGameConfigStep = mechanic !== 'check-in-loyalty'
+  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
@@ -269,6 +270,14 @@ export function VendorCampaignCreatePage() {
           endTime: dates.endTime,
           userCap: effectiveUserCap,
           checkInConfig: { pointsPerCheckIn: loyaltyConfig.pointsPerCheckIn },
+          milestones: loyaltyConfig.milestones
+            .filter(m => m.name.trim())
+            .map(m => ({
+              name: m.name.trim(),
+              description: m.description,
+              icon: m.icon,
+              pointsThreshold: m.pointsThreshold,
+            })),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -742,7 +751,7 @@ export function VendorCampaignCreatePage() {
           )}
 
           {/* CHECK-IN LOYALTY */}
-          {step === 2 && mechanic === 'check-in-loyalty' && hasGameConfigStep && (
+          {step === 2 && mechanic === 'check-in-loyalty' && (
             <Card className="p-6">
               <h2 className="text-base font-bold text-v-text mb-1">Check-in Loyalty — Points & Milestones</h2>
               <p className="text-xs text-v-text-3 mb-5">Customers earn points on each daily check-in. Configure rewards when they reach point thresholds.</p>
@@ -948,7 +957,7 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'spin'    ? `${spinSegments.filter(s => s.isWin && s.reward).length} winning segment${spinSegments.filter(s => s.isWin).length !== 1 ? 's' : ''} · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin).length} of 6 faces win · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)` :
-                        mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in` :
+                        mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in · ${loyaltyConfig.milestones.filter(m => m.name.trim()).length} milestone(s)` :
                         mechanic === 'lottery' ? `Jackpot + ${lotteryConfig.prizes.length} prize${lotteryConfig.prizes.length !== 1 ? 's' : ''}` : '—',
                     },
                   ].map(item => (
@@ -959,6 +968,85 @@ export function VendorCampaignCreatePage() {
                   ))}
                 </div>
               </Card>
+
+              {/* Campaign config detail */}
+              {mechanic === 'shake' && (
+                <Card className="p-6">
+                  <h3 className="text-sm font-bold text-v-text mb-3">Reward Configuration</h3>
+                  <div className="space-y-2">
+                    {shakeRewards.filter(r => r.name.trim()).map(r => (
+                      <div key={r.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-v-text">{r.icon} {r.name}</p>
+                          <p className="text-xs text-v-text-3 mt-0.5">{formatRedeemBeforeSummary(r)}</p>
+                        </div>
+                        <span className="shrink-0 text-xs font-bold text-v-purple">{r.probability}% share</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {mechanic === 'stamp' && (
+                <Card className="p-6">
+                  <h3 className="text-sm font-bold text-v-text mb-3">Stamp Card Configuration</h3>
+                  <div className="space-y-4 text-sm">
+                    <div className="flex justify-between py-2 border-b border-v-border">
+                      <span className="text-v-text-2">Total stamps</span>
+                      <span className="font-semibold text-v-text">{stampConfig.totalStamps}</span>
+                    </div>
+                    {stampConfig.prefillStamps > 0 && (
+                      <div className="flex justify-between py-2 border-b border-v-border">
+                        <span className="text-v-text-2">Pre-filled stamps</span>
+                        <span className="font-semibold text-v-text">{stampConfig.prefillStamps}</span>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs font-bold text-v-text-2 uppercase tracking-wider mb-2">Surprise Drops</p>
+                      <div className="space-y-2">
+                        {stampConfig.surpriseDrops.map(drop => (
+                          <StampDropReviewRow key={drop.id} drop={drop} />
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-v-text-2 uppercase tracking-wider mb-2">Big Rewards</p>
+                      <div className="space-y-2">
+                        {stampConfig.bigRewards.map(drop => (
+                          <StampDropReviewRow key={drop.id} drop={drop} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {mechanic === 'check-in-loyalty' && (
+                <Card className="p-6">
+                  <h3 className="text-sm font-bold text-v-text mb-3">Loyalty Configuration</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between py-2 border-b border-v-border">
+                      <span className="text-v-text-2">Points per check-in</span>
+                      <span className="font-semibold text-v-purple">+{loyaltyConfig.pointsPerCheckIn} pts</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-v-text-2 uppercase tracking-wider mb-2">Milestones</p>
+                      {loyaltyConfig.milestones.filter(m => m.name.trim()).length === 0 ? (
+                        <p className="text-xs text-v-text-3">No milestones configured</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {loyaltyConfig.milestones.filter(m => m.name.trim()).map(m => (
+                            <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-v-surface-2 border border-v-border">
+                              <span className="font-medium text-v-text">{m.icon} {m.name}</span>
+                              <span className="text-xs font-bold text-v-purple">{m.pointsThreshold} pts</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              )}
 
               {/* Expected Campaign Impact */}
               {mechanic === 'shake' && (
@@ -980,7 +1068,7 @@ export function VendorCampaignCreatePage() {
                   userCap={effectiveUserCap}
                   userCapLimited={basics.userCapLimited}
                   pointsPerCheckIn={loyaltyConfig.pointsPerCheckIn}
-                  milestoneCount={0}
+                  milestoneCount={loyaltyConfig.milestones.filter(m => m.name.trim()).length}
                 />
               )}
               {isLottery && (
@@ -1020,6 +1108,31 @@ export function VendorCampaignCreatePage() {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function StampDropReviewRow({ drop }: { drop: StampDropUiState }) {
+  const rewards = drop.mode === 'single'
+    ? [{ name: drop.singleName, redeem: drop.pool[0] }]
+    : drop.pool.filter(r => r.name.trim()).map(r => ({ name: r.name, redeem: r }))
+
+  return (
+    <div className="p-3 rounded-xl border border-v-border" style={{ backgroundColor: `${drop.color}66` }}>
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <p className="font-semibold text-v-text">{drop.label}</p>
+        <span className="text-[10px] font-bold text-v-text-3 shrink-0">Stamps {drop.from}–{drop.to}</span>
+      </div>
+      <div className="space-y-1">
+        {rewards.map((r, i) => (
+          <div key={i} className="text-xs">
+            <span className="text-v-text-2">{r.name || 'Unnamed reward'}</span>
+            {r.redeem && (
+              <span className="text-v-text-3"> · {formatRedeemBeforeSummary(r.redeem)}</span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
