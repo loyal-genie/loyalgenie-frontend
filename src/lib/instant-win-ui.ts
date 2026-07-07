@@ -4,6 +4,7 @@ const SEGMENT_COLORS = ['#7C3AED', '#EC4899', '#F59E0B', '#06B6D4', '#22C55E', '
 
 export function spinConfigToSegments(
   segments: {
+    id?: string
     label: string
     color: string
     isWin: boolean
@@ -13,6 +14,7 @@ export function spinConfigToSegments(
 ): SpinSegment[] {
   const total = segments.reduce((s, seg) => s + (seg.probability ?? 0), 0) || segments.length * 100 / Math.max(segments.length, 1)
   return segments.map(seg => ({
+    id: seg.id,
     label: seg.label.length > 10 ? seg.label.slice(0, 9) + '…' : seg.label,
     reward: seg.isWin ? (seg.reward ?? seg.label) : null,
     probability: seg.probability != null
@@ -40,6 +42,27 @@ export function landingAngleForIndex(segments: SpinSegment[], index: number): nu
   for (let i = 0; i < index; i++) start += angles[i] ?? 0
   const slice = angles[index] ?? 360 / segments.length
   return start + slice / 2
+}
+
+/** Wheel rotation (deg, clockwise) so segment `index` midpoint sits under the top pointer. */
+export function spinRotationForLanding(segments: SpinSegment[], index: number): number {
+  const mid = landingAngleForIndex(segments, index)
+  return ((270 - mid) % 360 + 360) % 360
+}
+
+function normalizeRewardKey(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase()
+}
+
+function segmentMatchesReward(seg: SpinSegment, reward?: { id?: string; name?: string | null } | null): boolean {
+  if (!reward) return false
+  if (reward.id && seg.id && reward.id === seg.id) return true
+  const rewardName = normalizeRewardKey(reward.name)
+  if (!rewardName) return false
+  return normalizeRewardKey(seg.reward) === rewardName
+    || normalizeRewardKey(seg.label) === rewardName
+    || normalizeRewardKey(seg.label.replace(/…$/, '')) === rewardName
+    || rewardName.startsWith(normalizeRewardKey(seg.label.replace(/…$/, '')))
 }
 
 export function buildSpinSegmentsFromRewards(
@@ -74,17 +97,20 @@ export function buildSpinSegmentsFromRewards(
 export function pickSpinLandingIndex(
   segments: SpinSegment[],
   won: boolean,
-  rewardName?: string | null,
+  reward?: { id?: string; name?: string | null } | null,
 ): number {
-  const winSegs = segments.map((s, i) => ({ ...s, i })).filter(s => s.isWin)
-  const noWinSegs = segments.map((s, i) => ({ ...s, i })).filter(s => !s.isWin)
+  const indexed = segments.map((s, i) => ({ ...s, i }))
+  const winSegs = indexed.filter(s => s.isWin)
+  const noWinSegs = indexed.filter(s => !s.isWin)
 
-  if (won && rewardName) {
-    const match = winSegs.find(s => s.reward === rewardName)
+  if (won && reward) {
+    const match = winSegs.find(s => segmentMatchesReward(s, reward))
     if (match) return match.i
-    if (winSegs.length) return winSegs[0].i
+    if (winSegs.length) return winSegs[0]!.i
   }
-  if (!won && noWinSegs.length) return noWinSegs[Math.floor(Math.random() * noWinSegs.length)].i
+  if (!won && noWinSegs.length) {
+    return noWinSegs[Math.floor(Math.random() * noWinSegs.length)]!.i
+  }
   return 0
 }
 

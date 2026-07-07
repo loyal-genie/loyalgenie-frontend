@@ -5,7 +5,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
 import { useInstantWinPlay } from '@/hooks/useInstantWinPlay'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
-import { buildSpinSegmentsFromRewards, landingAngleForIndex, pickSpinLandingIndex, segmentAngles, spinConfigToSegments } from '@/lib/instant-win-ui'
+import { buildSpinSegmentsFromRewards, pickSpinLandingIndex, segmentAngles, spinConfigToSegments, spinRotationForLanding } from '@/lib/instant-win-ui'
 import { spinRewardChipStyle } from '@/lib/spin-segment-colors'
 import { SpinWheelGradientDefs, segmentPathFill } from '@/components/vendor/SpinWheelGradientDefs'
 import type { SpinSegment } from '@/lib/types'
@@ -64,10 +64,10 @@ export function CustomerSpinPage() {
   useEffect(() => {
     if (state !== 'spinning' || !playResult) return
 
-    const idx = pickSpinLandingIndex(segments, playResult.won, playResult.reward?.name)
+    const idx = pickSpinLandingIndex(segments, playResult.won, playResult.reward)
     const extraSpins = 5 + Math.floor(Math.random() * 3)
-    const targetAngle = 360 - landingAngleForIndex(segments, idx) + 90
-    const finalRotation = rotationBeforeSpinRef.current + extraSpins * 360 + (targetAngle % 360)
+    const targetAngle = spinRotationForLanding(segments, idx)
+    const finalRotation = rotationBeforeSpinRef.current + extraSpins * 360 + targetAngle
 
     setLandedIdx(idx)
     setRotation(finalRotation)

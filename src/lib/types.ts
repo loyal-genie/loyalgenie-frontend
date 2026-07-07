@@ -59,6 +59,7 @@ export interface SpinConfig {
 }
 
 export interface SpinSegment {
+  id?: string
   label: string
   reward: string | null
   probability: number
