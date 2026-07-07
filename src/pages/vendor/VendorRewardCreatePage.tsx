@@ -7,6 +7,7 @@ import { FieldInput as Input } from '@/components/ui/input'
 import { getApiErrorMessage } from '@/lib/api'
 import { IconPicker } from '@/components/vendor/IconPicker'
 import { RewardPreviewCard } from '@/components/vendor/RewardPreviewCard'
+import { RedeemBeforeField } from '@/components/vendor/RedeemBeforeField'
 import { useBusinessReward, useCreateBusinessReward, useUpdateBusinessReward } from '@/hooks/useRewards'
 
 const labelClass = 'text-xs font-semibold text-v-text-2 uppercase tracking-wider'
@@ -197,55 +198,15 @@ function VendorRewardFormPage() {
                   value={form.claimBefore}
                   onChange={e => setForm(prev => ({ ...prev, claimBefore: e.target.value }))}
                 />
-                <div>
-                  <label className={`${labelClass} mb-1.5 block`}>Redeem Before *</label>
-                  {form.redeemExpiryMode === 'fixed' ? (
-                    <input
-                      type="date"
-                      value={form.redeemFixedDate}
-                      onChange={e => setForm(prev => ({ ...prev, redeemFixedDate: e.target.value, redeemExpiryMode: 'fixed' }))}
-                      className="h-11 w-full rounded-xl border border-v-border bg-white px-4 text-sm text-v-text focus:border-v-purple focus:outline-none focus:ring-2 focus:ring-v-purple/12"
-                    />
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        min={1}
-                        value={form.redeemRelativeAmount}
-                        onChange={e => setForm(prev => ({ ...prev, redeemRelativeAmount: Number(e.target.value), redeemExpiryMode: 'relative' }))}
-                        className="h-11 w-20 rounded-xl border border-v-border bg-white px-3 text-sm text-v-text focus:border-v-purple focus:outline-none focus:ring-2 focus:ring-v-purple/12"
-                      />
-                      <select
-                        value={form.redeemRelativeUnit}
-                        onChange={e => setForm(prev => ({ ...prev, redeemRelativeUnit: e.target.value as 'day' | 'week' | 'month', redeemExpiryMode: 'relative' }))}
-                        className="h-11 flex-1 rounded-xl border border-v-border bg-white px-3 text-sm text-v-text focus:border-v-purple focus:outline-none focus:ring-2 focus:ring-v-purple/12"
-                      >
-                        <option value="day">Day</option>
-                        <option value="week">Week</option>
-                        <option value="month">Month</option>
-                      </select>
-                    </div>
-                  )}
-                  <div className="mt-2 flex rounded-lg border border-v-border bg-v-surface-2 p-0.5">
-                    {([
-                      { key: 'fixed' as const, label: 'Fixed date' },
-                      { key: 'relative' as const, label: 'Relative expiry' },
-                    ]).map(opt => (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => setForm(prev => ({ ...prev, redeemExpiryMode: opt.key }))}
-                        className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-all ${
-                          form.redeemExpiryMode === opt.key
-                            ? 'bg-white text-v-text shadow-sm'
-                            : 'text-v-text-3 hover:text-v-text-2'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <RedeemBeforeField
+                  value={{
+                    redeemExpiryMode: form.redeemExpiryMode,
+                    redeemFixedDate: form.redeemFixedDate,
+                    redeemRelativeAmount: form.redeemRelativeAmount,
+                    redeemRelativeUnit: form.redeemRelativeUnit,
+                  }}
+                  onChange={value => setForm(prev => ({ ...prev, ...value }))}
+                />
               </div>
 
               <div>

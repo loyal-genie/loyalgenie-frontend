@@ -1,38 +1,36 @@
 import { Check, Gift } from 'lucide-react'
+import type { StampDropConfig, StampDropTrigger } from '@/lib/api'
 
 interface StampLoyaltyGridProps {
   total: number
   collected: number
-  surpriseTriggerAt: number | null
-  bigTriggerAt: number | null
-  surpriseAwarded: boolean
-  bigAwarded: boolean
+  surpriseDrops: StampDropConfig[]
+  bigRewards: StampDropConfig[]
+  dropTriggers: StampDropTrigger[]
 }
 
 function StampSlot({
   n,
   collected,
-  surpriseTriggerAt,
-  bigTriggerAt,
-  surpriseAwarded,
-  bigAwarded,
+  surpriseDrops,
+  bigRewards,
+  dropTriggers,
 }: {
   n: number
   collected: number
-  surpriseTriggerAt: number | null
-  bigTriggerAt: number | null
-  surpriseAwarded: boolean
-  bigAwarded: boolean
+  surpriseDrops: StampDropConfig[]
+  bigRewards: StampDropConfig[]
+  dropTriggers: StampDropTrigger[]
 }) {
   const filled = n <= collected
 
   if (filled) {
-    const showSurpriseGift = surpriseAwarded && surpriseTriggerAt === n
-    const showBigGift = bigAwarded && bigTriggerAt === n
+    const awardedAtN = dropTriggers.filter(t => t.awarded && t.triggerAt === n)
+    const showGift = awardedAtN.length > 0
 
     return (
       <div className="size-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-        {showSurpriseGift || showBigGift ? (
+        {showGift ? (
           <Gift className="size-4 text-[#fad499]" strokeWidth={2.25} />
         ) : (
           <Check className="size-4 text-white" strokeWidth={2.5} />
@@ -41,9 +39,25 @@ function StampSlot({
     )
   }
 
+  const inBigRange = bigRewards.some(d => n >= d.from && n <= d.to)
+  const inSurpriseRange = surpriseDrops.some(d => n >= d.from && n <= d.to)
+  const bigDrop = bigRewards.find(d => n >= d.from && n <= d.to)
+  const surpriseDrop = surpriseDrops.find(d => n >= d.from && n <= d.to)
+
   return (
-    <div className="size-9 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center shrink-0">
-      <span className="text-[11px] font-bold text-white/20">{n}</span>
+    <div
+      className="size-9 rounded-lg border flex items-center justify-center shrink-0"
+      style={
+        inBigRange && bigDrop
+          ? { backgroundColor: `${bigDrop.color}33`, borderColor: `${bigDrop.color}99` }
+          : inSurpriseRange && surpriseDrop
+            ? { backgroundColor: `${surpriseDrop.color}33`, borderColor: `${surpriseDrop.color}99` }
+            : { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.08)' }
+      }
+    >
+      <span className="text-[11px] font-bold text-white/40">
+        {inBigRange ? '🏆' : inSurpriseRange ? '?' : n}
+      </span>
     </div>
   )
 }
@@ -51,10 +65,9 @@ function StampSlot({
 export function StampLoyaltyGrid({
   total,
   collected,
-  surpriseTriggerAt,
-  bigTriggerAt,
-  surpriseAwarded,
-  bigAwarded,
+  surpriseDrops,
+  bigRewards,
+  dropTriggers,
 }: StampLoyaltyGridProps) {
   const firstRowCount = Math.min(5, total)
   const row1 = Array.from({ length: firstRowCount }, (_, i) => i + 1)
@@ -62,10 +75,9 @@ export function StampLoyaltyGrid({
 
   const slotProps = {
     collected,
-    surpriseTriggerAt,
-    bigTriggerAt,
-    surpriseAwarded,
-    bigAwarded,
+    surpriseDrops,
+    bigRewards,
+    dropTriggers,
   }
 
   return (

@@ -8,10 +8,13 @@ import { Card } from '@/components/ui/card'
 import { getMechanicLabel, getMechanicEmoji, getMechanicColor } from '@/lib/utils'
 import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
-import { RewardPoolEditor, RewardModeToggle, SingleRewardInput, NumericInput, newRewardEntry, type RewardEntry, type RewardMode } from '@/components/vendor/RewardPoolEditor'
+import { RewardPoolEditor, NumericInput, newRewardEntry, type RewardEntry } from '@/components/vendor/RewardPoolEditor'
+import { StampDropEditor } from '@/components/vendor/StampDropEditor'
+import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
+import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid, type StampDropUiState } from '@/lib/stamp-drop-config'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
-import { computeCreateDates, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
+import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
 import { todayInCampaignTz } from '@/lib/campaign-dates'
 import type { MechanicType } from '@/lib/types'
 import { isMechanicLive } from '@/lib/live-mechanics'
@@ -48,8 +51,8 @@ const DURATION_LOTTERY: { key: DurationMode; label: string; sub: string }[] = [
 const TODAY = todayInCampaignTz()
 function fmtDate(iso: string) { return fmtCampaignDate(iso) }
 function fmtTime(t: string) { const [h, m] = t.split(':').map(Number); const ap = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ap}` }
-function computeDates(mode: DurationMode, cs: string, ce: string) {
-  return computeCreateDates(mode, cs, ce)
+function computeDates(mode: DurationMode, cs: string, ce: string, cst: string, cet: string) {
+  return computeCreateSchedule(mode, cs, ce, cst, cet)
 }
 
 const UNLIMITED_USER_CAP = 1_000_000
@@ -66,6 +69,8 @@ export function VendorCampaignCreatePage() {
     durationMode: '1m' as DurationMode,
     customStart: '',
     customEnd: '',
+    customStartTime: '00:00',
+    customEndTime: '23:59',
     // Active hours
     activeHoursEnabled: false,
     activeStartTime: '09:00',
@@ -92,21 +97,7 @@ export function VendorCampaignCreatePage() {
     { label: '₹50 Off',      color: '#06B6D4', isWin: true,  reward: '₹50 Off' },
   ])
 
-  // Stamp config with per-category toggle
-  const [stampConfig, setStampConfig] = useState({
-    totalStamps: 10,
-    prefillStamps: 0,
-    surpriseFrom: 3,
-    surpriseTo: 5,
-    surpriseMode: 'single' as RewardMode,
-    surpriseSingle: 'Mystery Treat',
-    surprisePool: [newRewardEntry()] as RewardEntry[],
-    bigRewardFrom: 8,
-    bigRewardTo: 10,
-    bigMode: 'single' as RewardMode,
-    bigSingle: 'Free Breakfast Combo',
-    bigPool: [newRewardEntry()] as RewardEntry[],
-  })
+  const [stampConfig, setStampConfig] = useState(defaultStampUiState)
 
   // Dice outcomes (reward per winning face)
   const [diceOutcomes, setDiceOutcomes] = useState([
@@ -143,7 +134,7 @@ export function VendorCampaignCreatePage() {
   const isLottery        = mechanic === 'lottery'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
-  const hasGameConfigStep = mechanic !== 'check-in-loyalty'
+  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
@@ -195,23 +186,27 @@ export function VendorCampaignCreatePage() {
     setMechanic(m)
   }
 
-  const dates = computeDates(basics.durationMode, basics.customStart, basics.customEnd)
-  const durationValid = basics.durationMode !== 'custom' || (basics.customStart && basics.customEnd)
+  const schedule = computeDates(basics.durationMode, basics.customStart, basics.customEnd, basics.customStartTime, basics.customEndTime)
+  const dates = schedule
+  const durationValid = basics.durationMode !== 'custom' || (basics.customStart && basics.customEnd && basics.customStartTime && basics.customEndTime)
   const effectiveUserCap = basics.userCapLimited ? basics.userCap : UNLIMITED_USER_CAP
-
-  const surprisePoolTotal = stampConfig.surprisePool.reduce((s, r) => s + r.probability, 0)
-  const bigPoolTotal = stampConfig.bigPool.reduce((s, r) => s + r.probability, 0)
 
   const step2Valid = () => {
     if (!mechanic) return false
-    if (mechanic === 'shake') return shakeRewards.some(r => r.name) && shakePoolTotal === 100
+    if (mechanic === 'shake') {
+      const named = shakeRewards.filter(r => r.name.trim())
+      return named.length > 0 && shakePoolTotal === 100 && named.every(r =>
+        r.redeemExpiryMode === 'fixed' ? Boolean(r.redeemFixedDate) : r.redeemRelativeAmount > 0,
+      )
+    }
     if (mechanic === 'spin')  return spinSegments.some(s => s.isWin && s.reward.trim())
     if (mechanic === 'dice')  return diceOutcomes.some(o => o.isWin && o.reward.trim())
     if (mechanic === 'lottery') return lotteryConfig.jackpotReward.trim().length > 0
     if (mechanic === 'stamp') {
-      const sValid = stampConfig.surpriseMode === 'single' ? stampConfig.surpriseSingle.trim().length > 0 : stampConfig.surprisePool.some(r => r.name) && surprisePoolTotal <= 100
-      const bValid = stampConfig.bigMode === 'single' ? stampConfig.bigSingle.trim().length > 0 : stampConfig.bigPool.some(r => r.name) && bigPoolTotal <= 100
-      return sValid && bValid
+      const dropsValid = [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
+        d.to <= stampConfig.totalStamps && isStampDropValid(d),
+      )
+      return dropsValid
     }
     if (mechanic === 'check-in-loyalty') {
       const thresholds = loyaltyConfig.milestones.map(m => m.pointsThreshold)
@@ -241,6 +236,8 @@ export function VendorCampaignCreatePage() {
           mechanic: 'shake',
           startDate: dates.start,
           endDate: dates.end,
+          startTime: dates.startTime,
+          endTime: dates.endTime,
           userCap: basics.userCap,
           perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
           playsPerDay: basics.playsPerDay,
@@ -252,6 +249,10 @@ export function VendorCampaignCreatePage() {
               description: r.description,
               icon: r.icon,
               sharePercent: r.probability,
+              redeemExpiryMode: r.redeemExpiryMode,
+              redeemFixedDate: r.redeemExpiryMode === 'fixed' ? r.redeemFixedDate : undefined,
+              redeemRelativeAmount: r.redeemExpiryMode === 'relative' ? r.redeemRelativeAmount : undefined,
+              redeemRelativeUnit: r.redeemExpiryMode === 'relative' ? r.redeemRelativeUnit : undefined,
             })),
         })
         setLaunched(true)
@@ -265,47 +266,35 @@ export function VendorCampaignCreatePage() {
           mechanic: 'check-in-loyalty',
           startDate: dates.start,
           endDate: dates.end,
+          startTime: dates.startTime,
+          endTime: dates.endTime,
           userCap: effectiveUserCap,
           checkInConfig: { pointsPerCheckIn: loyaltyConfig.pointsPerCheckIn },
+          milestones: loyaltyConfig.milestones
+            .filter(m => m.name.trim())
+            .map(m => ({
+              name: m.name.trim(),
+              description: m.description,
+              icon: m.icon,
+              pointsThreshold: m.pointsThreshold,
+            })),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
         return
       }
 
+      const stampPayload = buildStampCampaignPayload(stampConfig)
       const campaign = await createMutation.mutateAsync({
         name: basics.name.trim(),
         mechanic: 'stamp',
         startDate: dates.start,
         endDate: dates.end,
+        startTime: dates.startTime,
+        endTime: dates.endTime,
         userCap: basics.userCap,
         claimPeriodDays: durationModeToDays(basics.claimDurationMode),
-        stampConfig: {
-          totalStamps: stampConfig.totalStamps,
-          prefillStamps: stampConfig.prefillStamps,
-          surpriseRange: [stampConfig.surpriseFrom, stampConfig.surpriseTo] as [number, number],
-          bigRange: [stampConfig.bigRewardFrom, stampConfig.bigRewardTo] as [number, number],
-          surpriseMode: stampConfig.surpriseMode,
-          bigMode: stampConfig.bigMode,
-        },
-        rewards: {
-          surprise: stampConfig.surpriseMode === 'single'
-            ? [{ name: stampConfig.surpriseSingle.trim(), icon: '🎁', winPercent: 100 }]
-            : stampConfig.surprisePool.filter(r => r.name).map(r => ({
-                name: r.name.trim(),
-                description: r.description,
-                icon: r.icon,
-                winPercent: r.probability,
-              })),
-          big: stampConfig.bigMode === 'single'
-            ? [{ name: stampConfig.bigSingle.trim(), icon: '🏆', winPercent: 100 }]
-            : stampConfig.bigPool.filter(r => r.name).map(r => ({
-                name: r.name.trim(),
-                description: r.description,
-                icon: r.icon,
-                winPercent: r.probability,
-              })),
-        },
+        ...stampPayload,
       })
       setLaunched(true)
       setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -407,6 +396,12 @@ export function VendorCampaignCreatePage() {
                         {basics.activeHoursEnabled && ` · ${fmtTime(basics.activeStartTime)}–${fmtTime(basics.activeEndTime)}`}
                       </span>
                     )}
+                    {basics.durationMode === 'custom' && dates.start && dates.end && (
+                      <span className="text-xs text-v-purple font-semibold flex items-center gap-1.5">
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        {`${fmtDate(dates.start)} ${fmtTime(basics.customStartTime)} → ${fmtDate(dates.end)} ${fmtTime(basics.customEndTime)}`}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {durationOptions.map(opt => (
@@ -421,7 +416,9 @@ export function VendorCampaignCreatePage() {
                     {basics.durationMode === 'custom' && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 grid grid-cols-2 gap-4 overflow-hidden">
                         <Input label="Start Date" type="date" value={basics.customStart} onChange={e => setBasics(p => ({ ...p, customStart: e.target.value }))} />
-                        <Input label="End Date"   type="date" value={basics.customEnd}   onChange={e => setBasics(p => ({ ...p, customEnd:   e.target.value }))} />
+                        <Input label="Start Time" type="time" value={basics.customStartTime} onChange={e => setBasics(p => ({ ...p, customStartTime: e.target.value }))} />
+                        <Input label="End Date" type="date" value={basics.customEnd} onChange={e => setBasics(p => ({ ...p, customEnd: e.target.value }))} />
+                        <Input label="End Time" type="time" value={basics.customEndTime} onChange={e => setBasics(p => ({ ...p, customEndTime: e.target.value }))} />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -680,109 +677,73 @@ export function VendorCampaignCreatePage() {
           {step === 2 && mechanic === 'stamp' && (
             <Card className="p-6">
               <h2 className="text-base font-bold text-v-text mb-1">Stamp Card — Trigger Config & Rewards</h2>
-              <p className="text-xs text-v-text-3 mb-5">Set stamp positions for each reward trigger, then configure what gets awarded.</p>
+              <p className="text-xs text-v-text-3 mb-5">Add surprise drops and big rewards at stamp ranges. Each drop can have its own reward and redeem-before window.</p>
               <div className="space-y-5">
-                {/* Total stamps */}
-                <Slider label="Total Stamps" displayValue={`${stampConfig.totalStamps} stamps`} min={5} max={20} step={1} value={stampConfig.totalStamps}
+                <Slider label="Total Stamps" displayValue={`${stampConfig.totalStamps} stamps`} min={5} max={30} step={1} value={stampConfig.totalStamps}
                   onChange={e => {
                     const n = Number(e.target.value)
-                    setStampConfig(p => {
-                      const surpriseFrom = Math.min(Math.max(p.surpriseFrom, 1), n)
-                      const bigRewardFrom = Math.min(Math.max(p.bigRewardFrom, 1), n)
-                      return {
-                        ...p,
-                        totalStamps: n,
-                        prefillStamps: Math.min(p.prefillStamps, n),
-                        surpriseFrom,
-                        surpriseTo: Math.min(Math.max(p.surpriseTo, surpriseFrom), n),
-                        bigRewardFrom,
-                        bigRewardTo: Math.min(Math.max(p.bigRewardTo, bigRewardFrom), n),
-                      }
-                    })
+                    setStampConfig(p => ({
+                      ...p,
+                      totalStamps: n,
+                      prefillStamps: Math.min(p.prefillStamps, n),
+                      surpriseDrops: p.surpriseDrops.map(d => ({
+                        ...d,
+                        from: Math.min(d.from, n),
+                        to: Math.min(Math.max(d.to, d.from), n),
+                      })),
+                      bigRewards: p.bigRewards.map(d => ({
+                        ...d,
+                        from: Math.min(d.from, n),
+                        to: Math.min(Math.max(d.to, d.from), n),
+                      })),
+                    }))
                   }}
                 />
 
-                {/* Pre-fill stamps */}
                 <div>
                   <Stepper label="Pre-fill Stamps" hint="stamps pre-filled" value={stampConfig.prefillStamps} min={0} max={stampConfig.totalStamps} onChange={v => setStampConfig(p => ({ ...p, prefillStamps: v }))} />
                   <p className="text-xs text-v-text-3 mt-1.5">Customers start with this many stamps already earned — lowers the barrier to the first reward.</p>
                 </div>
 
-                {/* Surprise Drop */}
-                <div className="p-4 bg-v-surface-2 border border-v-border rounded-xl space-y-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-base">🎁</span>
-                    <p className="text-xs font-bold text-v-text-2 uppercase tracking-wider">Surprise Drop</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input label="From Stamp #" type="number" min={1} max={stampConfig.totalStamps} value={stampConfig.surpriseFrom} onChange={e => setStampConfig(p => ({ ...p, surpriseFrom: Number(e.target.value) }))} />
-                    <Input label="To Stamp #"   type="number" min={stampConfig.surpriseFrom} max={stampConfig.totalStamps} value={stampConfig.surpriseTo} onChange={e => setStampConfig(p => ({ ...p, surpriseTo: Number(e.target.value) }))} />
-                  </div>
-                  <p className="text-[11px] text-v-text-3">Triggers at a random stamp within this range.</p>
-                  <RewardModeToggle mode={stampConfig.surpriseMode} onChange={m => setStampConfig(p => ({ ...p, surpriseMode: m }))} />
-                  <AnimatePresence mode="wait">
-                    {stampConfig.surpriseMode === 'single' ? (
-                      <motion.div key="single" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <SingleRewardInput value={stampConfig.surpriseSingle} onChange={v => setStampConfig(p => ({ ...p, surpriseSingle: v }))} placeholder="e.g. Mystery Treat" />
-                      </motion.div>
-                    ) : (
-                      <motion.div key="pool" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <RewardPoolEditor compact rewards={stampConfig.surprisePool} setRewards={r => setStampConfig(p => ({ ...p, surprisePool: r }))} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                <StampDropEditor
+                  title="Surprise Drops"
+                  emoji="🎁"
+                  tier="surprise"
+                  drops={stampConfig.surpriseDrops}
+                  setDrops={surpriseDrops => setStampConfig(p => ({ ...p, surpriseDrops }))}
+                  totalStamps={stampConfig.totalStamps}
+                />
 
-                {/* Big Reward */}
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-base">🏆</span>
-                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Big Reward</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input label="From Stamp #" type="number" min={1} max={stampConfig.totalStamps} value={stampConfig.bigRewardFrom} onChange={e => setStampConfig(p => ({ ...p, bigRewardFrom: Number(e.target.value) }))} />
-                    <Input label="To Stamp #"   type="number" min={stampConfig.bigRewardFrom} max={stampConfig.totalStamps} value={stampConfig.bigRewardTo} onChange={e => setStampConfig(p => ({ ...p, bigRewardTo: Number(e.target.value) }))} />
-                  </div>
-                  <p className="text-[11px] text-amber-600">Triggers at a random stamp within this range.</p>
-                  <RewardModeToggle mode={stampConfig.bigMode} onChange={m => setStampConfig(p => ({ ...p, bigMode: m }))} />
-                  <AnimatePresence mode="wait">
-                    {stampConfig.bigMode === 'single' ? (
-                      <motion.div key="single" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <SingleRewardInput value={stampConfig.bigSingle} onChange={v => setStampConfig(p => ({ ...p, bigSingle: v }))} placeholder="e.g. Free Breakfast Combo" />
-                      </motion.div>
-                    ) : (
-                      <motion.div key="pool" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <RewardPoolEditor compact rewards={stampConfig.bigPool} setRewards={r => setStampConfig(p => ({ ...p, bigPool: r }))} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                <StampDropEditor
+                  title="Big Rewards"
+                  emoji="🏆"
+                  tier="big"
+                  drops={stampConfig.bigRewards}
+                  setDrops={bigRewards => setStampConfig(p => ({ ...p, bigRewards }))}
+                  totalStamps={stampConfig.totalStamps}
+                />
 
-                {/* Card preview */}
                 <div>
                   <p className="text-[11px] font-semibold text-v-text-2 uppercase tracking-wider mb-2">Card Preview</p>
                   <div className="flex flex-wrap gap-1.5">
                     {Array.from({ length: stampConfig.totalStamps }, (_, i) => {
                       const n = i + 1
                       const isPrefilled = n <= stampConfig.prefillStamps
-                      const isSurprise  = n >= stampConfig.surpriseFrom && n <= stampConfig.surpriseTo
-                      const isBig       = n >= stampConfig.bigRewardFrom && n <= stampConfig.bigRewardTo
+                      const surpriseDrop = stampConfig.surpriseDrops.find(d => n >= d.from && n <= d.to)
+                      const bigDrop = stampConfig.bigRewards.find(d => n >= d.from && n <= d.to)
                       return (
-                        <div key={n} className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold border-2 ${
-                          isPrefilled ? 'border-v-purple bg-v-purple text-white' :
-                          isBig       ? 'border-amber-400 bg-amber-50 text-amber-600' :
-                          isSurprise  ? 'border-v-purple/40 bg-v-surface-2 text-v-purple' :
-                          'border-v-border text-v-text-3'
-                        }`}>
-                          {isPrefilled ? '✓' : isBig ? '🏆' : isSurprise ? '?' : n}
+                        <div
+                          key={n}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold border-2 ${
+                            isPrefilled ? 'border-v-purple bg-v-purple text-white' : 'border-v-border text-v-text-3'
+                          }`}
+                          style={!isPrefilled && bigDrop ? { borderColor: bigDrop.color, backgroundColor: bigDrop.color, color: '#92400e' } : undefined}
+                          {...(!isPrefilled && surpriseDrop && !bigDrop ? { style: { borderColor: surpriseDrop.color, backgroundColor: surpriseDrop.color, color: '#6b21a8' } } : {})}
+                        >
+                          {isPrefilled ? '✓' : bigDrop ? '🏆' : surpriseDrop ? '?' : n}
                         </div>
                       )
                     })}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 mt-2 text-[10px] text-v-text-3">
-                    {stampConfig.prefillStamps > 0 && <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border-2 border-v-purple bg-v-purple inline-block" /> Pre-filled ({stampConfig.prefillStamps})</span>}
-                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border-2 border-v-purple/40 bg-v-surface-2 inline-block" /> Surprise range</span>
-                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border-2 border-amber-400 bg-amber-50 inline-block" /> Big reward range</span>
                   </div>
                 </div>
               </div>
@@ -790,7 +751,7 @@ export function VendorCampaignCreatePage() {
           )}
 
           {/* CHECK-IN LOYALTY */}
-          {step === 2 && mechanic === 'check-in-loyalty' && hasGameConfigStep && (
+          {step === 2 && mechanic === 'check-in-loyalty' && (
             <Card className="p-6">
               <h2 className="text-base font-bold text-v-text mb-1">Check-in Loyalty — Points & Milestones</h2>
               <p className="text-xs text-v-text-3 mb-5">Customers earn points on each daily check-in. Configure rewards when they reach point thresholds.</p>
@@ -966,6 +927,9 @@ export function VendorCampaignCreatePage() {
                       label: 'Duration',
                       value: (() => {
                         let dur = isToday ? `Today · ${fmtDate(TODAY)}` : (dates.start && dates.end ? `${fmtDate(dates.start)} → ${fmtDate(dates.end)}` : '—')
+                        if (basics.durationMode === 'custom' && dates.start && dates.end) {
+                          dur = `${fmtDate(dates.start)} ${fmtTime(basics.customStartTime)} → ${fmtDate(dates.end)} ${fmtTime(basics.customEndTime)}`
+                        }
                         if (basics.activeHoursEnabled) dur += ` · ${fmtTime(basics.activeStartTime)}–${fmtTime(basics.activeEndTime)}`
                         return dur
                       })(),
@@ -992,8 +956,8 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'shake'   ? `${shakeRewards.filter(r => r.name).length} reward type${shakeRewards.filter(r => r.name).length !== 1 ? 's' : ''} · split among ${formatWinnerCount(totalWinners)} winners` :
                         mechanic === 'spin'    ? `${spinSegments.filter(s => s.isWin && s.reward).length} winning segment${spinSegments.filter(s => s.isWin).length !== 1 ? 's' : ''} · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin).length} of 6 faces win · ${formatWinnerCount(totalWinners)} expected winners` :
-                        mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}Surprise (${stampConfig.surpriseFrom}–${stampConfig.surpriseTo}) · Big (${stampConfig.bigRewardFrom}–${stampConfig.bigRewardTo})` :
-                        mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in` :
+                        mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)` :
+                        mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in · ${loyaltyConfig.milestones.filter(m => m.name.trim()).length} milestone(s)` :
                         mechanic === 'lottery' ? `Jackpot + ${lotteryConfig.prizes.length} prize${lotteryConfig.prizes.length !== 1 ? 's' : ''}` : '—',
                     },
                   ].map(item => (
@@ -1004,6 +968,85 @@ export function VendorCampaignCreatePage() {
                   ))}
                 </div>
               </Card>
+
+              {/* Campaign config detail */}
+              {mechanic === 'shake' && (
+                <Card className="p-6">
+                  <h3 className="text-sm font-bold text-v-text mb-3">Reward Configuration</h3>
+                  <div className="space-y-2">
+                    {shakeRewards.filter(r => r.name.trim()).map(r => (
+                      <div key={r.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-v-text">{r.icon} {r.name}</p>
+                          <p className="text-xs text-v-text-3 mt-0.5">{formatRedeemBeforeSummary(r)}</p>
+                        </div>
+                        <span className="shrink-0 text-xs font-bold text-v-purple">{r.probability}% share</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {mechanic === 'stamp' && (
+                <Card className="p-6">
+                  <h3 className="text-sm font-bold text-v-text mb-3">Stamp Card Configuration</h3>
+                  <div className="space-y-4 text-sm">
+                    <div className="flex justify-between py-2 border-b border-v-border">
+                      <span className="text-v-text-2">Total stamps</span>
+                      <span className="font-semibold text-v-text">{stampConfig.totalStamps}</span>
+                    </div>
+                    {stampConfig.prefillStamps > 0 && (
+                      <div className="flex justify-between py-2 border-b border-v-border">
+                        <span className="text-v-text-2">Pre-filled stamps</span>
+                        <span className="font-semibold text-v-text">{stampConfig.prefillStamps}</span>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs font-bold text-v-text-2 uppercase tracking-wider mb-2">Surprise Drops</p>
+                      <div className="space-y-2">
+                        {stampConfig.surpriseDrops.map(drop => (
+                          <StampDropReviewRow key={drop.id} drop={drop} />
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-v-text-2 uppercase tracking-wider mb-2">Big Rewards</p>
+                      <div className="space-y-2">
+                        {stampConfig.bigRewards.map(drop => (
+                          <StampDropReviewRow key={drop.id} drop={drop} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {mechanic === 'check-in-loyalty' && (
+                <Card className="p-6">
+                  <h3 className="text-sm font-bold text-v-text mb-3">Loyalty Configuration</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between py-2 border-b border-v-border">
+                      <span className="text-v-text-2">Points per check-in</span>
+                      <span className="font-semibold text-v-purple">+{loyaltyConfig.pointsPerCheckIn} pts</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-v-text-2 uppercase tracking-wider mb-2">Milestones</p>
+                      {loyaltyConfig.milestones.filter(m => m.name.trim()).length === 0 ? (
+                        <p className="text-xs text-v-text-3">No milestones configured</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {loyaltyConfig.milestones.filter(m => m.name.trim()).map(m => (
+                            <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-v-surface-2 border border-v-border">
+                              <span className="font-medium text-v-text">{m.icon} {m.name}</span>
+                              <span className="text-xs font-bold text-v-purple">{m.pointsThreshold} pts</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              )}
 
               {/* Expected Campaign Impact */}
               {mechanic === 'shake' && (
@@ -1025,7 +1068,7 @@ export function VendorCampaignCreatePage() {
                   userCap={effectiveUserCap}
                   userCapLimited={basics.userCapLimited}
                   pointsPerCheckIn={loyaltyConfig.pointsPerCheckIn}
-                  milestoneCount={0}
+                  milestoneCount={loyaltyConfig.milestones.filter(m => m.name.trim()).length}
                 />
               )}
               {isLottery && (
@@ -1065,6 +1108,31 @@ export function VendorCampaignCreatePage() {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function StampDropReviewRow({ drop }: { drop: StampDropUiState }) {
+  const rewards = drop.mode === 'single'
+    ? [{ name: drop.singleName, redeem: drop.pool[0] }]
+    : drop.pool.filter(r => r.name.trim()).map(r => ({ name: r.name, redeem: r }))
+
+  return (
+    <div className="p-3 rounded-xl border border-v-border" style={{ backgroundColor: `${drop.color}66` }}>
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <p className="font-semibold text-v-text">{drop.label}</p>
+        <span className="text-[10px] font-bold text-v-text-3 shrink-0">Stamps {drop.from}–{drop.to}</span>
+      </div>
+      <div className="space-y-1">
+        {rewards.map((r, i) => (
+          <div key={i} className="text-xs">
+            <span className="text-v-text-2">{r.name || 'Unnamed reward'}</span>
+            {r.redeem && (
+              <span className="text-v-text-3"> · {formatRedeemBeforeSummary(r.redeem)}</span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

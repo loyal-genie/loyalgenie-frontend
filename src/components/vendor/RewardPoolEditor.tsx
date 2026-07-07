@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Trash2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { RedeemBeforeField, isRedeemBeforeValid, type RedeemBeforeValue } from '@/components/vendor/RedeemBeforeField'
 
 export const REWARD_ICONS = ['🎁', '☕', '🧁', '🥪', '🍰', '🏷️', '🎉', '🍳', '👑', '🎫', '🎟️', '💰']
 
@@ -10,12 +11,26 @@ export interface RewardEntry {
   description: string
   icon: string
   probability: number
+  redeemExpiryMode: 'fixed' | 'relative'
+  redeemFixedDate: string
+  redeemRelativeAmount: number
+  redeemRelativeUnit: 'day' | 'week' | 'month'
 }
 
 export type RewardMode = 'single' | 'pool'
 
 export function newRewardEntry(): RewardEntry {
-  return { id: Math.random().toString(36).slice(2), name: '', description: '', icon: '🎁', probability: 10 }
+  return {
+    id: Math.random().toString(36).slice(2),
+    name: '',
+    description: '',
+    icon: '🎁',
+    probability: 10,
+    redeemExpiryMode: 'relative',
+    redeemFixedDate: '',
+    redeemRelativeAmount: 7,
+    redeemRelativeUnit: 'day',
+  }
 }
 
 function clampPercent(value: number, min: number, max: number) {
@@ -190,11 +205,16 @@ interface RewardPoolEditorProps {
   compact?: boolean
   shareMode?: boolean
   readOnly?: boolean
+  showRedeemBefore?: boolean
 }
 
-export function RewardPoolEditor({ rewards, setRewards, compact, shareMode, readOnly }: RewardPoolEditorProps) {
+export function RewardPoolEditor({ rewards, setRewards, compact, shareMode, readOnly, showRedeemBefore }: RewardPoolEditorProps) {
+  const redeemBefore = showRedeemBefore ?? shareMode
   const update = (id: string, field: keyof RewardEntry, value: string | number) =>
     setRewards(rewards.map(r => r.id === id ? { ...r, [field]: value } : r))
+
+  const updateRedeem = (id: string, value: RedeemBeforeValue) =>
+    setRewards(rewards.map(r => r.id === id ? { ...r, ...value } : r))
 
   if (readOnly) {
     return (
@@ -232,6 +252,18 @@ export function RewardPoolEditor({ rewards, setRewards, compact, shareMode, read
               <div className="flex-1 space-y-1.5">
                 <input className="w-full bg-white border border-v-border rounded-lg px-2.5 py-1.5 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Reward name" value={r.name} onChange={e => update(r.id, 'name', e.target.value)} />
                 {!compact && <input className="w-full bg-white border border-v-border rounded-lg px-2.5 py-1.5 text-xs text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Description (optional)" value={r.description} onChange={e => update(r.id, 'description', e.target.value)} />}
+                {redeemBefore && (
+                  <RedeemBeforeField
+                    compact={compact}
+                    value={{
+                      redeemExpiryMode: r.redeemExpiryMode,
+                      redeemFixedDate: r.redeemFixedDate,
+                      redeemRelativeAmount: r.redeemRelativeAmount,
+                      redeemRelativeUnit: r.redeemRelativeUnit,
+                    }}
+                    onChange={value => updateRedeem(r.id, value)}
+                  />
+                )}
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-v-text-3 shrink-0 w-9">{shareMode ? 'Share:' : 'Win %:'}</span>
                   <ShareSlider value={r.probability} onChange={n => update(r.id, 'probability', n)} />
@@ -262,9 +294,12 @@ export function rewardShareTotal(rewards: RewardEntry[]) {
   return rewards.reduce((s, r) => s + r.probability, 0)
 }
 
-/** Shake: shares must sum to exactly 100%. */
+/** Shake: shares must sum to exactly 100%; each reward needs redeem-before. */
 export function rewardsAreValid(rewards: RewardEntry[]) {
-  return rewards.some(r => r.name.trim()) && rewardShareTotal(rewards) === 100
+  const named = rewards.filter(r => r.name.trim())
+  return named.length > 0
+    && rewardShareTotal(rewards) === 100
+    && named.every(isRedeemBeforeValid)
 }
 
 /** Stamp pools: win % must be 1–100% total (not required to equal 100%). */

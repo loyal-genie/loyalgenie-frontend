@@ -90,7 +90,7 @@ export function SignInPage() {
   })
 
   const loginMutation = useMutation({
-    mutationFn: () => loginCustomerWithOtp(phone, otp),
+    mutationFn: (code: string) => loginCustomerWithOtp(phone, code),
     onSuccess: async (data) => {
       setError('')
       if (data.isNewUser) {
@@ -186,7 +186,17 @@ export function SignInPage() {
           </p>
           <div className="space-y-2">
             <Label className="text-center block">Enter 6-digit OTP</Label>
-            <OtpInput value={otp} onChange={setOtp} disabled={isPending} />
+            <OtpInput
+              value={otp}
+              onChange={setOtp}
+              disabled={isPending}
+              onComplete={(code) => {
+                if (!isPending) {
+                  setError('')
+                  loginMutation.mutate(code)
+                }
+              }}
+            />
           </div>
           {error && (
             <p className="text-sm text-v-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
@@ -196,7 +206,7 @@ export function SignInPage() {
             variant="primary"
             className="w-full"
             disabled={isPending || otp.length !== 6}
-            onClick={() => { setError(''); loginMutation.mutate() }}
+            onClick={() => { setError(''); loginMutation.mutate(otp) }}
           >
             {loginMutation.isPending ? 'Verifying...' : 'Continue'}
           </Button>

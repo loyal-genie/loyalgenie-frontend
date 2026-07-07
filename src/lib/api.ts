@@ -411,6 +411,10 @@ export interface CampaignRewardDto {
   icon: string
   sharePercent: number
   rewardTier?: string | null
+  redeemExpiryMode?: 'fixed' | 'relative'
+  redeemFixedDate?: string | null
+  redeemRelativeAmount?: number | null
+  redeemRelativeUnit?: 'day' | 'week' | 'month' | null
 }
 
 export interface StampCampaignStatsDto {
@@ -431,10 +435,10 @@ export interface StampCampaignStatsDto {
   stampConfig: {
     totalStamps: number
     prefillStamps: number
-    surpriseRange: [number, number]
-    bigRange: [number, number]
-    surpriseMode?: 'single' | 'pool'
-    bigMode?: 'single' | 'pool'
+    surpriseDrops: { id: string; label: string; from: number; to: number; mode: 'single' | 'pool'; color: string }[]
+    bigRewards: { id: string; label: string; from: number; to: number; mode: 'single' | 'pool'; color: string }[]
+    surpriseRange?: [number, number]
+    bigRange?: [number, number]
   } | null
 }
 
@@ -455,6 +459,8 @@ export interface CampaignDto {
   status: string
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   userCap: number
   perDayUserLimit: number
   playsPerDay: number
@@ -480,11 +486,22 @@ export interface CreateShakeCampaignPayload {
   mechanic: 'shake'
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   userCap: number
   perDayUserLimit: number
   playsPerDay: number
   overallWinners: number
-  rewards: { name: string; description?: string; icon: string; sharePercent: number }[]
+  rewards: {
+    name: string
+    description?: string
+    icon: string
+    sharePercent: number
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }[]
 }
 
 export interface CreateStampCampaignPayload {
@@ -492,19 +509,37 @@ export interface CreateStampCampaignPayload {
   mechanic: 'stamp'
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   userCap: number
   claimPeriodDays: number
   stampConfig: {
     totalStamps: number
     prefillStamps: number
-    surpriseRange: [number, number]
-    bigRange: [number, number]
-    surpriseMode: 'single' | 'pool'
-    bigMode: 'single' | 'pool'
+    surpriseDrops: { id: string; label: string; from: number; to: number; mode: 'single' | 'pool'; color: string }[]
+    bigRewards: { id: string; label: string; from: number; to: number; mode: 'single' | 'pool'; color: string }[]
   }
   rewards: {
-    surprise: { name: string; description?: string; icon: string; winPercent: number }[]
-    big: { name: string; description?: string; icon: string; winPercent: number }[]
+    surprise: Record<string, {
+      name: string
+      description?: string
+      icon: string
+      winPercent: number
+      redeemExpiryMode: 'fixed' | 'relative'
+      redeemFixedDate?: string
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]>
+    big: Record<string, {
+      name: string
+      description?: string
+      icon: string
+      winPercent: number
+      redeemExpiryMode: 'fixed' | 'relative'
+      redeemFixedDate?: string
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]>
   }
 }
 
@@ -515,6 +550,8 @@ export interface CreateCheckInLoyaltyCampaignPayload {
   mechanic: 'check-in-loyalty'
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   userCap: number
   checkInConfig: { pointsPerCheckIn: number }
   milestones?: { name: string; description?: string; icon: string; pointsThreshold: number }[]
@@ -578,6 +615,22 @@ export interface PublicCampaign {
   rewards: { id: string; name: string; description: string; icon: string; tier?: string | null }[]
 }
 
+export interface StampDropConfig {
+  id: string
+  label: string
+  from: number
+  to: number
+  mode: 'single' | 'pool'
+  color: string
+}
+
+export interface StampDropTrigger {
+  dropId: string
+  tier: 'surprise' | 'big'
+  triggerAt: number
+  awarded: boolean
+}
+
 export interface StampState {
   campaignId: string
   mechanic: 'stamp'
@@ -586,6 +639,9 @@ export interface StampState {
   stampsCollected: number
   totalStamps: number
   prefillStamps: number
+  surpriseDrops: StampDropConfig[]
+  bigRewards: StampDropConfig[]
+  dropTriggers: StampDropTrigger[]
   surpriseRange: [number, number]
   bigRange: [number, number]
   surpriseAwarded: boolean
@@ -676,6 +732,7 @@ export async function fetchCampaign(id: string) {
 export interface UpdateCampaignPayload {
   name?: string
   endDate?: string
+  endTime?: string
   userCap?: number
   perDayUserLimit?: number
   playsPerDay?: number
@@ -683,19 +740,47 @@ export interface UpdateCampaignPayload {
   winRatePercent?: number
   status?: 'active' | 'paused' | 'ended'
   rewards?:
-    | { id?: string; name: string; description?: string; icon: string; sharePercent: number }[]
     | {
-        surprise: { id?: string; name: string; description?: string; icon: string; winPercent: number }[]
-        big: { id?: string; name: string; description?: string; icon: string; winPercent: number }[]
+        id?: string
+        name: string
+        description?: string
+        icon: string
+        sharePercent: number
+        redeemExpiryMode: 'fixed' | 'relative'
+        redeemFixedDate?: string
+        redeemRelativeAmount?: number
+        redeemRelativeUnit?: 'day' | 'week' | 'month'
+      }[]
+    | {
+        surprise: Record<string, {
+          id?: string
+          name: string
+          description?: string
+          icon: string
+          winPercent: number
+          redeemExpiryMode: 'fixed' | 'relative'
+          redeemFixedDate?: string
+          redeemRelativeAmount?: number
+          redeemRelativeUnit?: 'day' | 'week' | 'month'
+        }[]>
+        big: Record<string, {
+          id?: string
+          name: string
+          description?: string
+          icon: string
+          winPercent: number
+          redeemExpiryMode: 'fixed' | 'relative'
+          redeemFixedDate?: string
+          redeemRelativeAmount?: number
+          redeemRelativeUnit?: 'day' | 'week' | 'month'
+        }[]>
       }
   claimPeriodDays?: number
   stampConfig?: {
     totalStamps: number
     prefillStamps: number
-    surpriseRange: [number, number]
-    bigRange: [number, number]
-    surpriseMode: 'single' | 'pool'
-    bigMode: 'single' | 'pool'
+    surpriseDrops: StampDropConfig[]
+    bigRewards: StampDropConfig[]
   }
   checkInConfig?: { pointsPerCheckIn: number }
   milestones?: { id?: string; name: string; description?: string; icon: string; pointsThreshold: number }[]

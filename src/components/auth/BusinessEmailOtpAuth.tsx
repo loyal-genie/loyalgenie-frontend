@@ -74,7 +74,7 @@ export function BusinessEmailOtpAuth({
   })
 
   const loginMutation = useMutation({
-    mutationFn: () => loginBusinessWithEmailOtp(email, otp, intent),
+    mutationFn: (code: string) => loginBusinessWithEmailOtp(email, code, intent),
     onSuccess: (data) => {
       setError('')
       setSession(data.token!, {
@@ -173,7 +173,17 @@ export function BusinessEmailOtpAuth({
           </p>
           <div className="space-y-2">
             <Label className="text-center block">Enter 6-digit OTP</Label>
-            <OtpInput value={otp} onChange={setOtp} disabled={isPending} />
+            <OtpInput
+              value={otp}
+              onChange={setOtp}
+              disabled={isPending}
+              onComplete={(code) => {
+                if (!isPending) {
+                  setError('')
+                  loginMutation.mutate(code)
+                }
+              }}
+            />
           </div>
           {error && (
             <p className="text-sm text-v-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
@@ -183,7 +193,7 @@ export function BusinessEmailOtpAuth({
             variant="primary"
             className="w-full"
             disabled={isPending || otp.length !== 6}
-            onClick={() => { setError(''); loginMutation.mutate() }}
+            onClick={() => { setError(''); loginMutation.mutate(otp) }}
           >
             {loginMutation.isPending ? 'Verifying...' : 'Continue'}
           </Button>
