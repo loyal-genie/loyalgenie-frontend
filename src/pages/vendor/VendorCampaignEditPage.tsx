@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, ArrowRight, Lock, Check, Save, AlertTriangle, AlertCircle,
-  Play, Pause, StopCircle, Loader2, CalendarDays,
+  Play, Pause, StopCircle, Loader2, CalendarDays, Eye,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldInput as Input, Slider, Stepper } from '@/components/ui/input'
@@ -21,6 +21,18 @@ import {
   isStampDropValid,
   type StampDropUiState,
 } from '@/lib/stamp-drop-config'
+import {
+  buildSpinCampaignPayload,
+  defaultSpinSegments,
+  isSpinSegmentConfigValid,
+  spinSegmentsEqual,
+  spinSegmentsFromApi,
+  spinWinRateFromSegments,
+  type SpinSegmentUi,
+} from '@/lib/spin-campaign-config'
+import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
+import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
+import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
   formatWinnerCount,
@@ -152,6 +164,14 @@ export function VendorCampaignEditPage() {
   const [originalClaimDurationMode, setOriginalClaimDurationMode] = useState<DurationMode>('14d')
   const [originalUserCapLimited, setOriginalUserCapLimited] = useState(true)
   const [originalPointsPerCheckIn, setOriginalPointsPerCheckIn] = useState(10)
+  const [spinSegments, setSpinSegments] = useState<SpinSegmentUi[]>(defaultSpinSegments())
+  const [originalSpinSegments, setOriginalSpinSegments] = useState<SpinSegmentUi[]>(defaultSpinSegments())
+  const [activeHoursEnabled, setActiveHoursEnabled] = useState(false)
+  const [activeStartTime, setActiveStartTime] = useState('09:00')
+  const [activeEndTime, setActiveEndTime] = useState('21:00')
+  const [originalActiveHoursEnabled, setOriginalActiveHoursEnabled] = useState(false)
+  const [originalActiveStartTime, setOriginalActiveStartTime] = useState('09:00')
+  const [originalActiveEndTime, setOriginalActiveEndTime] = useState('21:00')
   const [saveState, setSaveState] = useState<'idle' | 'saved'>('idle')
   const [formError, setFormError] = useState<unknown>(null)
   const [pendingStatus, setPendingStatus] = useState<'paused' | 'active' | 'ended' | null>(null)
@@ -189,6 +209,25 @@ export function VendorCampaignEditPage() {
       setOriginalUserCapLimited(campaign.userCap < UNLIMITED_USER_CAP)
     }
 
+    if (campaign.mechanic === 'spin') {
+      const hydrated = spinSegmentsFromApi(campaign.spinConfig ?? null, campaign.rewards)
+      setSpinSegments(hydrated)
+      setOriginalSpinSegments(hydrated)
+      const start = campaign.startTime ?? '00:00'
+      const end = campaign.endTime ?? '23:59'
+      const hoursEnabled = start !== '00:00' || end !== '23:59'
+      setActiveHoursEnabled(hoursEnabled)
+      setActiveStartTime(start)
+      setActiveEndTime(end)
+      setOriginalActiveHoursEnabled(hoursEnabled)
+      setOriginalActiveStartTime(start)
+      setOriginalActiveEndTime(end)
+      if (campaign.startDate !== campaign.endDate) {
+        const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
+        dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
+      }
+    }
+
     if (campaign.mechanic === 'shake' && campaign.startDate !== campaign.endDate) {
       const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
       dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
@@ -198,7 +237,7 @@ export function VendorCampaignEditPage() {
   }, [campaign])
 
   useEffect(() => {
-    if (!campaign || campaign.mechanic !== 'shake') return
+    if (!campaign || (campaign.mechanic !== 'shake' && campaign.mechanic !== 'spin')) return
     if (campaign.startDate === endDate) return
     const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
     if (status === 'ended') return
@@ -235,6 +274,7 @@ export function VendorCampaignEditPage() {
 
   const mechanic = campaign.mechanic
   const isShake = mechanic === 'shake'
+  const isSpin = mechanic === 'spin'
   const isStamp = mechanic === 'stamp'
   const isLoyalty = mechanic === 'check-in-loyalty'
   const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
@@ -266,16 +306,25 @@ export function VendorCampaignEditPage() {
     )
   }
 
+  const spinWinRate = spinWinRateFromSegments(spinSegments)
+  const spinOverallWinners = Math.max(1, Math.round(userCap * spinWinRate / 100))
+
   const changedFields = {
     name: name !== campaign.name,
     endDate: endDate !== campaign.endDate,
     endTime: endTime !== (campaign.endTime ?? '23:59'),
     userCap: effectiveUserCap !== campaign.userCap,
     userCapLimited: isLoyalty && userCapLimited !== originalUserCapLimited,
-    perDayUserLimit: isShake && perDayUserLimit !== campaign.perDayUserLimit,
-    playsPerDay: isShake && playsPerDay !== campaign.playsPerDay,
+    perDayUserLimit: (isShake || isSpin) && perDayUserLimit !== campaign.perDayUserLimit,
+    playsPerDay: (isShake || isSpin) && playsPerDay !== campaign.playsPerDay,
     overallWinners: isShake && overallWinners !== (campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100))),
     rewards: isShake && !rewardsEqual(rewards, toShakeRewards(campaign.rewards)),
+    spinConfig: isSpin && !spinSegmentsEqual(spinSegments, originalSpinSegments),
+    activeHours: isSpin && (
+      activeHoursEnabled !== originalActiveHoursEnabled
+      || activeStartTime !== originalActiveStartTime
+      || activeEndTime !== originalActiveEndTime
+    ),
     claimPeriod: isStamp && claimDurationMode !== originalClaimDurationMode,
     stampConfig: stampConfigChanged(),
     pointsPerCheckIn: isLoyalty && pointsPerCheckIn !== originalPointsPerCheckIn,
@@ -291,6 +340,7 @@ export function VendorCampaignEditPage() {
   const formValid = (() => {
     if (!name.trim() || endDate < campaign.startDate) return false
     if (isShake) return rewardsAreValid(rewards)
+    if (isSpin) return isSpinSegmentConfigValid(spinSegments)
     if (isStamp) return stampFormValid()
     if (isLoyalty) return loyaltyFormValid()
     return true
@@ -325,6 +375,16 @@ export function VendorCampaignEditPage() {
               redeemRelativeAmount: r.redeemExpiryMode === 'relative' ? r.redeemRelativeAmount : undefined,
               redeemRelativeUnit: r.redeemExpiryMode === 'relative' ? r.redeemRelativeUnit : undefined,
             }))
+        }
+      }
+
+      if (isSpin) {
+        if (changedFields.perDayUserLimit) payload.perDayUserLimit = perDayUserLimit
+        if (changedFields.playsPerDay) payload.playsPerDay = playsPerDay
+        if (changedFields.spinConfig) payload.spinConfig = buildSpinCampaignPayload(spinSegments).spinConfig
+        if (changedFields.activeHours) {
+          payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
+          payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
         }
       }
 
@@ -377,6 +437,15 @@ export function VendorCampaignEditPage() {
   const reviewRows: { label: string; value: string; changed: boolean; previous?: string }[] = [
     { label: 'Campaign Name', value: name, changed: changedFields.name, previous: campaign.name },
     { label: 'Duration', value: durationLabel, changed: changedFields.endDate, previous: originalIsSingleDay ? singleDayDurationLabel(campaign.startDate, TODAY) : `${fmtCampaignDate(campaign.startDate)} → ${fmtCampaignDate(campaign.endDate)}` },
+    ...(isSpin ? [
+      { label: 'Overall User Cap', value: `${userCap} users total`, changed: changedFields.userCap, previous: `${campaign.userCap} users total` },
+      ...(!isSingleDay ? [{ label: 'Daily User Limit', value: `${perDayUserLimit} / day`, changed: changedFields.perDayUserLimit, previous: `${campaign.perDayUserLimit} / day` }] : []),
+      { label: 'Plays Per User / Day', value: String(playsPerDay), changed: changedFields.playsPerDay, previous: String(campaign.playsPerDay) },
+      { label: 'Win Rate', value: `${spinWinRate}% of spins win`, changed: changedFields.spinConfig },
+      { label: 'Expected Winners', value: `${formatWinnerCount(spinOverallWinners, true)} customers`, changed: changedFields.spinConfig || changedFields.userCap },
+      ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
+      { label: 'Wheel Segments', value: `${spinSegments.length} segments`, changed: changedFields.spinConfig },
+    ] : []),
     ...(isShake ? [
       { label: 'Overall User Cap', value: `${userCap} users total`, changed: changedFields.userCap, previous: `${campaign.userCap} users total` },
       ...(!isSingleDay ? [{ label: 'Daily User Limit', value: `${perDayUserLimit} / day`, changed: changedFields.perDayUserLimit, previous: `${campaign.perDayUserLimit} / day` }] : []),
@@ -395,11 +464,12 @@ export function VendorCampaignEditPage() {
   ]
 
   const mechanicTitle = isShake ? 'Shake & Win — Reward Distribution'
+    : isSpin ? 'Spin a Wheel — Segments & Rewards'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
     : 'Campaign Configuration'
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       <MechanicComingSoonBanner mechanic={mechanic} />
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <Link to={`/vendor/campaigns/${id}`} className="inline-flex items-center gap-1.5 text-sm text-v-text-2 hover:text-v-text mb-4 transition-colors">
@@ -562,6 +632,54 @@ export function VendorCampaignEditPage() {
                       </>
                     ))}
 
+                    {isSpin && (isEnded ? (
+                      <>
+                        <LockedField label="Overall User Cap" value={`${campaign.userCap} users total`} />
+                        {!isSingleDay && <LockedField label="Daily User Limit" value={`${campaign.perDayUserLimit} users / day`} />}
+                        <LockedField label="Plays Per User Per Day" value={`${campaign.playsPerDay} plays / day`} />
+                        <LockedField label="Win Rate" value={`${campaign.winRatePercent}% of spins win`} />
+                      </>
+                    ) : (
+                      <>
+                        <Stepper label="Overall User Cap" hint="users total" value={userCap} min={Math.max(campaign.currentUsers, 1)} max={2000} step={1} onChange={setUserCap} />
+                        <p className="text-[11px] text-v-text-3 -mt-2">{campaign.currentUsers} players joined · cap cannot go below current players</p>
+                        {!isSingleDay && (
+                          <div>
+                            <Stepper label="Daily User Limit" hint="users / day" value={perDayUserLimit} min={1} max={userCap} onChange={setPerDayUserLimit} />
+                            <p className="text-xs text-v-text-3 mt-1.5">Suggested: <span className="font-semibold text-v-text-2">{suggestedDailyLimit} / day</span></p>
+                          </div>
+                        )}
+                        <Stepper label="Plays Per User Per Day" hint="spins / day" value={playsPerDay} min={1} max={10} onChange={setPlaysPerDay} />
+                        <div className="p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
+                          <span className="text-v-text-3">Derived win rate: </span>
+                          <span className="font-bold text-v-purple">{spinWinRate}%</span>
+                          <span className="text-v-text-3"> · expected </span>
+                          <span className="font-bold text-v-purple">{formatWinnerCount(spinOverallWinners, true)} winners</span>
+                        </div>
+                      </>
+                    ))}
+
+                    {isSpin && !isEnded && (
+                      <div className="pt-2 border-t border-v-border mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <span className="text-xs font-semibold text-v-text-2 uppercase tracking-wider">Active Hours</span>
+                              <p className="text-xs text-v-text-3 mt-0.5">Restrict to specific hours each day (e.g. Lunch Rush)</p>
+                            </div>
+                            <button type="button" onClick={() => setActiveHoursEnabled(v => !v)}
+                              className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none shrink-0 ${activeHoursEnabled ? 'bg-v-purple' : 'bg-v-border'}`}>
+                              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${activeHoursEnabled ? 'left-6' : 'left-1'}`} />
+                            </button>
+                          </div>
+                          {activeHoursEnabled && (
+                            <div className="grid grid-cols-2 gap-4">
+                              <Input label="Start Time" type="time" value={activeStartTime} onChange={e => setActiveStartTime(e.target.value)} />
+                              <Input label="End Time" type="time" value={activeEndTime} onChange={e => setActiveEndTime(e.target.value)} />
+                            </div>
+                          )}
+                      </div>
+                    )}
+
                     {isStamp && (isEnded ? (
                       <LockedField label="User Cap" value={`${campaign.userCap} users`} />
                     ) : (
@@ -616,9 +734,31 @@ export function VendorCampaignEditPage() {
                 </div>
               </Card>
 
-              {(isShake || isStamp) && (
+              {(isShake || isSpin || isStamp) && (
               <Card className="p-6">
                 <h2 className="text-base font-bold text-v-text mb-1">{mechanicTitle}</h2>
+
+                {isSpin && (
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start xl:grid-cols-[minmax(0,1fr)_300px]">
+                    <div>
+                      <p className="text-xs text-v-text-3 mb-4">Edit wheel segments, reward details, and slice percentages.</p>
+                      {isEnded ? (
+                        <SpinSegmentEditor segments={spinSegments} setSegments={setSpinSegments} readOnly />
+                      ) : (
+                        <SpinSegmentEditor segments={spinSegments} setSegments={setSpinSegments} />
+                      )}
+                    </div>
+                    <div className="lg:sticky lg:top-6">
+                      <div className="mb-3 flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-v-text">Wheel Preview</h3>
+                        <Eye className="h-4 w-4 text-v-text-3" />
+                      </div>
+                      <Card className="p-5">
+                        <SpinWheelPreview segments={spinSegments} />
+                      </Card>
+                    </div>
+                  </div>
+                )}
 
                 {isShake && (
                   <>
@@ -744,6 +884,28 @@ export function VendorCampaignEditPage() {
                 </div>
               </Card>
 
+              {isSpin && changedFields.spinConfig && (
+                <Card className="p-6">
+                  <h3 className="text-sm font-bold text-v-text mb-3">Wheel Segment Changes</h3>
+                  <div className="space-y-2">
+                    {spinSegments.map(seg => (
+                      <div key={seg.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
+                        <div className="min-w-0 flex items-start gap-2">
+                          <span className="size-3 rounded-full shrink-0 mt-1" style={{ background: seg.color }} />
+                          <div>
+                            <p className="font-semibold text-v-text">{seg.label}</p>
+                            {seg.isWin && seg.label.trim() && (
+                              <p className="text-xs text-v-text-3 mt-0.5">{formatRedeemBeforeSummary(seg)}</p>
+                            )}
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-xs font-bold text-v-purple">{seg.probability}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
               {isShake && changedFields.rewards && (
                 <Card className="p-6">
                   <h3 className="text-sm font-bold text-v-text mb-3">Reward Changes</h3>
@@ -756,6 +918,19 @@ export function VendorCampaignEditPage() {
                     ))}
                   </div>
                 </Card>
+              )}
+
+              {isSpin && (
+                <WinBasedCampaignImpact
+                  userCap={userCap}
+                  overallWinners={spinOverallWinners}
+                  perDayUserLimit={isSingleDay ? userCap : perDayUserLimit}
+                  campaignDays={campaignDays}
+                  startDate={campaign.startDate}
+                  endDate={endDate}
+                  isSingleDay={isSingleDay}
+                  variant="muted"
+                />
               )}
 
               {isShake && (

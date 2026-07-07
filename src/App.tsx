@@ -44,6 +44,7 @@ function CustomerRewardClaimPageWithKey() {
   return <CustomerRewardClaimPage key={rewardId} />
 }
 const CustomerShakePage = lazyWithRetry(() => import('@/pages/customer/games/CustomerShakePage').then(m => ({ default: m.CustomerShakePage })))
+const CustomerSpinPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerSpinPage').then(m => ({ default: m.CustomerSpinPage })))
 const CustomerStampPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerStampPage').then(m => ({ default: m.CustomerStampPage })))
 const CustomerMechanicComingSoonPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerMechanicComingSoonPage').then(m => ({ default: m.CustomerMechanicComingSoonPage })))
 
@@ -125,9 +126,9 @@ export function App() {
             <Route path="campaigns/:id" element={<CustomerCampaignPage />} />
             <Route path="rewards/:rewardId/claim" element={<CustomerRewardClaimPageWithKey />} />
             <Route path="games/shake" element={<CustomerShakePage />} />
+            <Route path="games/spin" element={<CustomerSpinPage />} />
             <Route path="games/stamp" element={<CustomerStampPage />} />
             <Route path="games/coming-soon" element={<CustomerMechanicComingSoonPage />} />
-            <Route path="games/spin" element={<Navigate to="/customer/games/coming-soon?mechanic=spin" replace />} />
             <Route path="games/dice" element={<Navigate to="/customer/games/coming-soon?mechanic=dice" replace />} />
             <Route path="games/lottery" element={<Navigate to="/customer/games/coming-soon?mechanic=lottery" replace />} />
           </Route>

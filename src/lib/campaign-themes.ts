@@ -1,4 +1,4 @@
-export type LiveCampaignMechanic = 'stamp' | 'shake' | 'check-in-loyalty'
+export type LiveCampaignMechanic = 'stamp' | 'shake' | 'check-in-loyalty' | 'spin'
 
 export interface CampaignTheme {
   gradient: string
@@ -29,6 +29,13 @@ export const CAMPAIGN_THEMES: Record<string, CampaignTheme> = {
     badgeText: 'text-emerald-900',
     accent: '#047857',
     chipLabel: 'Check-in Loyalty',
+  },
+  spin: {
+    gradient: 'linear-gradient(135deg, #c4b5fd 0%, #7c3aed 45%, #4c1d95 100%)',
+    badgeBg: 'bg-[#ede9fe]',
+    badgeText: 'text-[#5b21b6]',
+    accent: '#6d28d9',
+    chipLabel: 'Spin a Wheel',
   },
 }
 

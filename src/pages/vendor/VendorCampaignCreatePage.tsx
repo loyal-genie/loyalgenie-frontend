@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Check, Zap, Plus, Trash2, AlertCircle, CalendarDays, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Zap, Plus, Trash2, AlertCircle, CalendarDays, Loader2, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldInput as Input, Slider, Stepper } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -12,6 +12,9 @@ import { RewardPoolEditor, NumericInput, newRewardEntry, type RewardEntry } from
 import { StampDropEditor } from '@/components/vendor/StampDropEditor'
 import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
 import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid, type StampDropUiState } from '@/lib/stamp-drop-config'
+import { buildSpinCampaignPayload, defaultSpinSegments, isSpinSegmentConfigValid, spinWinRateFromSegments, type SpinSegmentUi } from '@/lib/spin-campaign-config'
+import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
+import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -30,7 +33,6 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
 ]
 
 const STEPS = ['Mechanic', 'Basics', 'Game Config', 'Review']
-const SPIN_COLORS = ['#7C3AED', '#EC4899', '#F59E0B', '#06B6D4', '#22C55E', '#F43F5E', '#8B5CF6', '#10B981']
 const ICONS = ['🎁', '☕', '🧁', '🥪', '🍰', '🏷️', '🎉', '🍳', '👑', '🎫', '🎟️', '💰']
 
 const DURATION_ALL: { key: DurationMode; label: string; sub: string }[] = [
@@ -55,9 +57,17 @@ function computeDates(mode: DurationMode, cs: string, ce: string, cst: string, c
   return computeCreateSchedule(mode, cs, ce, cst, cet)
 }
 
-const UNLIMITED_USER_CAP = 1_000_000
+function getDailyWindowTimes(
+  basics: { activeHoursEnabled: boolean; activeStartTime: string; activeEndTime: string },
+  dates: { startTime: string; endTime: string },
+) {
+  if (basics.activeHoursEnabled) {
+    return { startTime: basics.activeStartTime, endTime: basics.activeEndTime }
+  }
+  return { startTime: dates.startTime, endTime: dates.endTime }
+}
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+const UNLIMITED_USER_CAP = 1_000_000
 export function VendorCampaignCreatePage() {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
@@ -88,14 +98,7 @@ export function VendorCampaignCreatePage() {
   const [shakeRewards, setShakeRewards] = useState<RewardEntry[]>([newRewardEntry()])
 
   // Spin segments (reward embedded per winning segment)
-  const [spinSegments, setSpinSegments] = useState([
-    { label: 'Free Coffee',  color: '#7C3AED', isWin: true,  reward: 'Free Coffee' },
-    { label: 'Try Again',    color: '#E5E1F8', isWin: false, reward: '' },
-    { label: '20% Off',      color: '#EC4899', isWin: true,  reward: '20% Off' },
-    { label: 'Better Luck',  color: '#EDE9FF', isWin: false, reward: '' },
-    { label: 'Free Muffin',  color: '#F59E0B', isWin: true,  reward: 'Free Muffin' },
-    { label: '₹50 Off',      color: '#06B6D4', isWin: true,  reward: '₹50 Off' },
-  ])
+  const [spinSegments, setSpinSegments] = useState<SpinSegmentUi[]>(defaultSpinSegments())
 
   const [stampConfig, setStampConfig] = useState(defaultStampUiState)
 
@@ -134,7 +137,7 @@ export function VendorCampaignCreatePage() {
   const isLottery        = mechanic === 'lottery'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
-  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty'
+  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
@@ -175,7 +178,7 @@ export function VendorCampaignCreatePage() {
   // Shake: explicit vendor input (overallWinRate). Pool probabilities = share AMONG winners (sum to 100%)
   // Spin/Dice: structurally derived from config
   const shakePoolTotal = shakeRewards.reduce((s, r) => s + r.probability, 0)
-  const spinWinRate    = spinSegments.length > 0 ? Math.round((spinSegments.filter(s => s.isWin).length / spinSegments.length) * 100) : 0
+  const spinWinRate    = spinWinRateFromSegments(spinSegments)
   const diceWinRate    = Math.round((diceOutcomes.filter(o => o.isWin).length / 6) * 100)
   const activeWinRate  = mechanic === 'spin' ? spinWinRate : mechanic === 'dice' ? diceWinRate : 0
   const totalWinners = mechanic === 'shake' ? basics.overallWinners : calcTotalWinners(basics.userCap, basics.playsPerDay, activeWinRate)
@@ -199,7 +202,7 @@ export function VendorCampaignCreatePage() {
         r.redeemExpiryMode === 'fixed' ? Boolean(r.redeemFixedDate) : r.redeemRelativeAmount > 0,
       )
     }
-    if (mechanic === 'spin')  return spinSegments.some(s => s.isWin && s.reward.trim())
+    if (mechanic === 'spin')  return isSpinSegmentConfigValid(spinSegments)
     if (mechanic === 'dice')  return diceOutcomes.some(o => o.isWin && o.reward.trim())
     if (mechanic === 'lottery') return lotteryConfig.jackpotReward.trim().length > 0
     if (mechanic === 'stamp') {
@@ -224,8 +227,8 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty') {
-      setLaunchError('Only Shake & Win, Stamp Card, and Check-in Loyalty are wired to the API in this release.')
+    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin') {
+      setLaunchError('Only Shake & Win, Stamp Card, Check-in Loyalty, and Spin a Wheel are wired to the API in this release.')
       return
     }
     setLaunchError(null)
@@ -254,6 +257,25 @@ export function VendorCampaignCreatePage() {
               redeemRelativeAmount: r.redeemExpiryMode === 'relative' ? r.redeemRelativeAmount : undefined,
               redeemRelativeUnit: r.redeemExpiryMode === 'relative' ? r.redeemRelativeUnit : undefined,
             })),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'spin') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'spin',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          userCap: basics.userCap,
+          perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
+          playsPerDay: basics.playsPerDay,
+          ...buildSpinCampaignPayload(spinSegments),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -316,7 +338,7 @@ export function VendorCampaignCreatePage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <button onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)} className="inline-flex items-center gap-1.5 text-sm text-v-text-2 hover:text-v-text mb-4 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back
@@ -343,32 +365,39 @@ export function VendorCampaignCreatePage() {
 
           {/* ── Step 0: Mechanic ── */}
           {step === 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
               {MECHANICS.map(m => {
                 const selected = mechanic === m.type
                 const color = getMechanicColor(m.type)
                 const comingSoon = !isMechanicLive(m.type)
                 return (
-                  <motion.div key={m.type} whileHover={comingSoon ? {} : { y: -3 }} whileTap={comingSoon ? {} : { scale: 0.97 }}>
+                  <motion.div
+                    key={m.type}
+                    className="h-full"
+                    whileHover={comingSoon ? {} : { y: -3 }}
+                    whileTap={comingSoon ? {} : { scale: 0.97 }}
+                  >
                     <button
                       type="button"
                       disabled={comingSoon}
                       onClick={() => selectMechanic(m.type)}
-                      className={`w-full text-left rounded-2xl p-5 border-2 transition-all duration-200 ${selected ? '' : 'border-v-border bg-white hover:border-v-border-b'} ${comingSoon ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      className={`w-full h-full text-left rounded-2xl p-5 border-2 transition-colors duration-200 flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-v-purple/30 ${selected ? '' : 'border-v-border bg-white hover:border-v-border-b'} ${comingSoon ? 'opacity-70 cursor-not-allowed' : ''}`}
                       style={selected ? { borderColor: color, background: `${color}08` } : {}}
                     >
-                      <div className="text-4xl mb-3">{getMechanicEmoji(m.type)}</div>
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <span className="text-sm font-bold text-v-text">{getMechanicLabel(m.type)}</span>
-                        {comingSoon && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            Live soon
-                          </span>
-                        )}
-                        {selected && <Check className="w-4 h-4" style={{ color }} />}
+                      <div className="h-10 flex items-center text-3xl mb-3 leading-none shrink-0">{getMechanicEmoji(m.type)}</div>
+                      <div className="flex items-center gap-2 mb-2 min-h-[22px] shrink-0">
+                        <span className="text-sm font-bold text-v-text truncate">{getMechanicLabel(m.type)}</span>
+                        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                          {comingSoon && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                              Live soon
+                            </span>
+                          )}
+                          {selected && <Check className="w-4 h-4" style={{ color }} />}
+                        </div>
                       </div>
-                      <p className="text-xs text-v-text-3 mb-3 leading-relaxed">{m.desc}</p>
-                      <div className="flex flex-wrap gap-1">
+                      <p className="text-xs text-v-text-3 mb-3 leading-relaxed line-clamp-2 min-h-[2.5rem] flex-1">{m.desc}</p>
+                      <div className="flex flex-wrap gap-1 content-start min-h-[22px] mt-auto">
                         {m.tags.map(t => <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: `${color}12`, color }}>{t}</span>)}
                       </div>
                     </button>
@@ -447,8 +476,8 @@ export function VendorCampaignCreatePage() {
                     </div>
                   )}
 
-                  {/* Active hours — deferred (not enforced in v1) */}
-                  {false && !isLottery && (
+                  {/* Active hours — daily play window for instant-win campaigns */}
+                  {isShakeSpinOrDice && (
                     <div className="mt-4 pt-4 border-t border-v-border">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -624,53 +653,34 @@ export function VendorCampaignCreatePage() {
 
           {/* SPIN A WHEEL */}
           {step === 2 && mechanic === 'spin' && (
-            <Card className="p-6">
-              <h2 className="text-base font-bold text-v-text mb-1">Spin a Wheel — Segments & Rewards</h2>
-              <p className="text-xs text-v-text-3 mb-5">Configure each segment. Mark it as a win and set the reward name directly on the segment.</p>
-              <div className="space-y-2">
-                {spinSegments.map((seg, i) => (
-                  <div key={i} className={`p-3 rounded-xl border-2 transition-all ${seg.isWin ? 'border-v-border-b/60 bg-v-surface-2' : 'border-v-border bg-white'}`}>
-                    <div className="flex items-center gap-2.5">
-                      {/* Color dot + picker */}
-                      <div className="relative group shrink-0">
-                        <div className="w-5 h-5 rounded-full border border-v-border cursor-pointer" style={{ background: seg.color }} />
-                        <div className="absolute left-0 top-7 z-10 hidden group-hover:flex flex-wrap gap-1 p-2 bg-white border border-v-border rounded-xl shadow-lg w-28">
-                          {SPIN_COLORS.map(c => <button key={c} onClick={() => setSpinSegments(s => s.map((x, j) => j === i ? { ...x, color: c } : x))} className="w-5 h-5 rounded-full border-2 transition-all" style={{ background: c, borderColor: seg.color === c ? '#1E1B4B' : 'transparent' }} />)}
-                        </div>
-                      </div>
-                      {/* Label */}
-                      <input className="flex-1 bg-transparent border-none text-sm font-semibold text-v-text placeholder:text-v-text-3 focus:outline-none" placeholder="Segment label" value={seg.label} onChange={e => setSpinSegments(s => s.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-                      {/* Win toggle */}
-                      <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
-                        <input type="checkbox" checked={seg.isWin} onChange={e => setSpinSegments(s => s.map((x, j) => j === i ? { ...x, isWin: e.target.checked, reward: e.target.checked ? x.reward : '' } : x))} className="w-3.5 h-3.5 accent-v-purple rounded" />
-                        <span className="text-xs text-v-text-3">Win</span>
-                      </label>
-                      {/* Delete */}
-                      {spinSegments.length > 2 && (
-                        <button onClick={() => setSpinSegments(s => s.filter((_, j) => j !== i))} className="p-1 rounded-lg text-v-text-3 hover:text-v-danger hover:bg-red-50 transition-colors">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                    {/* Reward field — only for winning segments */}
-                    {seg.isWin && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2 pl-8 overflow-hidden">
-                        <input className="w-full bg-white border border-v-border-b/50 rounded-lg px-3 py-1.5 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Reward (e.g. Free Coffee)" value={seg.reward} onChange={e => setSpinSegments(s => s.map((x, j) => j === i ? { ...x, reward: e.target.value } : x))} />
-                      </motion.div>
-                    )}
-                  </div>
-                ))}
-                <Button variant="secondary" size="sm" onClick={() => setSpinSegments(s => [...s, { label: 'New Segment', color: '#7C3AED', isWin: false, reward: '' }])}>
-                  <Plus className="w-3 h-3" /> Add Segment
-                </Button>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start xl:grid-cols-[minmax(0,1fr)_300px]">
+              <Card className="p-6">
+                <h2 className="text-base font-bold text-v-text mb-1">Spin a Wheel — Segments &amp; Rewards</h2>
+                <p className="text-xs text-v-text-3 mb-4">Configure each wheel segment, reward details, and slice share on the wheel.</p>
+                <div className="flex items-center gap-2 mb-5 p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
+                  <span className="text-v-text-3">Expected winners:</span>
+                  <span className="font-bold text-v-purple">{formatWinnerCount(totalWinners)} total</span>
+                  <span className="text-v-text-3 mx-1">·</span>
+                  <span className="text-v-text-3">{spinWinRate}% win rate</span>
+                  {!isToday && (
+                    <>
+                      <span className="text-v-text-3 mx-1">·</span>
+                      <span className="font-bold text-v-purple">{basics.perDayUserLimit.toLocaleString()} players / day</span>
+                    </>
+                  )}
+                </div>
+                <SpinSegmentEditor segments={spinSegments} setSegments={setSpinSegments} />
+              </Card>
+              <div className="lg:sticky lg:top-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-v-text">Wheel Preview</h3>
+                  <Eye className="h-4 w-4 text-v-text-3" />
+                </div>
+                <Card className="p-5">
+                  <SpinWheelPreview segments={spinSegments} />
+                </Card>
               </div>
-              <div className="mt-4 flex items-center justify-between p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
-                <span className="text-v-text-2">Effective win rate</span>
-                <span className="font-bold text-v-purple">
-                  {spinSegments.filter(s => s.isWin).length} of {spinSegments.length} segments win = {spinWinRate}%
-                </span>
-              </div>
-            </Card>
+            </div>
           )}
 
           {/* STAMP CARD */}
@@ -939,6 +949,10 @@ export function VendorCampaignCreatePage() {
                     ...(isStamp ? [{ label: 'Claim Period', value: `${durationModeToDays(basics.claimDurationMode)} days after enrollment closes` }] : []),
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
+                    ...(basics.activeHoursEnabled && isShakeSpinOrDice ? [{
+                      label: 'Active Hours',
+                      value: `${fmtTime(basics.activeStartTime)} – ${fmtTime(basics.activeEndTime)} daily`,
+                    }] : []),
                     ...(mechanic === 'shake' ? [
                       { label: 'Overall Winners', value: `${formatWinnerCount(basics.overallWinners, true)} customers` },
                     ] : []),
@@ -954,7 +968,7 @@ export function VendorCampaignCreatePage() {
                       label: 'Rewards',
                       value:
                         mechanic === 'shake'   ? `${shakeRewards.filter(r => r.name).length} reward type${shakeRewards.filter(r => r.name).length !== 1 ? 's' : ''} · split among ${formatWinnerCount(totalWinners)} winners` :
-                        mechanic === 'spin'    ? `${spinSegments.filter(s => s.isWin && s.reward).length} winning segment${spinSegments.filter(s => s.isWin).length !== 1 ? 's' : ''} · ${formatWinnerCount(totalWinners)} expected winners` :
+                        mechanic === 'spin'    ? `${spinSegments.length} segments · ${spinWinRate}% win rate · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin).length} of 6 faces win · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)` :
                         mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in · ${loyaltyConfig.milestones.filter(m => m.name.trim()).length} milestone(s)` :
@@ -985,6 +999,37 @@ export function VendorCampaignCreatePage() {
                     ))}
                   </div>
                 </Card>
+              )}
+
+              {mechanic === 'spin' && (
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4">
+                  <Card className="p-6">
+                    <h3 className="text-sm font-bold text-v-text mb-3">Wheel Configuration</h3>
+                    <div className="space-y-2">
+                      {spinSegments.map(seg => (
+                        <div key={seg.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
+                          <div className="min-w-0 flex items-start gap-2">
+                            <span className="size-3 rounded-full shrink-0 mt-1" style={{ background: seg.color }} />
+                            <div>
+                              <p className="font-semibold text-v-text">
+                                {seg.label}
+                                {!seg.isWin && <span className="text-v-text-3 font-normal"> · no win</span>}
+                              </p>
+                              {seg.isWin && seg.label.trim() && (
+                                <p className="text-xs text-v-text-3 mt-0.5">{formatRedeemBeforeSummary(seg)}</p>
+                              )}
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-xs font-bold text-v-purple">{seg.probability}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                  <Card className="p-5 h-fit">
+                    <p className="text-[11px] font-semibold text-v-text-2 uppercase tracking-wider mb-3">Preview</p>
+                    <SpinWheelPreview segments={spinSegments} size={200} />
+                  </Card>
+                </div>
               )}
 
               {mechanic === 'stamp' && (
@@ -1053,6 +1098,18 @@ export function VendorCampaignCreatePage() {
                 <WinBasedCampaignImpact
                   userCap={basics.userCap}
                   overallWinners={basics.overallWinners}
+                  perDayUserLimit={isToday ? basics.userCap : basics.perDayUserLimit}
+                  campaignDays={campaignDays}
+                  startDate={dates.start}
+                  endDate={dates.end}
+                  isSingleDay={isToday}
+                />
+              )}
+
+              {mechanic === 'spin' && (
+                <WinBasedCampaignImpact
+                  userCap={basics.userCap}
+                  overallWinners={totalWinners}
                   perDayUserLimit={isToday ? basics.userCap : basics.perDayUserLimit}
                   campaignDays={campaignDays}
                   startDate={dates.start}

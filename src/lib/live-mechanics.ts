@@ -2,7 +2,7 @@ import type { MechanicType } from './types'
 import { getMechanicLabel } from './utils'
 
 /** Mechanics with full customer + vendor + API support in this release. */
-export const LIVE_MECHANICS = ['shake', 'stamp', 'check-in-loyalty'] as const satisfies readonly MechanicType[]
+export const LIVE_MECHANICS = ['shake', 'stamp', 'check-in-loyalty', 'spin'] as const satisfies readonly MechanicType[]
 
 export type LiveMechanic = (typeof LIVE_MECHANICS)[number]
 

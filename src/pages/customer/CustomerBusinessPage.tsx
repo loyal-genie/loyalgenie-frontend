@@ -109,6 +109,43 @@ function ShakeCampaignBlock({
   )
 }
 
+function SpinCampaignBlock({
+  campaign,
+  playState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    winRatePercent?: number
+    playsPerDay?: number
+  }
+  playState?: PlayState
+}) {
+  const blocked = Boolean(playState && !playState.canPlay)
+  const quotaUsed = playState?.blockReason === 'no_plays_remaining'
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      blockedLabel={
+        quotaUsed
+          ? `✓ All spins used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
+          : playState?.message
+      }
+      statsLine={
+        playState
+          ? `${playState.playsUsedToday}/${playState.playsPerDay} spins today`
+          : `${campaign.playsPerDay ?? 1} spin per day`
+      }
+    />
+  )
+}
+
 function LoyaltyCampaignBlock({
   campaign,
   state,
@@ -215,9 +252,10 @@ export function CustomerBusinessPage() {
 
   const stampCampaigns = biz.campaigns.filter(c => c.mechanic === 'stamp')
   const shakeCampaigns = biz.campaigns.filter(c => c.mechanic === 'shake')
+  const spinCampaigns = biz.campaigns.filter(c => c.mechanic === 'spin')
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
   const otherCampaigns = biz.campaigns.filter(
-    c => !['stamp', 'shake', 'check-in-loyalty'].includes(c.mechanic),
+    c => !['stamp', 'shake', 'spin', 'check-in-loyalty'].includes(c.mechanic),
   )
 
   return (
@@ -247,6 +285,13 @@ export function CustomerBusinessPage() {
                 ))}
                 {shakeCampaigns.map(c => (
                   <ShakeCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    playState={stateByCampaignId.get(c.id)?.state as PlayState | undefined}
+                  />
+                ))}
+                {spinCampaigns.map(c => (
+                  <SpinCampaignBlock
                     key={c.id}
                     campaign={c}
                     playState={stateByCampaignId.get(c.id)?.state as PlayState | undefined}

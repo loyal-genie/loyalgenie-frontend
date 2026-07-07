@@ -479,6 +479,22 @@ export interface CampaignDto {
   redeemedCount: number
   stampStats?: StampCampaignStatsDto | null
   loyaltyStats?: LoyaltyCampaignStatsDto | null
+  spinConfig?: {
+    segments: {
+      id?: string
+      label: string
+      color: string
+      isWin: boolean
+      probability?: number
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string | null
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
+  } | null
 }
 
 export interface CreateShakeCampaignPayload {
@@ -543,7 +559,35 @@ export interface CreateStampCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload
+export interface CreateSpinCampaignPayload {
+  name: string
+  mechanic: 'spin'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  userCap: number
+  perDayUserLimit: number
+  playsPerDay: number
+  spinConfig: {
+    segments: {
+      id?: string
+      label: string
+      color: string
+      isWin: boolean
+      probability: number
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -611,6 +655,22 @@ export interface PublicCampaign {
     prefillStamps: number
     surpriseRange: [number, number]
     bigRange: [number, number]
+  } | null
+  spinConfig?: {
+    segments: {
+      id?: string
+      label: string
+      color: string
+      isWin: boolean
+      probability?: number
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string | null
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
   } | null
   rewards: { id: string; name: string; description: string; icon: string; tier?: string | null }[]
 }
@@ -784,6 +844,8 @@ export interface UpdateCampaignPayload {
   }
   checkInConfig?: { pointsPerCheckIn: number }
   milestones?: { id?: string; name: string; description?: string; icon: string; pointsThreshold: number }[]
+  startTime?: string
+  spinConfig?: CreateSpinCampaignPayload['spinConfig']
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {

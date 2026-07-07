@@ -2,6 +2,46 @@ import type { SpinSegment } from '@/lib/types'
 
 const SEGMENT_COLORS = ['#7C3AED', '#EC4899', '#F59E0B', '#06B6D4', '#22C55E', '#631cbb', '#2A2660', '#1A1840']
 
+export function spinConfigToSegments(
+  segments: {
+    label: string
+    color: string
+    isWin: boolean
+    probability?: number
+    reward: string | null
+  }[],
+): SpinSegment[] {
+  const total = segments.reduce((s, seg) => s + (seg.probability ?? 0), 0) || segments.length * 100 / Math.max(segments.length, 1)
+  return segments.map(seg => ({
+    label: seg.label.length > 10 ? seg.label.slice(0, 9) + '…' : seg.label,
+    reward: seg.isWin ? (seg.reward ?? seg.label) : null,
+    probability: seg.probability != null
+      ? seg.probability / (total || 100)
+      : 1 / segments.length,
+    color: seg.color,
+    isWin: seg.isWin,
+  }))
+}
+
+export function segmentSliceAngle(seg: SpinSegment, totalProbability: number): number {
+  const weight = seg.probability > 1 ? seg.probability : seg.probability * 100
+  const total = totalProbability > 1 ? totalProbability : totalProbability * 100
+  return (weight / (total || 100)) * 360
+}
+
+export function segmentAngles(segments: SpinSegment[]): number[] {
+  const total = segments.reduce((s, seg) => s + (seg.probability > 1 ? seg.probability : seg.probability * 100), 0) || 100
+  return segments.map(seg => segmentSliceAngle(seg, total))
+}
+
+export function landingAngleForIndex(segments: SpinSegment[], index: number): number {
+  const angles = segmentAngles(segments)
+  let start = -90
+  for (let i = 0; i < index; i++) start += angles[i] ?? 0
+  const slice = angles[index] ?? 360 / segments.length
+  return start + slice / 2
+}
+
 export function buildSpinSegmentsFromRewards(
   rewards: { name: string; icon?: string }[],
 ): SpinSegment[] {

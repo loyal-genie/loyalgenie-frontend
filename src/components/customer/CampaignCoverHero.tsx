@@ -93,9 +93,60 @@ function CheckInCoverArt() {
   )
 }
 
+function SpinCoverArt() {
+  const cx = 80
+  const cy = 80
+  const r = 58
+  const slices = [
+    { color: '#7C3AED', label: 'Win' },
+    { color: '#EC4899', label: 'Prize' },
+    { color: '#2A2660', label: 'Try' },
+    { color: '#F59E0B', label: 'Off' },
+    { color: '#06B6D4', label: 'Gift' },
+    { color: '#1A1840', label: 'Luck' },
+  ]
+  let angle = -90
+  return (
+    <div className="absolute inset-0 flex items-end justify-between px-4 pb-3 pt-8">
+      <div className="max-w-[52%] z-10">
+        <p className="text-xl font-extrabold leading-tight text-white drop-shadow-sm">Spin a Wheel</p>
+        <p className="text-[11px] text-white/75 mt-1 leading-snug">A flick of fortune at every checkout</p>
+      </div>
+      <div className="relative shrink-0 mr-1 mb-1">
+        <div className="absolute -inset-3 rounded-full border border-white/15" />
+        <div className="absolute -inset-6 rounded-full border border-white/10" />
+        <svg width="120" height="120" viewBox="0 0 160 160" className="drop-shadow-lg">
+          {slices.map((slice, i) => {
+            const sweep = 360 / slices.length
+            const start = (angle * Math.PI) / 180
+            angle += sweep
+            const end = (angle * Math.PI) / 180
+            const x1 = cx + r * Math.cos(start)
+            const y1 = cy + r * Math.sin(start)
+            const x2 = cx + r * Math.cos(end)
+            const y2 = cy + r * Math.sin(end)
+            return (
+              <path
+                key={i}
+                d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`}
+                fill={slice.color}
+                stroke="rgba(255,255,255,0.12)"
+                strokeWidth="1"
+              />
+            )
+          })}
+          <circle cx={cx} cy={cy} r="14" fill="#08071A" stroke="#F5C518" strokeWidth="2" />
+          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize="12">🎡</text>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 function CoverArt({ mechanic }: { mechanic: string }) {
   if (mechanic === 'stamp') return <StampCoverArt />
   if (mechanic === 'check-in-loyalty') return <CheckInCoverArt />
+  if (mechanic === 'spin') return <SpinCoverArt />
   return <ShakeCoverArt />
 }
 

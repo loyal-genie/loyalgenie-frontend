@@ -1,11 +1,13 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
 import { useInstantWinPlay } from '@/hooks/useInstantWinPlay'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
-import { buildSpinSegmentsFromRewards, pickSpinLandingIndex } from '@/lib/instant-win-ui'
+import { buildSpinSegmentsFromRewards, landingAngleForIndex, pickSpinLandingIndex, segmentAngles, spinConfigToSegments } from '@/lib/instant-win-ui'
+import { spinRewardChipStyle } from '@/lib/spin-segment-colors'
+import { SpinWheelGradientDefs, segmentPathFill } from '@/components/vendor/SpinWheelGradientDefs'
 import type { SpinSegment } from '@/lib/types'
 
 type State = 'idle' | 'spinning' | 'result'
@@ -32,23 +34,28 @@ export function CustomerSpinPage() {
     resetPlay()
     setState('idle')
     setRotation(0)
+    rotationBeforeSpinRef.current = 0
     setLandedIdx(null)
   }
 
   const segments = useMemo((): SpinSegment[] => {
+    if (campaign?.spinConfig?.segments?.length) {
+      return spinConfigToSegments(campaign.spinConfig.segments)
+    }
     if (campaign?.rewards?.length) return buildSpinSegmentsFromRewards(campaign.rewards)
     return buildSpinSegmentsFromRewards([{ name: 'Free Coffee', icon: '☕' }])
-  }, [campaign?.rewards])
+  }, [campaign?.spinConfig?.segments, campaign?.rewards])
 
   const [state, setState] = useState<State>('idle')
   const [rotation, setRotation] = useState(0)
   const [landedIdx, setLandedIdx] = useState<number | null>(null)
+  const rotationBeforeSpinRef = useRef(0)
 
-  const segCount = segments.length
-  const segAngle = 360 / segCount
+  const segAngles = useMemo(() => segmentAngles(segments), [segments])
 
   const spin = () => {
     if (state !== 'idle' || !canPlay || isPlaying) return
+    rotationBeforeSpinRef.current = rotation
     setState('spinning')
     setLandedIdx(null)
     startPlay()
@@ -59,15 +66,15 @@ export function CustomerSpinPage() {
 
     const idx = pickSpinLandingIndex(segments, playResult.won, playResult.reward?.name)
     const extraSpins = 5 + Math.floor(Math.random() * 3)
-    const targetAngle = 360 - (idx * segAngle + segAngle / 2) + 90
-    const finalRotation = rotation + extraSpins * 360 + (targetAngle % 360)
+    const targetAngle = 360 - landingAngleForIndex(segments, idx) + 90
+    const finalRotation = rotationBeforeSpinRef.current + extraSpins * 360 + (targetAngle % 360)
 
     setLandedIdx(idx)
     setRotation(finalRotation)
 
     const t = setTimeout(() => setState('result'), 4500)
     return () => clearTimeout(t)
-  }, [state, playResult, segments, segAngle, rotation])
+  }, [state, playResult, segments])
 
   useEffect(() => {
     if (playError && state === 'spinning') {
@@ -175,36 +182,44 @@ export function CustomerSpinPage() {
           transition={state === 'spinning' ? { duration: 4, ease: [0.2, 0.8, 0.3, 1] } : { duration: 0 }}
         >
           <svg width="300" height="300" viewBox="0 0 300 300">
+            <SpinWheelGradientDefs segments={segments.map((seg, i) => ({ id: `seg-${i}`, color: seg.color }))} />
             {segments.map((seg, i) => {
-              const startAngle = (i * segAngle - 90) * (Math.PI / 180)
-              const endAngle = ((i + 1) * segAngle - 90) * (Math.PI / 180)
+              let startAngleDeg = -90
+              for (let j = 0; j < i; j++) startAngleDeg += segAngles[j] ?? 0
+              const sliceAngle = segAngles[i] ?? 360 / segments.length
+              const startAngle = (startAngleDeg * Math.PI) / 180
+              const endAngle = ((startAngleDeg + sliceAngle) * Math.PI) / 180
               const x1 = cx + r * Math.cos(startAngle)
               const y1 = cy + r * Math.sin(startAngle)
               const x2 = cx + r * Math.cos(endAngle)
               const y2 = cy + r * Math.sin(endAngle)
+              const largeArc = sliceAngle > 180 ? 1 : 0
               const midAngle = (startAngle + endAngle) / 2
               const tx = cx + r * 0.65 * Math.cos(midAngle)
               const ty = cy + r * 0.65 * Math.sin(midAngle)
+              const labelAngle = startAngleDeg + sliceAngle / 2
               return (
                 <g key={i}>
                   <path
-                    d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`}
-                    fill={seg.color}
+                    d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                    fill={segmentPathFill(seg.color, `seg-${i}`)}
                     stroke="rgba(255,255,255,0.12)"
                     strokeWidth="1.5"
                     opacity={landedIdx === i ? 1 : 0.92}
                   />
-                  <text
-                    x={tx} y={ty}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="white"
-                    fontSize="9"
-                    fontWeight="700"
-                    transform={`rotate(${i * segAngle + segAngle / 2}, ${tx}, ${ty})`}
-                  >
-                    {seg.label}
-                  </text>
+                  {sliceAngle >= 16 && (
+                    <text
+                      x={tx} y={ty}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="white"
+                      fontSize="9"
+                      fontWeight="700"
+                      transform={`rotate(${labelAngle}, ${tx}, ${ty})`}
+                    >
+                      {seg.label}
+                    </text>
+                  )}
                 </g>
               )
             })}
@@ -231,6 +246,37 @@ export function CustomerSpinPage() {
       >
         {state === 'spinning' ? '🎡 Spinning…' : '✨ SPIN'}
       </motion.button>
+
+      {segments.some(s => s.isWin) && (
+        <div className="w-full mt-4 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5">
+          <p className="text-center text-[10px] font-bold uppercase tracking-[0.14em] text-white/55 mb-2">
+            Possible rewards
+          </p>
+          <div className="flex gap-2 justify-center flex-wrap">
+            {segments.filter(s => s.isWin).map((s, i) => {
+              const chip = spinRewardChipStyle(s.color)
+              return (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full leading-tight"
+                  style={{
+                    background: chip.background,
+                    border: `1px solid ${chip.borderColor}`,
+                    color: chip.textColor,
+                  }}
+                >
+                  <span
+                    className="size-2 rounded-full shrink-0 ring-1 ring-white/30"
+                    style={{ background: chip.dotBackground }}
+                    aria-hidden
+                  />
+                  {s.label}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
