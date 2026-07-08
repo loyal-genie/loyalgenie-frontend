@@ -31,10 +31,10 @@ export const CAMPAIGN_THEMES: Record<string, CampaignTheme> = {
     chipLabel: 'Check-in Loyalty',
   },
   spin: {
-    gradient: 'linear-gradient(135deg, #c4b5fd 0%, #7c3aed 45%, #4c1d95 100%)',
-    badgeBg: 'bg-[#ede9fe]',
-    badgeText: 'text-[#5b21b6]',
-    accent: '#6d28d9',
+    gradient: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 45%, #1e3a8a 100%)',
+    badgeBg: 'bg-[#dbeafe]',
+    badgeText: 'text-[#1e40af]',
+    accent: '#2563eb',
     chipLabel: 'Spin a Wheel',
   },
 }
