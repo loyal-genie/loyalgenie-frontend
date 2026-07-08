@@ -1,4 +1,4 @@
-import { isRedeemBeforeValid } from '@/components/vendor/RedeemBeforeField'
+import { isRedeemBeforeValid, type RedeemBeforeValue } from '@/components/vendor/RedeemBeforeField'
 
 export const DICE_FACE_COUNT = 6
 
@@ -108,6 +108,22 @@ export function diceOutcomesFromApi(
       }))
   }
   return defaultDiceOutcomes()
+}
+
+/** Read the shared redeem-before config (all outcomes carry the same value). */
+export function getDiceRedeem(outcomes: DiceOutcomeUi[]): RedeemBeforeValue {
+  const src = outcomes.find(o => o.isWin) ?? outcomes[0]
+  return {
+    redeemExpiryMode: src?.redeemExpiryMode ?? 'relative',
+    redeemFixedDate: src?.redeemFixedDate ?? '',
+    redeemRelativeAmount: src?.redeemRelativeAmount ?? 7,
+    redeemRelativeUnit: src?.redeemRelativeUnit ?? 'day',
+  }
+}
+
+/** Apply one shared redeem-before config to every outcome. */
+export function applyDiceRedeem(outcomes: DiceOutcomeUi[], redeem: RedeemBeforeValue): DiceOutcomeUi[] {
+  return outcomes.map(o => ({ ...o, ...redeem }))
 }
 
 export function diceOutcomesEqual(a: DiceOutcomeUi[], b: DiceOutcomeUi[]): boolean {

@@ -1,14 +1,11 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { RedeemBeforeField } from '@/components/vendor/RedeemBeforeField'
 import { SpinColorPicker } from '@/components/vendor/SpinColorPicker'
-import { PercentInput } from '@/components/vendor/RewardPoolEditor'
 import { segmentCssBackground } from '@/lib/spin-segment-colors'
 import {
   addSpinSegment,
   removeSpinSegment,
   segmentDisplayName,
-  setSegmentProbability,
   spinWinRateFromSegments,
   type SpinSegmentUi,
 } from '@/lib/spin-campaign-config'
@@ -16,22 +13,6 @@ import {
 const labelClass = 'text-xs font-semibold text-v-text-2 uppercase tracking-wider'
 const inputClass =
   'h-11 w-full rounded-xl border border-v-border bg-white px-4 text-sm text-v-text placeholder:text-v-text-3 focus:border-v-purple focus:outline-none focus:ring-2 focus:ring-v-purple/12'
-
-function ShareSlider({ value, onChange, min = 1, max = 100 }: { value: number; onChange: (n: number) => void; min?: number; max?: number }) {
-  const pct = `${((value - min) / (max - min)) * 100}%`
-  return (
-    <input
-      type="range"
-      min={min}
-      max={max}
-      value={value}
-      onChange={e => onChange(Number(e.target.value))}
-      aria-label="Segment share"
-      className="share-range-slider w-full"
-      style={{ accentColor: '#7C3AED', ['--share-pct' as string]: pct }}
-    />
-  )
-}
 
 function SegmentProbabilityBar({ segments }: { segments: SpinSegmentUi[] }) {
   return (
@@ -72,10 +53,6 @@ export function SpinSegmentEditor({ segments, setSegments, readOnly }: SpinSegme
   const update = (id: string, patch: Partial<SpinSegmentUi>) =>
     setSegments(segments.map(s => (s.id === id ? { ...s, ...patch } : s)))
 
-  const updateProbability = (id: string, value: number) => {
-    setSegments(setSegmentProbability(segments, id, value))
-  }
-
   const winRate = spinWinRateFromSegments(segments)
 
   if (readOnly) {
@@ -100,7 +77,7 @@ export function SpinSegmentEditor({ segments, setSegments, readOnly }: SpinSegme
         <div>
           <span className={labelClass}>Wheel Segments &amp; Rewards</span>
           <p className="text-xs text-v-text-3 mt-1">
-            Shares auto-balance to 100%. Adjust one segment and the others update automatically.
+            Every segment shares the wheel equally. See the full breakdown below and in the preview.
           </p>
         </div>
         <Button
@@ -119,7 +96,7 @@ export function SpinSegmentEditor({ segments, setSegments, readOnly }: SpinSegme
             className="rounded-xl border border-v-border bg-v-surface-2 p-5"
           >
             {/* Segment header */}
-            <div className="flex items-start gap-3 mb-4">
+            <div className="flex items-start gap-3">
               <div className="pt-6">
                 <SpinColorPicker value={seg.color} onChange={color => update(seg.id, { color })} />
               </div>
@@ -150,44 +127,6 @@ export function SpinSegmentEditor({ segments, setSegments, readOnly }: SpinSegme
                   <Trash2 className="size-4" />
                 </button>
               )}
-            </div>
-
-            {/* Reward fields — full width like Create Reward */}
-            {seg.isWin && (
-              <div className="border-t border-v-border pt-4">
-                <RedeemBeforeField
-                  value={{
-                    redeemExpiryMode: seg.redeemExpiryMode,
-                    redeemFixedDate: seg.redeemFixedDate,
-                    redeemRelativeAmount: seg.redeemRelativeAmount,
-                    redeemRelativeUnit: seg.redeemRelativeUnit,
-                  }}
-                  onChange={value => update(seg.id, value)}
-                />
-              </div>
-            )}
-
-            {/* Share slider — full width row */}
-            <div className="border-t border-v-border pt-4 mt-4">
-              <label className={`${labelClass} mb-2 block`}>Wheel Share</label>
-              <div className="flex items-center gap-3">
-                <ShareSlider
-                  value={seg.probability}
-                  onChange={n => updateProbability(seg.id, n)}
-                  min={1}
-                  max={100 - (segments.length - 1)}
-                />
-                <div className="flex items-center gap-1 shrink-0">
-                  <PercentInput
-                    value={seg.probability}
-                    onChange={n => updateProbability(seg.id, n)}
-                    min={1}
-                    max={100 - (segments.length - 1)}
-                    className="w-14 h-11 bg-white border border-v-border rounded-xl px-2 text-sm text-v-text text-center focus:outline-none focus:border-v-purple focus:ring-2 focus:ring-v-purple/12"
-                  />
-                  <span className="text-sm text-v-text-2 font-medium">%</span>
-                </div>
-              </div>
             </div>
           </div>
         ))}

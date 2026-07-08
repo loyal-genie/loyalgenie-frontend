@@ -10,10 +10,10 @@ import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
 import { RewardPoolEditor, NumericInput, newRewardEntry, type RewardEntry } from '@/components/vendor/RewardPoolEditor'
 import { StampDropEditor } from '@/components/vendor/StampDropEditor'
-import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
+import { formatRedeemBeforeSummary, RedeemBeforeField } from '@/components/vendor/RedeemBeforeField'
 import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid, type StampDropUiState } from '@/lib/stamp-drop-config'
-import { buildSpinCampaignPayload, defaultSpinSegments, isSpinSegmentConfigValid, spinWinRateFromSegments, type SpinSegmentUi } from '@/lib/spin-campaign-config'
-import { buildDiceCampaignPayload, defaultDiceOutcomes, diceWinRateFromOutcomes, isDiceConfigValid, type DiceOutcomeUi } from '@/lib/dice-campaign-config'
+import { applySpinRedeem, buildSpinCampaignPayload, defaultSpinSegments, getSpinRedeem, isSpinSegmentConfigValid, spinWinRateFromSegments, type SpinSegmentUi } from '@/lib/spin-campaign-config'
+import { applyDiceRedeem, buildDiceCampaignPayload, defaultDiceOutcomes, diceWinRateFromOutcomes, getDiceRedeem, isDiceConfigValid, type DiceOutcomeUi } from '@/lib/dice-campaign-config'
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
 import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
@@ -684,6 +684,15 @@ export function VendorCampaignCreatePage() {
                   )}
                 </div>
                 <SpinSegmentEditor segments={spinSegments} setSegments={setSpinSegments} />
+                <div className="mt-5 border-t border-v-border pt-5">
+                  <p className="text-xs text-v-text-3 mb-3">
+                    This redeem window applies to <span className="font-semibold text-v-text-2">every</span> reward won on the wheel.
+                  </p>
+                  <RedeemBeforeField
+                    value={getSpinRedeem(spinSegments)}
+                    onChange={value => setSpinSegments(applySpinRedeem(spinSegments, value))}
+                  />
+                </div>
               </Card>
               <div className="lg:sticky lg:top-6">
                 <div className="mb-3 flex items-center justify-between">
@@ -870,6 +879,15 @@ export function VendorCampaignCreatePage() {
                 )}
               </div>
               <DiceOutcomeEditor outcomes={diceOutcomes} setOutcomes={setDiceOutcomes} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  This redeem window applies to <span className="font-semibold text-v-text-2">every</span> reward won on the dice.
+                </p>
+                <RedeemBeforeField
+                  value={getDiceRedeem(diceOutcomes)}
+                  onChange={value => setDiceOutcomes(applyDiceRedeem(diceOutcomes, value))}
+                />
+              </div>
             </Card>
           )}
 
@@ -956,6 +974,7 @@ export function VendorCampaignCreatePage() {
                     ...(mechanic === 'dice' ? [
                       { label: 'Total Winners', value: `${formatWinnerCount(totalWinners)} if cap fills (${activeWinRate}% win rate)` },
                       ...(!isToday ? [{ label: 'Winners / Day', value: `${formatWinnerCount(dailyWinners)} on a full day` }] : []),
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(getDiceRedeem(diceOutcomes)) },
                     ] : []),
                     {
                       label: 'Rewards',
@@ -998,6 +1017,10 @@ export function VendorCampaignCreatePage() {
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4">
                   <Card className="p-6">
                     <h3 className="text-sm font-bold text-v-text mb-3">Wheel Configuration</h3>
+                    <div className="mb-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
+                      <span className="text-v-text-2">Redeem before</span>
+                      <span className="font-semibold text-v-text">{formatRedeemBeforeSummary(getSpinRedeem(spinSegments))}</span>
+                    </div>
                     <div className="space-y-2">
                       {spinSegments.map(seg => (
                         <div key={seg.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
@@ -1008,9 +1031,6 @@ export function VendorCampaignCreatePage() {
                                 {seg.label}
                                 {!seg.isWin && <span className="text-v-text-3 font-normal"> · no win</span>}
                               </p>
-                              {seg.isWin && seg.label.trim() && (
-                                <p className="text-xs text-v-text-3 mt-0.5">{formatRedeemBeforeSummary(seg)}</p>
-                              )}
                             </div>
                           </div>
                           <span className="shrink-0 text-xs font-bold text-v-purple">{seg.probability}%</span>

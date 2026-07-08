@@ -1,4 +1,4 @@
-import { isRedeemBeforeValid } from '@/components/vendor/RedeemBeforeField'
+import { isRedeemBeforeValid, type RedeemBeforeValue } from '@/components/vendor/RedeemBeforeField'
 import { SPIN_SOLID_COLORS } from '@/lib/spin-segment-colors'
 
 export { SPIN_COLORS, SPIN_ALL_COLORS, SPIN_SOLID_COLORS, SPIN_GRADIENT_COLORS } from '@/lib/spin-segment-colors'
@@ -215,6 +215,22 @@ export function spinSegmentsFromApi(
   }
 
   return defaultSpinSegments()
+}
+
+/** Read the shared redeem-before config (all segments carry the same value). */
+export function getSpinRedeem(segments: SpinSegmentUi[]): RedeemBeforeValue {
+  const src = segments.find(s => s.isWin) ?? segments[0]
+  return {
+    redeemExpiryMode: src?.redeemExpiryMode ?? 'relative',
+    redeemFixedDate: src?.redeemFixedDate ?? '',
+    redeemRelativeAmount: src?.redeemRelativeAmount ?? 7,
+    redeemRelativeUnit: src?.redeemRelativeUnit ?? 'day',
+  }
+}
+
+/** Apply one shared redeem-before config to every segment. */
+export function applySpinRedeem(segments: SpinSegmentUi[], redeem: RedeemBeforeValue): SpinSegmentUi[] {
+  return segments.map(s => ({ ...s, ...redeem }))
 }
 
 export function spinSegmentsEqual(a: SpinSegmentUi[], b: SpinSegmentUi[]): boolean {

@@ -22,8 +22,11 @@ import {
   type StampDropUiState,
 } from '@/lib/stamp-drop-config'
 import {
+  applyEqualProbabilities,
+  applySpinRedeem,
   buildSpinCampaignPayload,
   defaultSpinSegments,
+  getSpinRedeem,
   isSpinSegmentConfigValid,
   spinSegmentsEqual,
   spinSegmentsFromApi,
@@ -33,16 +36,18 @@ import {
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
 import {
+  applyDiceRedeem,
   buildDiceCampaignPayload,
   defaultDiceOutcomes,
   diceOutcomesEqual,
   diceOutcomesFromApi,
   diceWinRateFromOutcomes,
+  getDiceRedeem,
   isDiceConfigValid,
   type DiceOutcomeUi,
 } from '@/lib/dice-campaign-config'
 import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
-import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
+import { formatRedeemBeforeSummary, RedeemBeforeField } from '@/components/vendor/RedeemBeforeField'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
   formatWinnerCount,
@@ -222,7 +227,7 @@ export function VendorCampaignEditPage() {
     }
 
     if (campaign.mechanic === 'spin') {
-      const hydrated = spinSegmentsFromApi(campaign.spinConfig ?? null, campaign.rewards)
+      const hydrated = applyEqualProbabilities(spinSegmentsFromApi(campaign.spinConfig ?? null, campaign.rewards))
       setSpinSegments(hydrated)
       setOriginalSpinSegments(hydrated)
       const start = campaign.startTime ?? '00:00'
@@ -825,6 +830,17 @@ export function VendorCampaignEditPage() {
                   <div>
                     <p className="text-xs text-v-text-3 mb-4">Toggle each face as a win and assign its reward. Each face is equally likely.</p>
                     <DiceOutcomeEditor outcomes={diceOutcomes} setOutcomes={setDiceOutcomes} readOnly={isEnded} />
+                    {!isEnded && (
+                      <div className="mt-5 border-t border-v-border pt-5">
+                        <p className="text-xs text-v-text-3 mb-3">
+                          This redeem window applies to <span className="font-semibold text-v-text-2">every</span> reward won on the dice.
+                        </p>
+                        <RedeemBeforeField
+                          value={getDiceRedeem(diceOutcomes)}
+                          onChange={value => setDiceOutcomes(applyDiceRedeem(diceOutcomes, value))}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -835,7 +851,18 @@ export function VendorCampaignEditPage() {
                       {isEnded ? (
                         <SpinSegmentEditor segments={spinSegments} setSegments={setSpinSegments} readOnly />
                       ) : (
-                        <SpinSegmentEditor segments={spinSegments} setSegments={setSpinSegments} />
+                        <>
+                          <SpinSegmentEditor segments={spinSegments} setSegments={setSpinSegments} />
+                          <div className="mt-5 border-t border-v-border pt-5">
+                            <p className="text-xs text-v-text-3 mb-3">
+                              This redeem window applies to <span className="font-semibold text-v-text-2">every</span> reward won on the wheel.
+                            </p>
+                            <RedeemBeforeField
+                              value={getSpinRedeem(spinSegments)}
+                              onChange={value => setSpinSegments(applySpinRedeem(spinSegments, value))}
+                            />
+                          </div>
+                        </>
                       )}
                     </div>
                     <div className="lg:sticky lg:top-6">
@@ -977,6 +1004,10 @@ export function VendorCampaignEditPage() {
               {isSpin && changedFields.spinConfig && (
                 <Card className="p-6">
                   <h3 className="text-sm font-bold text-v-text mb-3">Wheel Segment Changes</h3>
+                  <div className="mb-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
+                    <span className="text-v-text-2">Redeem before</span>
+                    <span className="font-semibold text-v-text">{formatRedeemBeforeSummary(getSpinRedeem(spinSegments))}</span>
+                  </div>
                   <div className="space-y-2">
                     {spinSegments.map(seg => (
                       <div key={seg.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
@@ -984,9 +1015,6 @@ export function VendorCampaignEditPage() {
                           <span className="size-3 rounded-full shrink-0 mt-1" style={{ background: seg.color }} />
                           <div>
                             <p className="font-semibold text-v-text">{seg.label}</p>
-                            {seg.isWin && seg.label.trim() && (
-                              <p className="text-xs text-v-text-3 mt-0.5">{formatRedeemBeforeSummary(seg)}</p>
-                            )}
                           </div>
                         </div>
                         <span className="shrink-0 text-xs font-bold text-v-purple">{seg.probability}%</span>
@@ -999,6 +1027,10 @@ export function VendorCampaignEditPage() {
               {isDice && changedFields.diceConfig && (
                 <Card className="p-6">
                   <h3 className="text-sm font-bold text-v-text mb-3">Dice Face Changes</h3>
+                  <div className="mb-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
+                    <span className="text-v-text-2">Redeem before</span>
+                    <span className="font-semibold text-v-text">{formatRedeemBeforeSummary(getDiceRedeem(diceOutcomes))}</span>
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {diceOutcomes.map(o => (
                       <div key={o.id} className={`p-3 rounded-xl border text-center ${o.isWin && o.reward.trim() ? 'border-v-purple/40 bg-v-surface-2' : 'border-v-border bg-white'}`}>

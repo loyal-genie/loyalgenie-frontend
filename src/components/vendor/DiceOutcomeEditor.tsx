@@ -1,4 +1,3 @@
-import { RedeemBeforeField } from '@/components/vendor/RedeemBeforeField'
 import { DiceFace } from '@/components/shared/DiceFace'
 import { diceWinRateFromOutcomes, type DiceOutcomeUi } from '@/lib/dice-campaign-config'
 
@@ -83,20 +82,6 @@ export function DiceOutcomeEditor({ outcomes, setOutcomes, readOnly }: DiceOutco
                 <span className="text-sm font-medium text-v-text-2">Win</span>
               </label>
             </div>
-
-            {o.isWin && (
-              <div className="border-t border-v-border pt-4 mt-4">
-                <RedeemBeforeField
-                  value={{
-                    redeemExpiryMode: o.redeemExpiryMode,
-                    redeemFixedDate: o.redeemFixedDate,
-                    redeemRelativeAmount: o.redeemRelativeAmount,
-                    redeemRelativeUnit: o.redeemRelativeUnit,
-                  }}
-                  onChange={value => update(o.id, value)}
-                />
-              </div>
-            )}
           </div>
         ))}
       </div>
