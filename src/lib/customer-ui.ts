@@ -44,7 +44,7 @@ const MECHANIC_CHIP_LABELS: Record<string, string> = {
   shake: 'Shake & Win',
   spin: 'Spin the Wheel',
   'check-in-loyalty': 'Check-in',
-  dice: 'Mystery Box',
+  dice: 'Roll a Dice',
   lottery: 'Lottery',
   scratch: 'Scratch Card',
 }
@@ -58,7 +58,7 @@ const MECHANIC_HEADER_CHIP: Record<string, string> = {
   shake: 'SHAKE',
   spin: 'SPIN A WHEEL',
   'check-in-loyalty': 'CHECK-IN',
-  dice: 'MYSTERY BOX',
+  dice: 'ROLL A DICE',
   lottery: 'LOTTERY',
   scratch: 'SCRATCH',
 }
@@ -72,7 +72,7 @@ export const CAMPAIGN_CARD_GRADIENTS: Record<string, { from: string; to: string;
   shake: { from: '#8B5CF6', to: '#5B21B6', emoji: '🤳' },
   spin: { from: '#7C3AED', to: '#4C1D95', emoji: '🎡' },
   'check-in-loyalty': { from: '#34D399', to: '#047857', emoji: '📅' },
-  dice: { from: '#BE185D', to: '#831843', emoji: '📦' },
+  dice: { from: '#FB7185', to: '#F43F5E', emoji: '🎲' },
   lottery: { from: '#EAB308', to: '#A16207', emoji: '🎟️' },
   scratch: { from: '#3B82F6', to: '#1D4ED8', emoji: '🎴' },
 }
@@ -132,7 +132,7 @@ export function getMechanicHeaderChipShort(mechanic: string): string {
     shake: 'SHAKE',
     spin: 'SPIN',
     'check-in-loyalty': 'CHECK-IN',
-    dice: 'MYSTERY',
+    dice: 'DICE',
     lottery: 'LOTTERY',
     scratch: 'SCRATCH',
   }

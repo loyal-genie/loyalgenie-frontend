@@ -32,6 +32,16 @@ import {
 } from '@/lib/spin-campaign-config'
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
+import {
+  buildDiceCampaignPayload,
+  defaultDiceOutcomes,
+  diceOutcomesEqual,
+  diceOutcomesFromApi,
+  diceWinRateFromOutcomes,
+  isDiceConfigValid,
+  type DiceOutcomeUi,
+} from '@/lib/dice-campaign-config'
+import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
 import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
@@ -166,6 +176,8 @@ export function VendorCampaignEditPage() {
   const [originalPointsPerCheckIn, setOriginalPointsPerCheckIn] = useState(10)
   const [spinSegments, setSpinSegments] = useState<SpinSegmentUi[]>(defaultSpinSegments())
   const [originalSpinSegments, setOriginalSpinSegments] = useState<SpinSegmentUi[]>(defaultSpinSegments())
+  const [diceOutcomes, setDiceOutcomes] = useState<DiceOutcomeUi[]>(defaultDiceOutcomes())
+  const [originalDiceOutcomes, setOriginalDiceOutcomes] = useState<DiceOutcomeUi[]>(defaultDiceOutcomes())
   const [activeHoursEnabled, setActiveHoursEnabled] = useState(false)
   const [activeStartTime, setActiveStartTime] = useState('09:00')
   const [activeEndTime, setActiveEndTime] = useState('21:00')
@@ -228,6 +240,25 @@ export function VendorCampaignEditPage() {
       }
     }
 
+    if (campaign.mechanic === 'dice') {
+      const hydrated = diceOutcomesFromApi(campaign.diceConfig ?? null)
+      setDiceOutcomes(hydrated)
+      setOriginalDiceOutcomes(hydrated)
+      const start = campaign.startTime ?? '00:00'
+      const end = campaign.endTime ?? '23:59'
+      const hoursEnabled = start !== '00:00' || end !== '23:59'
+      setActiveHoursEnabled(hoursEnabled)
+      setActiveStartTime(start)
+      setActiveEndTime(end)
+      setOriginalActiveHoursEnabled(hoursEnabled)
+      setOriginalActiveStartTime(start)
+      setOriginalActiveEndTime(end)
+      if (campaign.startDate !== campaign.endDate) {
+        const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
+        dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
+      }
+    }
+
     if (campaign.mechanic === 'shake' && campaign.startDate !== campaign.endDate) {
       const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
       dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
@@ -237,7 +268,7 @@ export function VendorCampaignEditPage() {
   }, [campaign])
 
   useEffect(() => {
-    if (!campaign || (campaign.mechanic !== 'shake' && campaign.mechanic !== 'spin')) return
+    if (!campaign || (campaign.mechanic !== 'shake' && campaign.mechanic !== 'spin' && campaign.mechanic !== 'dice')) return
     if (campaign.startDate === endDate) return
     const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
     if (status === 'ended') return
@@ -275,6 +306,7 @@ export function VendorCampaignEditPage() {
   const mechanic = campaign.mechanic
   const isShake = mechanic === 'shake'
   const isSpin = mechanic === 'spin'
+  const isDice = mechanic === 'dice'
   const isStamp = mechanic === 'stamp'
   const isLoyalty = mechanic === 'check-in-loyalty'
   const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
@@ -308,6 +340,8 @@ export function VendorCampaignEditPage() {
 
   const spinWinRate = spinWinRateFromSegments(spinSegments)
   const spinOverallWinners = Math.max(1, Math.round(userCap * spinWinRate / 100))
+  const diceWinRate = diceWinRateFromOutcomes(diceOutcomes)
+  const diceOverallWinners = Math.max(1, Math.round(userCap * diceWinRate / 100))
 
   const changedFields = {
     name: name !== campaign.name,
@@ -315,12 +349,13 @@ export function VendorCampaignEditPage() {
     endTime: endTime !== (campaign.endTime ?? '23:59'),
     userCap: effectiveUserCap !== campaign.userCap,
     userCapLimited: isLoyalty && userCapLimited !== originalUserCapLimited,
-    perDayUserLimit: (isShake || isSpin) && perDayUserLimit !== campaign.perDayUserLimit,
-    playsPerDay: (isShake || isSpin) && playsPerDay !== campaign.playsPerDay,
+    perDayUserLimit: (isShake || isSpin || isDice) && perDayUserLimit !== campaign.perDayUserLimit,
+    playsPerDay: (isShake || isSpin || isDice) && playsPerDay !== campaign.playsPerDay,
     overallWinners: isShake && overallWinners !== (campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100))),
     rewards: isShake && !rewardsEqual(rewards, toShakeRewards(campaign.rewards)),
     spinConfig: isSpin && !spinSegmentsEqual(spinSegments, originalSpinSegments),
-    activeHours: isSpin && (
+    diceConfig: isDice && !diceOutcomesEqual(diceOutcomes, originalDiceOutcomes),
+    activeHours: (isSpin || isDice) && (
       activeHoursEnabled !== originalActiveHoursEnabled
       || activeStartTime !== originalActiveStartTime
       || activeEndTime !== originalActiveEndTime
@@ -341,6 +376,7 @@ export function VendorCampaignEditPage() {
     if (!name.trim() || endDate < campaign.startDate) return false
     if (isShake) return rewardsAreValid(rewards)
     if (isSpin) return isSpinSegmentConfigValid(spinSegments)
+    if (isDice) return isDiceConfigValid(diceOutcomes)
     if (isStamp) return stampFormValid()
     if (isLoyalty) return loyaltyFormValid()
     return true
@@ -382,6 +418,16 @@ export function VendorCampaignEditPage() {
         if (changedFields.perDayUserLimit) payload.perDayUserLimit = perDayUserLimit
         if (changedFields.playsPerDay) payload.playsPerDay = playsPerDay
         if (changedFields.spinConfig) payload.spinConfig = buildSpinCampaignPayload(spinSegments).spinConfig
+        if (changedFields.activeHours) {
+          payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
+          payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
+        }
+      }
+
+      if (isDice) {
+        if (changedFields.perDayUserLimit) payload.perDayUserLimit = perDayUserLimit
+        if (changedFields.playsPerDay) payload.playsPerDay = playsPerDay
+        if (changedFields.diceConfig) payload.diceConfig = buildDiceCampaignPayload(diceOutcomes).diceConfig
         if (changedFields.activeHours) {
           payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
           payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
@@ -446,6 +492,15 @@ export function VendorCampaignEditPage() {
       ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
       { label: 'Wheel Segments', value: `${spinSegments.length} segments`, changed: changedFields.spinConfig },
     ] : []),
+    ...(isDice ? [
+      { label: 'Overall User Cap', value: `${userCap} users total`, changed: changedFields.userCap, previous: `${campaign.userCap} users total` },
+      ...(!isSingleDay ? [{ label: 'Daily User Limit', value: `${perDayUserLimit} / day`, changed: changedFields.perDayUserLimit, previous: `${campaign.perDayUserLimit} / day` }] : []),
+      { label: 'Plays Per User / Day', value: String(playsPerDay), changed: changedFields.playsPerDay, previous: String(campaign.playsPerDay) },
+      { label: 'Win Rate', value: `${diceWinRate}% of rolls win`, changed: changedFields.diceConfig },
+      { label: 'Expected Winners', value: `${formatWinnerCount(diceOverallWinners, true)} customers`, changed: changedFields.diceConfig || changedFields.userCap },
+      ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
+      { label: 'Winning Faces', value: `${diceOutcomes.filter(o => o.isWin && o.reward.trim()).length} of 6 faces`, changed: changedFields.diceConfig },
+    ] : []),
     ...(isShake ? [
       { label: 'Overall User Cap', value: `${userCap} users total`, changed: changedFields.userCap, previous: `${campaign.userCap} users total` },
       ...(!isSingleDay ? [{ label: 'Daily User Limit', value: `${perDayUserLimit} / day`, changed: changedFields.perDayUserLimit, previous: `${campaign.perDayUserLimit} / day` }] : []),
@@ -465,6 +520,7 @@ export function VendorCampaignEditPage() {
 
   const mechanicTitle = isShake ? 'Shake & Win — Reward Distribution'
     : isSpin ? 'Spin a Wheel — Segments & Rewards'
+    : isDice ? 'Roll a Dice — Face Rewards'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
     : 'Campaign Configuration'
 
@@ -659,7 +715,34 @@ export function VendorCampaignEditPage() {
                       </>
                     ))}
 
-                    {isSpin && !isEnded && (
+                    {isDice && (isEnded ? (
+                      <>
+                        <LockedField label="Overall User Cap" value={`${campaign.userCap} users total`} />
+                        {!isSingleDay && <LockedField label="Daily User Limit" value={`${campaign.perDayUserLimit} users / day`} />}
+                        <LockedField label="Plays Per User Per Day" value={`${campaign.playsPerDay} plays / day`} />
+                        <LockedField label="Win Rate" value={`${campaign.winRatePercent}% of rolls win`} />
+                      </>
+                    ) : (
+                      <>
+                        <Stepper label="Overall User Cap" hint="users total" value={userCap} min={Math.max(campaign.currentUsers, 1)} max={2000} step={1} onChange={setUserCap} />
+                        <p className="text-[11px] text-v-text-3 -mt-2">{campaign.currentUsers} players joined · cap cannot go below current players</p>
+                        {!isSingleDay && (
+                          <div>
+                            <Stepper label="Daily User Limit" hint="users / day" value={perDayUserLimit} min={1} max={userCap} onChange={setPerDayUserLimit} />
+                            <p className="text-xs text-v-text-3 mt-1.5">Suggested: <span className="font-semibold text-v-text-2">{suggestedDailyLimit} / day</span></p>
+                          </div>
+                        )}
+                        <Stepper label="Plays Per User Per Day" hint="rolls / day" value={playsPerDay} min={1} max={10} onChange={setPlaysPerDay} />
+                        <div className="p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
+                          <span className="text-v-text-3">Derived win rate: </span>
+                          <span className="font-bold text-v-purple">{diceWinRate}%</span>
+                          <span className="text-v-text-3"> · expected </span>
+                          <span className="font-bold text-v-purple">{formatWinnerCount(diceOverallWinners, true)} winners</span>
+                        </div>
+                      </>
+                    ))}
+
+                    {(isSpin || isDice) && !isEnded && (
                       <div className="pt-2 border-t border-v-border mb-4">
                         <div className="flex items-center justify-between mb-2">
                             <div>
@@ -734,9 +817,16 @@ export function VendorCampaignEditPage() {
                 </div>
               </Card>
 
-              {(isShake || isSpin || isStamp) && (
+              {(isShake || isSpin || isDice || isStamp) && (
               <Card className="p-6">
                 <h2 className="text-base font-bold text-v-text mb-1">{mechanicTitle}</h2>
+
+                {isDice && (
+                  <div>
+                    <p className="text-xs text-v-text-3 mb-4">Toggle each face as a win and assign its reward. Each face is equally likely.</p>
+                    <DiceOutcomeEditor outcomes={diceOutcomes} setOutcomes={setDiceOutcomes} readOnly={isEnded} />
+                  </div>
+                )}
 
                 {isSpin && (
                   <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start xl:grid-cols-[minmax(0,1fr)_300px]">
@@ -906,6 +996,24 @@ export function VendorCampaignEditPage() {
                 </Card>
               )}
 
+              {isDice && changedFields.diceConfig && (
+                <Card className="p-6">
+                  <h3 className="text-sm font-bold text-v-text mb-3">Dice Face Changes</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {diceOutcomes.map(o => (
+                      <div key={o.id} className={`p-3 rounded-xl border text-center ${o.isWin && o.reward.trim() ? 'border-v-purple/40 bg-v-surface-2' : 'border-v-border bg-white'}`}>
+                        <p className="text-xs font-bold text-v-text">Roll {o.value}</p>
+                        {o.isWin && o.reward.trim() ? (
+                          <p className="text-[11px] text-v-purple truncate">{o.reward}</p>
+                        ) : (
+                          <p className="text-[11px] text-v-text-3">No win</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
               {isShake && changedFields.rewards && (
                 <Card className="p-6">
                   <h3 className="text-sm font-bold text-v-text mb-3">Reward Changes</h3>
@@ -924,6 +1032,19 @@ export function VendorCampaignEditPage() {
                 <WinBasedCampaignImpact
                   userCap={userCap}
                   overallWinners={spinOverallWinners}
+                  perDayUserLimit={isSingleDay ? userCap : perDayUserLimit}
+                  campaignDays={campaignDays}
+                  startDate={campaign.startDate}
+                  endDate={endDate}
+                  isSingleDay={isSingleDay}
+                  variant="muted"
+                />
+              )}
+
+              {isDice && (
+                <WinBasedCampaignImpact
+                  userCap={userCap}
+                  overallWinners={diceOverallWinners}
                   perDayUserLimit={isSingleDay ? userCap : perDayUserLimit}
                   campaignDays={campaignDays}
                   startDate={campaign.startDate}

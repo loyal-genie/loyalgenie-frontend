@@ -143,10 +143,43 @@ function SpinCoverArt() {
   )
 }
 
+function DiceCoverArt() {
+  const pips: Record<number, [number, number][]> = {
+    2: [[30, 30], [70, 70]],
+    5: [[30, 30], [70, 30], [50, 50], [30, 70], [70, 70]],
+  }
+  return (
+    <div className="absolute inset-0 flex items-end justify-between px-4 pb-3 pt-8">
+      <div className="max-w-[52%] z-10">
+        <p className="text-xl font-extrabold leading-tight text-white drop-shadow-sm">Roll a Dice</p>
+        <p className="text-[11px] text-white/75 mt-1 leading-snug">Roll the dice and win instantly</p>
+      </div>
+      <div className="relative shrink-0 mr-2 mb-1">
+        <div className="absolute -inset-4 rounded-full border border-white/10" />
+        <svg width="118" height="100" viewBox="0 0 118 100" className="drop-shadow-lg">
+          <g transform="rotate(-12 40 55)">
+            <rect x="12" y="30" width="52" height="52" rx="12" fill="#ffffff" />
+            {pips[5]!.map(([px, py], i) => (
+              <circle key={i} cx={12 + (px / 100) * 52} cy={30 + (py / 100) * 52} r="4.5" fill="#9f1239" />
+            ))}
+          </g>
+          <g transform="rotate(14 82 50)">
+            <rect x="58" y="18" width="44" height="44" rx="10" fill="#ffe4e6" />
+            {pips[2]!.map(([px, py], i) => (
+              <circle key={i} cx={58 + (px / 100) * 44} cy={18 + (py / 100) * 44} r="4" fill="#9f1239" />
+            ))}
+          </g>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 function CoverArt({ mechanic }: { mechanic: string }) {
   if (mechanic === 'stamp') return <StampCoverArt />
   if (mechanic === 'check-in-loyalty') return <CheckInCoverArt />
   if (mechanic === 'spin') return <SpinCoverArt />
+  if (mechanic === 'dice') return <DiceCoverArt />
   return <ShakeCoverArt />
 }
 

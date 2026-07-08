@@ -13,8 +13,10 @@ import { StampDropEditor } from '@/components/vendor/StampDropEditor'
 import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
 import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid, type StampDropUiState } from '@/lib/stamp-drop-config'
 import { buildSpinCampaignPayload, defaultSpinSegments, isSpinSegmentConfigValid, spinWinRateFromSegments, type SpinSegmentUi } from '@/lib/spin-campaign-config'
+import { buildDiceCampaignPayload, defaultDiceOutcomes, diceWinRateFromOutcomes, isDiceConfigValid, type DiceOutcomeUi } from '@/lib/dice-campaign-config'
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
+import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -103,14 +105,7 @@ export function VendorCampaignCreatePage() {
   const [stampConfig, setStampConfig] = useState(defaultStampUiState)
 
   // Dice outcomes (reward per winning face)
-  const [diceOutcomes, setDiceOutcomes] = useState([
-    { value: 1, isWin: false, reward: '' },
-    { value: 2, isWin: false, reward: '' },
-    { value: 3, isWin: true,  reward: 'Free Dessert' },
-    { value: 4, isWin: true,  reward: '₹50 Off' },
-    { value: 5, isWin: false, reward: '' },
-    { value: 6, isWin: true,  reward: 'Free Dessert' },
-  ])
+  const [diceOutcomes, setDiceOutcomes] = useState<DiceOutcomeUi[]>(defaultDiceOutcomes())
 
   // Lottery — jackpot fixed, free-form additional prizes (no probability — odds are built into ticket mechanics)
   const [lotteryConfig, setLotteryConfig] = useState({
@@ -137,7 +132,7 @@ export function VendorCampaignCreatePage() {
   const isLottery        = mechanic === 'lottery'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
-  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin'
+  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin' || mechanic === 'dice'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
@@ -179,7 +174,7 @@ export function VendorCampaignCreatePage() {
   // Spin/Dice: structurally derived from config
   const shakePoolTotal = shakeRewards.reduce((s, r) => s + r.probability, 0)
   const spinWinRate    = spinWinRateFromSegments(spinSegments)
-  const diceWinRate    = Math.round((diceOutcomes.filter(o => o.isWin).length / 6) * 100)
+  const diceWinRate    = diceWinRateFromOutcomes(diceOutcomes)
   const activeWinRate  = mechanic === 'spin' ? spinWinRate : mechanic === 'dice' ? diceWinRate : 0
   const totalWinners = mechanic === 'shake' ? basics.overallWinners : calcTotalWinners(basics.userCap, basics.playsPerDay, activeWinRate)
   const dailyWinners = calcDailyWinners(isToday ? basics.userCap : basics.perDayUserLimit, basics.playsPerDay, activeWinRate)
@@ -203,7 +198,7 @@ export function VendorCampaignCreatePage() {
       )
     }
     if (mechanic === 'spin')  return isSpinSegmentConfigValid(spinSegments)
-    if (mechanic === 'dice')  return diceOutcomes.some(o => o.isWin && o.reward.trim())
+    if (mechanic === 'dice')  return isDiceConfigValid(diceOutcomes)
     if (mechanic === 'lottery') return lotteryConfig.jackpotReward.trim().length > 0
     if (mechanic === 'stamp') {
       const dropsValid = [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
@@ -227,8 +222,8 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin') {
-      setLaunchError('Only Shake & Win, Stamp Card, Check-in Loyalty, and Spin a Wheel are wired to the API in this release.')
+    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice') {
+      setLaunchError('Only Shake & Win, Stamp Card, Check-in Loyalty, Spin a Wheel, and Roll a Dice are wired to the API in this release.')
       return
     }
     setLaunchError(null)
@@ -276,6 +271,25 @@ export function VendorCampaignCreatePage() {
           perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
           playsPerDay: basics.playsPerDay,
           ...buildSpinCampaignPayload(spinSegments),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'dice') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'dice',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          userCap: basics.userCap,
+          perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
+          playsPerDay: basics.playsPerDay,
+          ...buildDiceCampaignPayload(diceOutcomes),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -842,41 +856,20 @@ export function VendorCampaignCreatePage() {
           {step === 2 && mechanic === 'dice' && (
             <Card className="p-6">
               <h2 className="text-base font-bold text-v-text mb-1">Roll a Dice — Face Rewards</h2>
-              <p className="text-xs text-v-text-3 mb-5">Toggle each face as a win and assign its reward. Non-winning faces show "Better luck next time! You almost won!"</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {diceOutcomes.map((o, i) => (
-                  <div key={i} className={`rounded-2xl border-2 p-3.5 transition-all ${o.isWin ? 'border-v-purple/40 bg-v-surface-2' : 'border-v-border bg-white'}`}>
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-v-border flex items-center justify-center">
-                        <DiceFaceSVG value={o.value} />
-                      </div>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" checked={o.isWin}
-                          onChange={e => setDiceOutcomes(d => d.map((x, j) => j === i ? { ...x, isWin: e.target.checked, reward: e.target.checked ? x.reward : '' } : x))}
-                          className="w-3.5 h-3.5 accent-v-purple" />
-                        <span className="text-xs font-semibold text-v-text-2">Win</span>
-                      </label>
-                    </div>
-                    <p className="text-xs font-bold text-v-text mb-1.5">Roll {o.value}</p>
-                    {o.isWin ? (
-                      <input
-                        className="w-full bg-white border border-v-border-b/50 rounded-lg px-2.5 py-1.5 text-xs text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple"
-                        placeholder="Reward name"
-                        value={o.reward}
-                        onChange={e => setDiceOutcomes(d => d.map((x, j) => j === i ? { ...x, reward: e.target.value } : x))}
-                      />
-                    ) : (
-                      <p className="text-[10px] text-v-text-3 italic leading-relaxed">Better luck next time! You almost won!</p>
-                    )}
-                  </div>
-                ))}
+              <p className="text-xs text-v-text-3 mb-4">Toggle each of the six faces as a win and assign its reward. Each face is equally likely.</p>
+              <div className="flex items-center gap-2 mb-5 p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
+                <span className="text-v-text-3">Expected winners:</span>
+                <span className="font-bold text-v-purple">{formatWinnerCount(totalWinners)} total</span>
+                <span className="text-v-text-3 mx-1">·</span>
+                <span className="text-v-text-3">{diceWinRate}% win rate</span>
+                {!isToday && (
+                  <>
+                    <span className="text-v-text-3 mx-1">·</span>
+                    <span className="font-bold text-v-purple">{basics.perDayUserLimit.toLocaleString()} players / day</span>
+                  </>
+                )}
               </div>
-              <div className="mt-4 flex items-center justify-between p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
-                <span className="text-v-text-2">Effective win rate</span>
-                <span className="font-bold text-v-purple">
-                  {diceOutcomes.filter(o => o.isWin).length} of 6 faces win = {diceWinRate}%
-                </span>
-              </div>
+              <DiceOutcomeEditor outcomes={diceOutcomes} setOutcomes={setDiceOutcomes} />
             </Card>
           )}
 
@@ -969,7 +962,7 @@ export function VendorCampaignCreatePage() {
                       value:
                         mechanic === 'shake'   ? `${shakeRewards.filter(r => r.name).length} reward type${shakeRewards.filter(r => r.name).length !== 1 ? 's' : ''} · split among ${formatWinnerCount(totalWinners)} winners` :
                         mechanic === 'spin'    ? `${spinSegments.length} segments · ${spinWinRate}% win rate · ${formatWinnerCount(totalWinners)} expected winners` :
-                        mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin).length} of 6 faces win · ${formatWinnerCount(totalWinners)} expected winners` :
+                        mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin && o.reward.trim()).length} of 6 faces win · ${diceWinRate}% win rate · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)` :
                         mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in · ${loyaltyConfig.milestones.filter(m => m.name.trim()).length} milestone(s)` :
                         mechanic === 'lottery' ? `Jackpot + ${lotteryConfig.prizes.length} prize${lotteryConfig.prizes.length !== 1 ? 's' : ''}` : '—',
@@ -1106,7 +1099,7 @@ export function VendorCampaignCreatePage() {
                 />
               )}
 
-              {mechanic === 'spin' && (
+              {(mechanic === 'spin' || mechanic === 'dice') && (
                 <WinBasedCampaignImpact
                   userCap={basics.userCap}
                   overallWinners={totalWinners}
@@ -1194,18 +1187,3 @@ function StampDropReviewRow({ drop }: { drop: StampDropUiState }) {
   )
 }
 
-function DiceFaceSVG({ value }: { value: number }) {
-  const dots: Record<number, [number, number][]> = {
-    1: [[50, 50]],
-    2: [[28, 28], [72, 72]],
-    3: [[28, 28], [50, 50], [72, 72]],
-    4: [[28, 28], [72, 28], [28, 72], [72, 72]],
-    5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
-    6: [[28, 28], [72, 28], [28, 50], [72, 50], [28, 72], [72, 72]],
-  }
-  return (
-    <svg viewBox="0 0 100 100" width="28" height="28">
-      {(dots[value] || []).map(([cx, cy], i) => <circle key={i} cx={cx} cy={cy} r="9" fill="#1E1B4B" />)}
-    </svg>
-  )
-}

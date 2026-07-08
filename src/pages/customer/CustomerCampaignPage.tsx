@@ -25,6 +25,7 @@ import {
 } from '@/components/customer/CampaignPinShell'
 import { ShakeCampaignDetail } from '@/components/customer/ShakeCampaignDetail'
 import { SpinCampaignDetail } from '@/components/customer/SpinCampaignDetail'
+import { DiceCampaignDetail } from '@/components/customer/DiceCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
@@ -79,7 +80,7 @@ export function CustomerCampaignPage() {
   const { data: playState, isLoading: playStateLoading } = useQuery({
     queryKey: ['play-state', id, serverSession?.userId],
     queryFn: () => fetchPlayState(id!),
-    enabled: Boolean(id) && authReady && (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin'),
+    enabled: Boolean(id) && authReady && (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice'),
     staleTime: 0,
   })
 
@@ -171,11 +172,11 @@ export function CustomerCampaignPage() {
   }, [pin, authReady, stampCollect]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const stateStillLoading =
-    ((campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin') && playStateLoading)
+    ((campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playStateLoading)
     || (campaign?.mechanic === 'stamp' && stampStateLoading)
     || (campaign?.mechanic === 'check-in-loyalty' && loyaltyStateLoading)
 
-  const instantWinBlocked = (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin') && playState && !playState.canPlay
+  const instantWinBlocked = (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playState && !playState.canPlay
   const shakeBlocked = instantWinBlocked
   const stampBlocked = campaign?.mechanic === 'stamp' && stampState && (
     stampState.cardComplete
@@ -294,7 +295,7 @@ export function CustomerCampaignPage() {
       : campaign.mechanic === 'spin'
         ? 'Spin the wheel'
         : campaign.mechanic === 'dice'
-          ? 'Open mystery box'
+          ? 'Roll the dice'
           : campaign.mechanic === 'lottery'
             ? 'Enter lottery'
             : "Let's shake!"
@@ -322,6 +323,26 @@ export function CustomerCampaignPage() {
   if (campaign.mechanic === 'spin') {
     return (
       <SpinCampaignDetail
+        campaign={campaign}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        winRatePercent={campaign.winRatePercent}
+        overallWinners={campaign.overallWinners}
+        userCap={campaign.userCap}
+        playsUsedToday={playState?.playsUsedToday}
+        playsPerDay={playState?.playsPerDay ?? campaign.playsPerDay}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'dice') {
+    return (
+      <DiceCampaignDetail
         campaign={campaign}
         pin={pin}
         error={error}

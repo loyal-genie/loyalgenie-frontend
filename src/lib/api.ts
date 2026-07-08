@@ -495,6 +495,20 @@ export interface CampaignDto {
       redeemRelativeUnit?: 'day' | 'week' | 'month'
     }[]
   } | null
+  diceConfig?: {
+    outcomes: {
+      id?: string
+      value: number
+      isWin: boolean
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string | null
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
+  } | null
 }
 
 export interface CreateShakeCampaignPayload {
@@ -587,7 +601,35 @@ export interface CreateSpinCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload
+export interface DiceOutcomePayload {
+  id?: string
+  value: number
+  isWin: boolean
+  reward: string | null
+  description?: string
+  icon?: string
+  redeemExpiryMode?: 'fixed' | 'relative'
+  redeemFixedDate?: string
+  redeemRelativeAmount?: number
+  redeemRelativeUnit?: 'day' | 'week' | 'month'
+}
+
+export interface CreateDiceCampaignPayload {
+  name: string
+  mechanic: 'dice'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  userCap: number
+  perDayUserLimit: number
+  playsPerDay: number
+  diceConfig: {
+    outcomes: DiceOutcomePayload[]
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -663,6 +705,20 @@ export interface PublicCampaign {
       color: string
       isWin: boolean
       probability?: number
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string | null
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
+  } | null
+  diceConfig?: {
+    outcomes: {
+      id?: string
+      value: number
+      isWin: boolean
       reward: string | null
       description?: string
       icon?: string
@@ -846,6 +902,7 @@ export interface UpdateCampaignPayload {
   milestones?: { id?: string; name: string; description?: string; icon: string; pointsThreshold: number }[]
   startTime?: string
   spinConfig?: CreateSpinCampaignPayload['spinConfig']
+  diceConfig?: CreateDiceCampaignPayload['diceConfig']
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {

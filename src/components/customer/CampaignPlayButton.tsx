@@ -5,6 +5,7 @@ const PLAY_BUTTON_LABELS: Record<string, string> = {
   'check-in-loyalty': 'Check In & Earn Points ⭐',
   shake: 'Enter PIN & Play 🤳',
   spin: 'Enter PIN & Spin 🎡',
+  dice: 'Enter PIN & Roll 🎲',
   stamp: 'Enter PIN & Collect Stamp 🎯',
 }
 
@@ -13,6 +14,7 @@ const PLAY_BUTTON_STYLES: Record<string, string> = {
     'bg-gradient-to-r from-[#34d399] to-[#059669] text-white shadow-[0_8px_20px_rgba(16,185,129,0.32)]',
   shake: 'bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-white shadow-[0_8px_20px_rgba(124,58,237,0.32)]',
   spin: 'bg-gradient-to-r from-[#3b82f6] to-[#1e40af] text-white shadow-[0_8px_20px_rgba(37,99,235,0.35)]',
+  dice: 'bg-gradient-to-r from-[#fb7185] to-[#f43f5e] text-white shadow-[0_8px_20px_rgba(244,63,94,0.32)]',
   stamp: 'bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white shadow-[0_8px_20px_rgba(251,191,36,0.32)]',
 }
 

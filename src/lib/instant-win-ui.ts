@@ -114,9 +114,47 @@ export function pickSpinLandingIndex(
   return 0
 }
 
-/** Dice faces that win vs lose for visual landing */
+/** Dice faces that win vs lose for visual landing (fallback when no config) */
 export const DICE_WIN_FACES = [3, 4, 6] as const
 export const DICE_LOSE_FACES = [1, 2, 5] as const
+
+export interface DicePlayOutcome {
+  value: number
+  isWin: boolean
+  reward: string | null
+}
+
+/**
+ * Choose which dice face the visual roll lands on so it matches the server's result.
+ * Prefers the face whose reward matches the awarded reward; falls back to any winning/losing face.
+ */
+export function pickDiceLandingValue(
+  outcomes: DicePlayOutcome[] | null | undefined,
+  won: boolean,
+  reward?: { id?: string; name?: string | null } | null,
+): number {
+  if (!outcomes || outcomes.length === 0) {
+    return pickDiceFace(won)
+  }
+
+  const winFaces = outcomes.filter(o => o.isWin && (o.reward ?? '').trim())
+  const loseFaces = outcomes.filter(o => !o.isWin || !(o.reward ?? '').trim())
+
+  if (won) {
+    const rewardName = normalizeRewardKey(reward?.name)
+    if (rewardName) {
+      const match = winFaces.find(o => normalizeRewardKey(o.reward) === rewardName)
+      if (match) return match.value
+    }
+    if (winFaces.length) {
+      return winFaces[Math.floor(Math.random() * winFaces.length)]!.value
+    }
+  }
+  if (loseFaces.length) {
+    return loseFaces[Math.floor(Math.random() * loseFaces.length)]!.value
+  }
+  return pickDiceFace(won)
+}
 
 export function pickDiceFace(won: boolean): number {
   const pool = won ? DICE_WIN_FACES : DICE_LOSE_FACES

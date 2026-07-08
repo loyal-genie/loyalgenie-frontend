@@ -1,37 +1,47 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, useAnimation } from 'framer-motion'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
+import { DiceFace } from '@/components/shared/DiceFace'
 import { useInstantWinPlay } from '@/hooks/useInstantWinPlay'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
-import { pickDiceFace } from '@/lib/instant-win-ui'
+import { pickDiceLandingValue, type DicePlayOutcome } from '@/lib/instant-win-ui'
 
-type State = 'idle' | 'rolling' | 'result'
+type State = 'idle' | 'rolling' | 'landed' | 'result'
 
-const STAR_POSITIONS = [
-  { top: '8%', left: '12%' }, { top: '15%', left: '88%' },
-  { top: '35%', left: '5%' }, { top: '50%', left: '92%' },
-  { top: '70%', left: '8%' }, { top: '78%', left: '85%' },
+const CUBE_SIZE = 132
+const HALF = CUBE_SIZE / 2
+
+// Face layout on the cube (opposite faces sum to 7, like a real die).
+const CUBE_FACES: { value: number; transform: string }[] = [
+  { value: 1, transform: `rotateY(0deg) translateZ(${HALF}px)` }, // front
+  { value: 6, transform: `rotateY(180deg) translateZ(${HALF}px)` }, // back
+  { value: 3, transform: `rotateY(90deg) translateZ(${HALF}px)` }, // right
+  { value: 4, transform: `rotateY(-90deg) translateZ(${HALF}px)` }, // left
+  { value: 2, transform: `rotateX(90deg) translateZ(${HALF}px)` }, // top
+  { value: 5, transform: `rotateX(-90deg) translateZ(${HALF}px)` }, // bottom
 ]
 
-function DiceFaceSVG({ value }: { value: number }) {
-  const dots: Record<number, [number, number][]> = {
-    1: [[50, 50]],
-    2: [[28, 28], [72, 72]],
-    3: [[28, 28], [50, 50], [72, 72]],
-    4: [[28, 28], [72, 28], [28, 72], [72, 72]],
-    5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
-    6: [[28, 28], [72, 28], [28, 50], [72, 50], [28, 72], [72, 72]],
+// Cube rotation that brings a given face flat toward the viewer.
+function faceOrientation(value: number): { x: number; y: number } {
+  switch (value) {
+    case 1: return { x: 0, y: 0 }
+    case 6: return { x: 0, y: 180 }
+    case 3: return { x: 0, y: -90 }
+    case 4: return { x: 0, y: 90 }
+    case 2: return { x: -90, y: 0 }
+    case 5: return { x: 90, y: 0 }
+    default: return { x: 0, y: 0 }
   }
-  return (
-    <svg viewBox="0 0 100 100" width="100%" height="100%">
-      {(dots[value] || []).map(([cx, cy], i) => (
-        <circle key={i} cx={cx} cy={cy} r="9" fill="#43036d" />
-      ))}
-    </svg>
-  )
 }
+
+const IDLE_TILT = { x: -22, y: 24 }
+const SPARKLES = [
+  { top: '10%', left: '14%', d: 2.2 }, { top: '18%', left: '82%', d: 2.8 },
+  { top: '40%', left: '8%', d: 2.5 }, { top: '46%', left: '90%', d: 3.1 },
+  { top: '68%', left: '12%', d: 2.4 }, { top: '74%', left: '84%', d: 2.9 },
+]
 
 export function CustomerDicePage() {
   const navigate = useNavigate()
@@ -49,46 +59,87 @@ export function CustomerDicePage() {
     resetPlay,
   } = useInstantWinPlay()
 
+  const [state, setState] = useState<State>('idle')
+  const controls = useAnimation()
+  const rotation = useRef({ ...IDLE_TILT })
+  const rollStartedRef = useRef(false)
+
+  const outcomes = useMemo<DicePlayOutcome[]>(
+    () =>
+      (campaign?.diceConfig?.outcomes ?? []).map(o => ({
+        value: o.value,
+        isWin: o.isWin,
+        reward: o.reward ?? null,
+      })),
+    [campaign?.diceConfig],
+  )
+
+  const faceChart = useMemo(() => {
+    const byValue = new Map(outcomes.map(o => [o.value, o]))
+    return [1, 2, 3, 4, 5, 6].map(v => {
+      const o = byValue.get(v)
+      const win = Boolean(o?.isWin && (o?.reward ?? '').trim())
+      return { value: v, win, reward: win ? (o!.reward ?? '') : null }
+    })
+  }, [outcomes])
+
   const goToCafe = () => navigate(getCustomerBusinessPath(businessId), { replace: true })
 
   const tryAgain = () => {
     resetPlay()
+    rollStartedRef.current = false
     setState('idle')
-    setDisplayValue(1)
+    controls.set({ rotateX: rotation.current.x, rotateY: rotation.current.y })
   }
-
-  const [state, setState] = useState<State>('idle')
-  const [displayValue, setDisplayValue] = useState(1)
 
   const roll = () => {
     if (state !== 'idle' || !canPlay || isPlaying) return
+    rollStartedRef.current = false
     setState('rolling')
     startPlay()
   }
 
+  // Drive the 3D tumble once the server result arrives (runs exactly once per roll).
   useEffect(() => {
-    if (state !== 'rolling' || !playResult) return
+    if (state !== 'rolling' || !playResult || rollStartedRef.current) return
+    rollStartedRef.current = true
 
-    const final = pickDiceFace(playResult.won)
-    let count = 0
-    const interval = setInterval(() => {
-      setDisplayValue(Math.floor(1 + Math.random() * 6))
-      count++
-      if (count > 14) {
-        clearInterval(interval)
-        setDisplayValue(final)
-        setTimeout(() => setState('result'), 800)
-      }
-    }, 120)
-    return () => clearInterval(interval)
+    const final = pickDiceLandingValue(outcomes, playResult.won, playResult.reward)
+    const target = faceOrientation(final)
+    const cur = rotation.current
+    // Land on the exact face after several extra full spins for a satisfying tumble.
+    const nextX = target.x + 360 * (Math.floor((cur.x - target.x) / 360) + 4)
+    const nextY = target.y + 360 * (Math.floor((cur.y - target.y) / 360) + 5)
+    rotation.current = { x: nextX, y: nextY }
+
+    controls
+      .start({
+        rotateX: nextX,
+        rotateY: nextY,
+        transition: { duration: 2.1, ease: [0.16, 0.7, 0.2, 1] },
+      })
+      .then(() => {
+        setState('landed')
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, playResult])
+
+  // After showing the landed face for a beat, move to the reward screen.
+  useEffect(() => {
+    if (state !== 'landed') return
+    const t = setTimeout(() => setState('result'), 1500)
+    return () => clearTimeout(t)
+  }, [state])
 
   useEffect(() => {
     if (playError && state === 'rolling') {
+      rollStartedRef.current = false
       setState('idle')
       resetPlay()
+      controls.set({ rotateX: rotation.current.x, rotateY: rotation.current.y })
     }
-  }, [playError, state, resetPlay])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playError, state])
 
   if (state === 'result' && playResult?.won && playResult.reward) {
     return (
@@ -115,60 +166,127 @@ export function CustomerDicePage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-[#1c0038]">
-        <Loader2 className="size-10 text-[#d4a8ff] animate-spin" />
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #ffe4e6 0%, #fecdd3 100%)' }}>
+        <Loader2 className="size-10 text-[#e11d48] animate-spin" />
       </div>
     )
   }
 
   return (
     <div
-      className="min-h-dvh flex flex-col items-center justify-between px-5 pt-12 pb-10 relative overflow-hidden"
-      style={{ background: 'linear-gradient(165deg, #43036d 0%, #2d110e 38%, #1c0038 100%)' }}
+      className="min-h-dvh flex flex-col items-center justify-between px-5 pt-12 pb-10 relative overflow-hidden max-w-[440px] mx-auto"
+      style={{ background: 'linear-gradient(160deg, #ffe4e6 0%, #fecdd3 44%, #fda4af 100%)' }}
     >
-      {STAR_POSITIONS.map((pos, i) => (
+      {/* Soft ambient glow */}
+      <div
+        className="absolute w-72 h-72 rounded-full pointer-events-none"
+        style={{ top: '6%', left: '-25%', background: 'radial-gradient(circle, rgba(255,255,255,0.65) 0%, transparent 70%)', filter: 'blur(46px)' }}
+      />
+      <div
+        className="absolute w-72 h-72 rounded-full pointer-events-none"
+        style={{ bottom: '2%', right: '-25%', background: 'radial-gradient(circle, rgba(244,63,94,0.28) 0%, transparent 70%)', filter: 'blur(52px)' }}
+      />
+
+      {SPARKLES.map((s, i) => (
         <motion.div
           key={i}
-          className="absolute w-1 h-1 rounded-full bg-white/30 pointer-events-none"
-          style={{ top: pos.top, left: pos.left }}
-          animate={{ opacity: [0.2, 0.7, 0.2] }}
-          transition={{ duration: 2 + i * 0.3, repeat: Infinity }}
+          className="absolute size-1.5 rounded-full bg-white pointer-events-none"
+          style={{ top: s.top, left: s.left }}
+          animate={{ opacity: [0.25, 0.85, 0.25], scale: [0.8, 1.2, 0.8] }}
+          transition={{ duration: s.d, repeat: Infinity }}
         />
       ))}
 
       <button
         type="button"
         onClick={() => navigate(-1)}
-        className="self-start flex items-center gap-1.5 text-white/50 text-sm bg-transparent border-0 cursor-pointer"
+        className="self-start flex items-center gap-1.5 text-[#9f1239]/70 text-sm bg-transparent border-0 cursor-pointer z-10"
       >
         <ArrowLeft size={16} />
         Back
       </button>
 
       <div className="text-center relative z-10">
-        <h1 className="text-2xl font-extrabold text-white mb-1">{campaign?.name ?? 'Mystery Box'}</h1>
-        <p className="text-sm text-white/60">
-          {playError || (state === 'rolling' ? 'Rolling…' : canPlay ? 'Roll 3, 4, or 6 to win!' : playState?.message ?? 'Cannot play')}
+        <h1 className="text-2xl font-extrabold text-[#881337] mb-1">{campaign?.name ?? 'Roll a Dice'}</h1>
+        <p className="text-sm font-medium text-[#be123c]/80">
+          {playError || (state === 'rolling' ? 'Rolling the dice…' : state === 'landed' ? 'Revealing your result…' : canPlay ? 'Tap ROLL to try your luck!' : playState?.message ?? 'Cannot play')}
         </p>
       </div>
 
-      <motion.div
-        className="relative z-10 w-36 h-36 rounded-3xl bg-white shadow-[0_20px_60px_rgba(91,14,129,0.5)] flex items-center justify-center p-4"
-        animate={state === 'rolling' ? { rotate: [0, 360, 720], scale: [1, 1.05, 1] } : {}}
-        transition={{ duration: 1.8, ease: 'easeOut' }}
-      >
-        <DiceFaceSVG value={displayValue} />
-      </motion.div>
+      {/* 3D dice stage */}
+      <div className="relative z-10 flex flex-col items-center" style={{ perspective: '1100px' }}>
+        <motion.div
+          animate={controls}
+          initial={{ rotateX: IDLE_TILT.x, rotateY: IDLE_TILT.y }}
+          style={{
+            width: CUBE_SIZE,
+            height: CUBE_SIZE,
+            position: 'relative',
+            transformStyle: 'preserve-3d',
+          }}
+        >
+          {CUBE_FACES.map(face => (
+            <div
+              key={face.value}
+              className="absolute inset-0 flex items-center justify-center rounded-[22px] bg-white"
+              style={{
+                transform: face.transform,
+                backfaceVisibility: 'hidden',
+                padding: 22,
+                boxShadow: 'inset 0 0 0 1px rgba(159,18,57,0.08), inset 0 6px 14px rgba(159,18,57,0.06)',
+              }}
+            >
+              <DiceFace value={face.value} pipColor="#be123c" />
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Floor shadow */}
+        <motion.div
+          className="mt-6 h-3 rounded-[50%] bg-[#9f1239]/25 blur-md"
+          animate={{
+            width: state === 'rolling' ? [96, 132, 96] : 116,
+            opacity: state === 'rolling' ? [0.18, 0.32, 0.18] : 0.28,
+          }}
+          transition={state === 'rolling' ? { duration: 0.7, repeat: Infinity } : { duration: 0.3 }}
+        />
+      </div>
+
+      {/* What each face wins */}
+      {faceChart.length > 0 && (
+        <div className="w-full rounded-2xl p-4 z-10 bg-white/55 border border-white/70 backdrop-blur-sm shadow-[0_8px_24px_rgba(159,18,57,0.12)]">
+          <p className="text-[10px] text-[#9f1239]/70 font-bold mb-3 text-center uppercase tracking-wide">What each face wins</p>
+          <div className="grid grid-cols-3 gap-2">
+            {faceChart.map(face => (
+              <div
+                key={face.value}
+                className="rounded-xl px-2 py-2 flex flex-col items-center gap-1 text-center"
+                style={{
+                  background: face.win ? 'rgba(244,63,94,0.12)' : 'rgba(159,18,57,0.05)',
+                  border: face.win ? '1px solid rgba(244,63,94,0.4)' : '1px solid rgba(159,18,57,0.1)',
+                }}
+              >
+                <span className="size-6">
+                  <DiceFace value={face.value} pipColor={face.win ? '#e11d48' : 'rgba(159,18,57,0.3)'} />
+                </span>
+                <span className={`text-[10px] font-semibold leading-tight truncate w-full ${face.win ? 'text-[#9f1239]' : 'text-[#9f1239]/40'}`}>
+                  {face.win ? face.reward : 'No win'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <motion.button
         type="button"
         whileTap={{ scale: 0.94 }}
         onClick={roll}
-        disabled={state === 'rolling' || !canPlay || isPlaying}
-        className="w-full py-5 rounded-2xl text-xl font-extrabold text-white border-0 cursor-pointer disabled:opacity-50 relative z-10"
-        style={{ background: 'linear-gradient(135deg, #631cbb, #5b0e81)' }}
+        disabled={state !== 'idle' || !canPlay || isPlaying}
+        className="w-full py-5 rounded-2xl text-xl font-extrabold text-white border-0 cursor-pointer disabled:opacity-50 relative z-10 shadow-[0_12px_28px_rgba(225,29,72,0.4)]"
+        style={{ background: 'linear-gradient(135deg, #f43f5e, #be123c)' }}
       >
-        {state === 'rolling' ? '🎲 Rolling…' : '🎲 ROLL'}
+        {state === 'idle' ? '🎲 ROLL' : state === 'landed' ? '🎲 Revealing…' : '🎲 Rolling…'}
       </motion.button>
     </div>
   )

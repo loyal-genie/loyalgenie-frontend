@@ -146,6 +146,43 @@ function SpinCampaignBlock({
   )
 }
 
+function DiceCampaignBlock({
+  campaign,
+  playState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    winRatePercent?: number
+    playsPerDay?: number
+  }
+  playState?: PlayState
+}) {
+  const blocked = Boolean(playState && !playState.canPlay)
+  const quotaUsed = playState?.blockReason === 'no_plays_remaining'
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      blockedLabel={
+        quotaUsed
+          ? `✓ All rolls used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
+          : playState?.message
+      }
+      statsLine={
+        playState
+          ? `${playState.playsUsedToday}/${playState.playsPerDay} rolls today`
+          : `${campaign.playsPerDay ?? 1} roll per day`
+      }
+    />
+  )
+}
+
 function LoyaltyCampaignBlock({
   campaign,
   state,
@@ -253,9 +290,10 @@ export function CustomerBusinessPage() {
   const stampCampaigns = biz.campaigns.filter(c => c.mechanic === 'stamp')
   const shakeCampaigns = biz.campaigns.filter(c => c.mechanic === 'shake')
   const spinCampaigns = biz.campaigns.filter(c => c.mechanic === 'spin')
+  const diceCampaigns = biz.campaigns.filter(c => c.mechanic === 'dice')
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
   const otherCampaigns = biz.campaigns.filter(
-    c => !['stamp', 'shake', 'spin', 'check-in-loyalty'].includes(c.mechanic),
+    c => !['stamp', 'shake', 'spin', 'dice', 'check-in-loyalty'].includes(c.mechanic),
   )
 
   return (
@@ -292,6 +330,13 @@ export function CustomerBusinessPage() {
                 ))}
                 {spinCampaigns.map(c => (
                   <SpinCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    playState={stateByCampaignId.get(c.id)?.state as PlayState | undefined}
+                  />
+                ))}
+                {diceCampaigns.map(c => (
+                  <DiceCampaignBlock
                     key={c.id}
                     campaign={c}
                     playState={stateByCampaignId.get(c.id)?.state as PlayState | undefined}

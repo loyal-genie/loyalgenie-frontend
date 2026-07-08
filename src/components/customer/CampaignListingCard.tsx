@@ -44,7 +44,7 @@ function getHeaderRightBadge(
   if (campaign.mechanic === 'shake' && campaign.winRatePercent != null) {
     return `${campaign.winRatePercent}% of players win`
   }
-  if (campaign.mechanic === 'spin' && campaign.winRatePercent != null) {
+  if ((campaign.mechanic === 'spin' || campaign.mechanic === 'dice') && campaign.winRatePercent != null) {
     return `${campaign.winRatePercent}% win rate`
   }
   if (campaign.mechanic === 'stamp') return 'Surprise + big rewards'
@@ -62,6 +62,9 @@ function getMetaLine(campaign: CampaignListingCardProps['campaign'], statsLine?:
   }
   if (campaign.mechanic === 'spin' && campaign.playsPerDay != null) {
     return `${campaign.playsPerDay} spin per day · ends ${formatEndDate(campaign.endDate)}`
+  }
+  if (campaign.mechanic === 'dice' && campaign.playsPerDay != null) {
+    return `${campaign.playsPerDay} roll per day · ends ${formatEndDate(campaign.endDate)}`
   }
   if (campaign.startDate && campaign.endDate) {
     return formatCampaignDateRange(campaign.startDate, campaign.endDate)
