@@ -62,21 +62,35 @@ export function WalletHistoryCard({ reward, context, index }: WalletHistoryCardP
           <p className="relative text-white text-lg font-extrabold leading-tight mb-3">{reward.reward}</p>
 
           <div className="relative flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-green-400 flex items-center justify-center shrink-0">
-              <span className="text-white font-black text-xs">✓</span>
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                reward.status === 'expired' ? 'bg-red-400' : 'bg-green-400'
+              }`}
+            >
+              <span className="text-white font-black text-xs">{reward.status === 'expired' ? '✕' : '✓'}</span>
             </div>
             <div>
-              <p className="text-green-300 text-xs font-extrabold">Redeemed</p>
-              <p className="text-green-400/60 text-[10px]">
-                {reward.redeemedAt ? walletFmtDateTime(reward.redeemedAt) : ''}
+              <p className={`text-xs font-extrabold ${reward.status === 'expired' ? 'text-red-300' : 'text-green-300'}`}>
+                {reward.status === 'expired' ? 'Expired' : 'Redeemed'}
+              </p>
+              <p className={`text-[10px] ${reward.status === 'expired' ? 'text-red-400/60' : 'text-green-400/60'}`}>
+                {reward.status === 'expired'
+                  ? reward.redeemBefore
+                    ? `Expired ${walletFmtDateTime(reward.redeemBefore)}`
+                    : 'Redeem window passed'
+                  : reward.redeemedAt
+                    ? walletFmtDateTime(reward.redeemedAt)
+                    : ''}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-green-50 px-4 py-2">
-          <p className="text-[10px] text-green-600 font-medium">
-            Thanks for visiting {context.businessName}! 🎉
+        <div className={`px-4 py-2 ${reward.status === 'expired' ? 'bg-red-50' : 'bg-green-50'}`}>
+          <p className={`text-[10px] font-medium ${reward.status === 'expired' ? 'text-red-600' : 'text-green-600'}`}>
+            {reward.status === 'expired'
+              ? 'This reward expired before it could be redeemed.'
+              : `Thanks for visiting ${context.businessName}! 🎉`}
           </p>
         </div>
       </div>

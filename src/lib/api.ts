@@ -811,15 +811,17 @@ export interface ShakeResult {
 export interface CustomerRewardDto {
   id: string
   campaignId: string | null
+  businessId?: string | null
   campaignName: string
   mechanic: string
   reward: string
   icon: string
   earnedAt: string
-  status: 'earned' | 'pending' | 'redeemed'
+  status: 'earned' | 'pending' | 'redeemed' | 'expired'
   requestedAt?: string
   redeemedAt?: string
   code: string
+  redeemBefore?: string | null
 }
 
 export interface CampaignPin {

@@ -38,8 +38,9 @@ function buildCardContext(
   reward: CustomerRewardDto,
   businesses: BusinessWithCampaigns[] | undefined,
 ): WalletCardContext {
-  const business = businesses?.find(b => b.campaigns.some(c => c.id === reward.campaignId))
-  const campaign = business?.campaigns.find(c => c.id === reward.campaignId)
+  const business = businesses?.find(
+    b => b.id === reward.businessId || b.campaigns.some(c => c.id === reward.campaignId),
+  )
   const grad = getCampaignGradient(reward.mechanic)
   const from = business?.brandColor ?? grad.from
   return {
@@ -47,7 +48,7 @@ function buildCardContext(
     businessEmoji: reward.icon || grad.emoji,
     bgFrom: from,
     bgTo: business?.brandColor ? darkenHex(business.brandColor) : grad.to,
-    expiresAt: campaign?.endDate ?? null,
+    expiresAt: reward.redeemBefore ?? null,
   }
 }
 
@@ -180,7 +181,7 @@ export function CustomerWalletPage() {
     })
 
   const historyRewards = rewards
-    .filter(r => r.status === 'redeemed' && !sessionRedeemed[r.id])
+    .filter(r => (r.status === 'redeemed' || r.status === 'expired') && !sessionRedeemed[r.id])
     .sort(
       (a, b) =>
         new Date(b.redeemedAt ?? b.earnedAt).getTime() - new Date(a.redeemedAt ?? a.earnedAt).getTime(),

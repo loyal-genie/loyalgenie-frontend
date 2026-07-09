@@ -33,7 +33,7 @@ export function formatRedeemBeforeSummary(value: RedeemBeforeValue): string {
   }
   const amount = value.redeemRelativeAmount || 0
   const unit = unitLabel(value.redeemRelativeUnit, amount).toLowerCase()
-  return amount > 0 ? `Within ${amount} ${unit} of winning` : 'Relative period not set'
+  return amount > 0 ? `Within ${amount} ${unit} of winning or claiming` : 'Relative period not set'
 }
 
 export function isRedeemBeforeValid(value: RedeemBeforeValue): boolean {
@@ -124,7 +124,7 @@ export function RedeemBeforeField({ value, onChange, compact }: RedeemBeforeFiel
             <span className="font-semibold text-v-text-2">
               {value.redeemRelativeAmount || '—'} {unitLabel(value.redeemRelativeUnit, value.redeemRelativeAmount).toLowerCase()}
             </span>
-            {' '}of winning the reward.
+            {' '}of winning or claiming the reward.
           </p>
         </div>
       )}
