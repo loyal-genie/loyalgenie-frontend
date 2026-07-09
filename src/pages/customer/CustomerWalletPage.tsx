@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useQueryClient } from '@tanstack/react-query'
 import { Bell, ChevronRight, Loader2 } from 'lucide-react'
@@ -22,6 +22,8 @@ import {
 } from '@/hooks/useCustomerData'
 import { useCustomerSession } from '@/hooks/useCustomerSession'
 import type { BusinessWithCampaigns, CustomerRewardDto } from '@/lib/api'
+import { viewLotteryResult } from '@/lib/api'
+import { fmtCampaignDate } from '@/lib/campaign-dates'
 
 type Tab = 'active' | 'history'
 
@@ -54,6 +56,7 @@ function buildCardContext(
 
 export function CustomerWalletPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const { firstName } = useCustomerSession()
   const [tab, setTab] = useState<Tab>('active')
@@ -63,12 +66,22 @@ export function CustomerWalletPage() {
   const [sessionRedeemed, setSessionRedeemed] = useState<Record<string, string>>({})
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const { data: rewards = [], isLoading } = useCustomerRewards()
+  const { data: rewards = [], isLoading, isError, error, refetch } = useCustomerRewards()
   const { data: businesses } = useBusinessesWithCampaigns()
   const { data: loyaltyProfiles = [] } = useCustomerLoyaltyProfiles()
   const { data: notificationData } = useCustomerNotifications()
   const notificationCount = notificationData?.unreadCount ?? 0
+  const [lotteryStatusId, setLotteryStatusId] = useState<string | null>(null)
   const redeemMutation = useRequestRedemption()
+
+  useEffect(() => {
+    const state = location.state as { highlightRewardId?: string; openLotteryStatus?: boolean } | null
+    if (!state?.highlightRewardId) return
+    setTab('active')
+    if (state.openLotteryStatus) setLotteryStatusId(state.highlightRewardId)
+    window.history.replaceState({}, document.title, location.pathname)
+    void refetch()
+  }, [location.state, location.pathname, refetch])
 
   const cardContext = useMemo(() => {
     const map = new Map<string, WalletCardContext>()
@@ -169,7 +182,13 @@ export function CustomerWalletPage() {
   const closeScreen = () => setOpenId(null)
 
   const pendingRewards = rewards
-    .filter(r => r.status === 'earned' || r.status === 'pending' || sessionRedeemed[r.id])
+    .filter(r =>
+      r.status === 'earned'
+      || r.status === 'pending'
+      || r.status === 'lottery_pending'
+      || r.status === 'lottery_lost'
+      || sessionRedeemed[r.id],
+    )
     .sort((a, b) => {
       if (sessionRedeemed[a.id] && !sessionRedeemed[b.id]) return 1
       if (sessionRedeemed[b.id] && !sessionRedeemed[a.id]) return -1
@@ -181,7 +200,7 @@ export function CustomerWalletPage() {
     })
 
   const historyRewards = rewards
-    .filter(r => (r.status === 'redeemed' || r.status === 'expired') && !sessionRedeemed[r.id])
+    .filter(r => (r.status === 'redeemed' || r.status === 'expired' || r.status === 'lottery_archived') && !sessionRedeemed[r.id])
     .sort(
       (a, b) =>
         new Date(b.redeemedAt ?? b.earnedAt).getTime() - new Date(a.redeemedAt ?? a.earnedAt).getTime(),
@@ -208,10 +227,67 @@ export function CustomerWalletPage() {
         }
       : null
 
+  const lotteryStatusReward = lotteryStatusId ? rewards.find(r => r.id === lotteryStatusId) ?? null : null
+
+  const dismissLotteryLoss = async (rewardId: string) => {
+    try {
+      await viewLotteryResult(rewardId)
+      void queryClient.invalidateQueries({ queryKey: ['customer-rewards'] })
+    } catch {
+      /* ignore */
+    }
+  }
+
   const badgeCount = urgentCount + notificationCount
 
   return (
     <div className="min-h-dvh bg-gray-50 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      <AnimatePresence>
+        {lotteryStatusReward && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setLotteryStatusId(null)}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md max-h-[85vh] rounded-3xl bg-white shadow-xl overflow-y-auto"
+              style={{ padding: '24px' }}
+            >
+              <p className="text-lg font-bold text-v-text">{lotteryStatusReward.campaignName}</p>
+              <p className="text-sm text-v-text-3 mt-1">Ticket #{lotteryStatusReward.lottery?.ticketNumber != null ? String(lotteryStatusReward.lottery.ticketNumber).padStart(4, '0') : '—'}</p>
+              {lotteryStatusReward.status === 'lottery_pending' && lotteryStatusReward.lottery?.drawDate && (
+                <div className="mt-4 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-center">
+                  <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Draw in</p>
+                  <p className="text-2xl font-black text-amber-900 mt-1">
+                    {walletDaysUntil(lotteryStatusReward.lottery.drawDate)} day{walletDaysUntil(lotteryStatusReward.lottery.drawDate) !== 1 ? 's' : ''}
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">{fmtCampaignDate(lotteryStatusReward.lottery.drawDate)}</p>
+                </div>
+              )}
+              {lotteryStatusReward.status === 'lottery_lost' && (
+                <p className="mt-4 text-sm text-v-text-2">Unfortunately your ticket didn&apos;t win this time. Thanks for playing!</p>
+              )}
+              {lotteryStatusReward.status === 'earned' && (
+                <p className="mt-4 text-sm font-semibold text-emerald-700">🎉 You won! Tap Redeem on your wallet card to claim.</p>
+              )}
+              <button
+                type="button"
+                onClick={() => setLotteryStatusId(null)}
+                className="w-full py-3 rounded-xl bg-v-purple text-white font-bold border-0 cursor-pointer mt-6"
+              >
+                Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {openView && (
           <RedemptionScreen
@@ -276,7 +352,7 @@ export function CustomerWalletPage() {
         >
           <div className="flex divide-x divide-white/10">
             {[
-              { value: toRedeemCount, label: 'To Redeem' },
+              { value: toRedeemCount, label: 'Active' },
               { value: topStreak, label: 'Day Streak 🔥' },
               {
                 value: totalPoints >= 1000 ? `${(totalPoints / 1000).toFixed(1)}k` : totalPoints,
@@ -351,6 +427,11 @@ export function CustomerWalletPage() {
         </div>
 
         {redeemError && <p className="text-xs text-red-500 text-center px-5 mb-4">{redeemError}</p>}
+        {isError && (
+          <p className="text-xs text-red-500 text-center px-5 mb-4">
+            {getApiErrorMessage(error, 'Could not load wallet rewards')}
+          </p>
+        )}
 
         <div className="px-5">
           {isLoading ? (
@@ -389,12 +470,14 @@ export function CustomerWalletPage() {
                         <WalletActiveCard
                           key={r.id}
                           reward={r}
-                          context={cardContext.get(r.id)!}
+                          context={cardContext.get(r.id) ?? buildCardContext(r, businesses)}
                           index={i}
                           isRedeemed={!!sessionRedeemed[r.id] || r.status === 'redeemed'}
                           redeemedAt={r.redeemedAt ?? sessionRedeemed[r.id] ?? null}
                           redeeming={redeemMutation.isPending && redeemMutation.variables === r.id}
                           onRedeem={() => startRedeem(r)}
+                          onCheckLotteryStatus={() => setLotteryStatusId(r.id)}
+                          onDismissLotteryLoss={() => void dismissLotteryLoss(r.id)}
                         />
                       ))}
                       <Link to="/customer" className="block no-underline">
@@ -439,7 +522,7 @@ export function CustomerWalletPage() {
                       <WalletHistoryCard
                         key={r.id}
                         reward={r}
-                        context={cardContext.get(r.id)!}
+                        context={cardContext.get(r.id) ?? buildCardContext(r, businesses)}
                         index={i}
                       />
                     ))

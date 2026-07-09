@@ -26,6 +26,8 @@ interface WalletActiveCardProps {
   redeemedAt: string | null
   redeeming?: boolean
   onRedeem: () => void
+  onCheckLotteryStatus?: () => void
+  onDismissLotteryLoss?: () => void
 }
 
 export function WalletActiveCard({
@@ -36,12 +38,16 @@ export function WalletActiveCard({
   redeemedAt,
   redeeming,
   onRedeem,
+  onCheckLotteryStatus,
+  onDismissLotteryLoss,
 }: WalletActiveCardProps) {
   const meta = getCampaignGradient(reward.mechanic)
   const bgFrom = context.bgFrom ?? meta.from
   const bgTo = context.bgTo ?? meta.to
   const chip = walletExpiryChip(context.expiresAt)
   const urgent = chip?.style.color === '#DC2626'
+  const isLotteryPending = reward.status === 'lottery_pending'
+  const isLotteryLost = reward.status === 'lottery_lost'
   const canRedeem = reward.status === 'earned' || reward.status === 'pending'
 
   return (
@@ -112,10 +118,32 @@ export function WalletActiveCard({
             </div>
           ) : (
             <div className="relative flex items-center justify-between gap-2">
-              {chip && (
+              {chip && !isLotteryPending && !isLotteryLost && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={chip.style}>
                   {chip.text}
                 </span>
+              )}
+              {isLotteryPending && onCheckLotteryStatus && (
+                <motion.button
+                  whileTap={{ scale: 0.94 }}
+                  type="button"
+                  onClick={onCheckLotteryStatus}
+                  className="ml-auto px-4 py-1.5 rounded-xl text-[12px] font-extrabold border-0 cursor-pointer"
+                  style={{ background: 'rgba(255,255,255,0.95)', color: bgFrom }}
+                >
+                  Check status →
+                </motion.button>
+              )}
+              {isLotteryLost && onDismissLotteryLoss && (
+                <motion.button
+                  whileTap={{ scale: 0.94 }}
+                  type="button"
+                  onClick={onDismissLotteryLoss}
+                  className="ml-auto px-4 py-1.5 rounded-xl text-[12px] font-extrabold border-0 cursor-pointer"
+                  style={{ background: 'rgba(255,255,255,0.95)', color: bgFrom }}
+                >
+                  Got it
+                </motion.button>
               )}
               {canRedeem && (
                 <motion.button
@@ -136,7 +164,13 @@ export function WalletActiveCard({
 
         {!isRedeemed && (
           <div className="bg-white px-4 py-2.5">
-            <p className="text-[10px] text-gray-400">Won {walletTimeAgo(reward.earnedAt)}</p>
+            <p className="text-[10px] text-gray-400">
+              {isLotteryPending
+                ? `Ticket · Draw ${reward.lottery?.drawDate ?? 'pending'}`
+                : isLotteryLost
+                  ? 'Better luck next time'
+                  : `Won ${walletTimeAgo(reward.earnedAt)}`}
+            </p>
           </div>
         )}
         {isRedeemed && (

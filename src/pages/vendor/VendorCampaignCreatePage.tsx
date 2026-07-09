@@ -14,9 +14,11 @@ import { formatRedeemBeforeSummary, RedeemBeforeField } from '@/components/vendo
 import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid, type StampDropUiState } from '@/lib/stamp-drop-config'
 import { applySpinRedeem, buildSpinCampaignPayload, defaultSpinSegments, getSpinRedeem, isSpinSegmentConfigValid, spinWinRateFromSegments, type SpinSegmentUi } from '@/lib/spin-campaign-config'
 import { applyDiceRedeem, buildDiceCampaignPayload, defaultDiceOutcomes, diceWinRateFromOutcomes, getDiceRedeem, isDiceConfigValid, type DiceOutcomeUi } from '@/lib/dice-campaign-config'
+import { buildLotteryCampaignPayload, defaultLotteryPrizes, defaultLotteryRedeem, isLotteryConfigValid, type LotteryPrizeUi } from '@/lib/lottery-campaign-config'
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
 import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
+import { LotteryPrizeEditor } from '@/components/vendor/LotteryPrizeEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -46,12 +48,6 @@ const DURATION_ALL: { key: DurationMode; label: string; sub: string }[] = [
   { key: '3m',     label: '3 Months', sub: '~90 days'   },
   { key: 'custom', label: 'Custom',   sub: 'Date range' },
 ]
-const DURATION_LOTTERY: { key: DurationMode; label: string; sub: string }[] = [
-  { key: '7d',  label: '1 Week',  sub: '7 days'   },
-  { key: '14d', label: '2 Weeks', sub: '14 days'  },
-  { key: '1m',  label: '1 Month', sub: '~30 days' },
-]
-
 const TODAY = todayInCampaignTz()
 function fmtDate(iso: string) { return fmtCampaignDate(iso) }
 function fmtTime(t: string) { const [h, m] = t.split(':').map(Number); const ap = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ap}` }
@@ -107,15 +103,9 @@ export function VendorCampaignCreatePage() {
   // Dice outcomes (reward per winning face)
   const [diceOutcomes, setDiceOutcomes] = useState<DiceOutcomeUi[]>(defaultDiceOutcomes())
 
-  // Lottery — jackpot fixed, free-form additional prizes (no probability — odds are built into ticket mechanics)
-  const [lotteryConfig, setLotteryConfig] = useState({
-    jackpotName: 'Grand Prize',
-    jackpotReward: 'Free Month Subscription',
-    prizes: [
-      { id: '1', name: '2nd Prize', reward: 'Free Breakfast' },
-      { id: '2', name: '3rd Prize', reward: 'Free Coffee' },
-    ] as { id: string; name: string; reward: string }[],
-  })
+  // Lottery — jackpot + tier prizes with universal redeem-before
+  const [lotteryPrizes, setLotteryPrizes] = useState<LotteryPrizeUi[]>(defaultLotteryPrizes())
+  const [lotteryRedeem, setLotteryRedeem] = useState(defaultLotteryRedeem())
 
   const [loyaltyConfig, setLoyaltyConfig] = useState({
     pointsPerCheckIn: 10,
@@ -132,12 +122,12 @@ export function VendorCampaignCreatePage() {
   const isLottery        = mechanic === 'lottery'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
-  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin' || mechanic === 'dice'
+  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin' || mechanic === 'dice' || mechanic === 'lottery'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
   const isToday          = basics.durationMode === 'today'
-  const durationOptions  = isLottery ? DURATION_LOTTERY : DURATION_ALL
+  const durationOptions  = DURATION_ALL
 
   // Campaign duration in days
   const campaignDays = (() => {
@@ -199,7 +189,7 @@ export function VendorCampaignCreatePage() {
     }
     if (mechanic === 'spin')  return isSpinSegmentConfigValid(spinSegments)
     if (mechanic === 'dice')  return isDiceConfigValid(diceOutcomes)
-    if (mechanic === 'lottery') return lotteryConfig.jackpotReward.trim().length > 0
+    if (mechanic === 'lottery') return isLotteryConfigValid(lotteryPrizes, lotteryRedeem)
     if (mechanic === 'stamp') {
       const dropsValid = [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
         d.to <= stampConfig.totalStamps && isStampDropValid(d),
@@ -222,8 +212,8 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice') {
-      setLaunchError('Only Shake & Win, Stamp Card, Check-in Loyalty, Spin a Wheel, and Roll a Dice are wired to the API in this release.')
+    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery') {
+      setLaunchError('This campaign type is not available yet.')
       return
     }
     setLaunchError(null)
@@ -290,6 +280,21 @@ export function VendorCampaignCreatePage() {
           perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
           playsPerDay: basics.playsPerDay,
           ...buildDiceCampaignPayload(diceOutcomes),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'lottery') {
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'lottery',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dates.startTime,
+          endTime: dates.endTime,
+          ...buildLotteryCampaignPayload(lotteryPrizes, lotteryRedeem),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -895,41 +900,18 @@ export function VendorCampaignCreatePage() {
           {step === 2 && mechanic === 'lottery' && (
             <Card className="p-6">
               <h2 className="text-base font-bold text-v-text mb-1">Lottery — Prizes</h2>
-              <p className="text-xs text-v-text-3 mb-5">Configure the jackpot and add as many additional prizes as you need. Win odds are built into the scratch-card mechanics — no probability setup required.</p>
-              <div className="space-y-3">
-
-                {/* Jackpot — always present, can't be deleted */}
-                <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl">👑</span>
-                    <span className="text-sm font-bold text-amber-700">Jackpot</span>
-                    <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 font-semibold border border-amber-200">Required</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input className="bg-white border border-amber-200 rounded-lg px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-amber-400" placeholder="Prize name (e.g. Grand Prize)" value={lotteryConfig.jackpotName} onChange={e => setLotteryConfig(p => ({ ...p, jackpotName: e.target.value }))} />
-                    <input className="bg-white border border-amber-200 rounded-lg px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-amber-400" placeholder="Reward (e.g. Free Month Sub)" value={lotteryConfig.jackpotReward} onChange={e => setLotteryConfig(p => ({ ...p, jackpotReward: e.target.value }))} />
-                  </div>
-                </div>
-
-                {/* Additional prizes */}
-                {lotteryConfig.prizes.map((prize, i) => (
-                  <div key={prize.id} className="p-3.5 bg-v-surface-2 border border-v-border rounded-xl">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <span className="text-sm font-semibold text-v-text-2">Prize {i + 2}</span>
-                      <button onClick={() => setLotteryConfig(p => ({ ...p, prizes: p.prizes.filter(x => x.id !== prize.id) }))} className="ml-auto p-1 rounded-lg text-v-text-3 hover:text-v-danger hover:bg-red-50 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input className="bg-white border border-v-border rounded-lg px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder={`Prize name (e.g. ${i === 0 ? '2nd Prize' : '3rd Prize'})`} value={prize.name} onChange={e => setLotteryConfig(p => ({ ...p, prizes: p.prizes.map(x => x.id === prize.id ? { ...x, name: e.target.value } : x) }))} />
-                      <input className="bg-white border border-v-border rounded-lg px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Reward (e.g. Free Coffee)" value={prize.reward} onChange={e => setLotteryConfig(p => ({ ...p, prizes: p.prizes.map(x => x.id === prize.id ? { ...x, reward: e.target.value } : x) }))} />
-                    </div>
-                  </div>
-                ))}
-
-                <Button variant="secondary" size="sm" onClick={() => setLotteryConfig(p => ({ ...p, prizes: [...p.prizes, { id: Math.random().toString(36).slice(2), name: `Prize ${p.prizes.length + 2}`, reward: '' }] }))}>
-                  <Plus className="w-3 h-3" /> Add Prize
-                </Button>
+              <p className="text-xs text-v-text-3 mb-5">
+                Configure the jackpot and prize tiers. Draw runs automatically on the campaign end date — one random ticket wins each prize.
+              </p>
+              <LotteryPrizeEditor prizes={lotteryPrizes} setPrizes={setLotteryPrizes} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  This redeem window applies to <span className="font-semibold text-v-text-2">every</span> prize if a customer wins.
+                </p>
+                <RedeemBeforeField value={lotteryRedeem} onChange={setLotteryRedeem} />
+              </div>
+              <div className="mt-4 flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+                <span>Draw date = campaign end date. Open to all customers — no user cap.</span>
               </div>
             </Card>
           )}
@@ -976,6 +958,10 @@ export function VendorCampaignCreatePage() {
                       ...(!isToday ? [{ label: 'Winners / Day', value: `${formatWinnerCount(dailyWinners)} on a full day` }] : []),
                       { label: 'Redeem before', value: formatRedeemBeforeSummary(getDiceRedeem(diceOutcomes)) },
                     ] : []),
+                    ...(mechanic === 'lottery' ? [
+                      { label: 'Draw date', value: dates.end ? fmtDate(dates.end) : '—' },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(lotteryRedeem) },
+                    ] : []),
                     {
                       label: 'Rewards',
                       value:
@@ -984,7 +970,7 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin && o.reward.trim()).length} of 6 faces win · ${diceWinRate}% win rate · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)` :
                         mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in · ${loyaltyConfig.milestones.filter(m => m.name.trim()).length} milestone(s)` :
-                        mechanic === 'lottery' ? `Jackpot + ${lotteryConfig.prizes.length} prize${lotteryConfig.prizes.length !== 1 ? 's' : ''}` : '—',
+                        mechanic === 'lottery' ? `Jackpot + ${lotteryPrizes.filter(p => p.tier !== 'jackpot').length} prize${lotteryPrizes.filter(p => p.tier !== 'jackpot').length !== 1 ? 's' : ''} · Draw ${fmtDate(dates.end)}` : '—',
                     },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between py-3 border-b border-v-border last:border-0">
@@ -1142,7 +1128,7 @@ export function VendorCampaignCreatePage() {
                 />
               )}
               {isLottery && (
-                <LotteryCampaignImpact prizeCount={1 + lotteryConfig.prizes.length} />
+                <LotteryCampaignImpact prizeCount={lotteryPrizes.length} />
               )}
 
               <Card className="p-5 text-center">

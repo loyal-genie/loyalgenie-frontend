@@ -7,6 +7,7 @@ import {
   fetchPlayState,
   fetchStampState,
   fetchLoyaltyState,
+  fetchLotteryState,
   fetchAuthSession,
   getApiErrorMessage,
 } from '@/lib/api'
@@ -26,6 +27,7 @@ import {
 import { ShakeCampaignDetail } from '@/components/customer/ShakeCampaignDetail'
 import { SpinCampaignDetail } from '@/components/customer/SpinCampaignDetail'
 import { DiceCampaignDetail } from '@/components/customer/DiceCampaignDetail'
+import { LotteryCampaignDetail } from '@/components/customer/LotteryCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
@@ -95,6 +97,13 @@ export function CustomerCampaignPage() {
     queryKey: ['loyalty-state', id, serverSession?.userId],
     queryFn: () => fetchLoyaltyState(id!),
     enabled: Boolean(id) && authReady && campaign?.mechanic === 'check-in-loyalty',
+    staleTime: 0,
+  })
+
+  const { data: lotteryState, isLoading: lotteryStateLoading } = useQuery({
+    queryKey: ['lottery-state', id, serverSession?.userId],
+    queryFn: () => fetchLotteryState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'lottery',
     staleTime: 0,
   })
 
@@ -175,6 +184,7 @@ export function CustomerCampaignPage() {
     ((campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playStateLoading)
     || (campaign?.mechanic === 'stamp' && stampStateLoading)
     || (campaign?.mechanic === 'check-in-loyalty' && loyaltyStateLoading)
+    || (campaign?.mechanic === 'lottery' && lotteryStateLoading)
 
   const instantWinBlocked = (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playState && !playState.canPlay
   const shakeBlocked = instantWinBlocked
@@ -185,7 +195,8 @@ export function CustomerCampaignPage() {
     || (!stampState.enrolled && !stampState.enrollmentOpen)
   )
   const loyaltyBlocked = campaign?.mechanic === 'check-in-loyalty' && loyaltyState?.checkedInToday
-  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked)
+  const lotteryBlocked = campaign?.mechanic === 'lottery' && lotteryState && !lotteryState.canClaimTicket && !lotteryState.hasTicket
+  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked)
 
   useEffect(() => {
     if (!blocked || stampCollect || loyaltySplash || !campaign || sessionLoading || isLoading || stateStillLoading) return
@@ -297,7 +308,7 @@ export function CustomerCampaignPage() {
         : campaign.mechanic === 'dice'
           ? 'Roll the dice'
           : campaign.mechanic === 'lottery'
-            ? 'Enter lottery'
+            ? 'Claim ticket'
             : "Let's shake!"
 
   if (campaign.mechanic === 'shake') {
@@ -352,6 +363,24 @@ export function CustomerCampaignPage() {
         userCap={campaign.userCap}
         playsUsedToday={playState?.playsUsedToday}
         playsPerDay={playState?.playsPerDay ?? campaign.playsPerDay}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'lottery') {
+    return (
+      <LotteryCampaignDetail
+        campaign={campaign}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasTicket={lotteryState?.hasTicket}
+        drawDate={lotteryState?.drawDate ?? campaign.drawDate ?? campaign.endDate}
+        totalTickets={lotteryState?.totalTickets}
         onBack={handleBack}
         onKey={handleKey}
         onDelete={handleDelete}

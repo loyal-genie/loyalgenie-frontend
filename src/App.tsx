@@ -46,6 +46,7 @@ function CustomerRewardClaimPageWithKey() {
 const CustomerShakePage = lazyWithRetry(() => import('@/pages/customer/games/CustomerShakePage').then(m => ({ default: m.CustomerShakePage })))
 const CustomerSpinPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerSpinPage').then(m => ({ default: m.CustomerSpinPage })))
 const CustomerDicePage = lazyWithRetry(() => import('@/pages/customer/games/CustomerDicePage').then(m => ({ default: m.CustomerDicePage })))
+const CustomerLotteryPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerLotteryPage').then(m => ({ default: m.CustomerLotteryPage })))
 const CustomerStampPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerStampPage').then(m => ({ default: m.CustomerStampPage })))
 const CustomerMechanicComingSoonPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerMechanicComingSoonPage').then(m => ({ default: m.CustomerMechanicComingSoonPage })))
 
@@ -131,7 +132,7 @@ export function App() {
             <Route path="games/stamp" element={<CustomerStampPage />} />
             <Route path="games/coming-soon" element={<CustomerMechanicComingSoonPage />} />
             <Route path="games/dice" element={<CustomerDicePage />} />
-            <Route path="games/lottery" element={<Navigate to="/customer/games/coming-soon?mechanic=lottery" replace />} />
+            <Route path="games/lottery" element={<CustomerLotteryPage />} />
           </Route>
 
           <Route path="/:slug" element={<SlugPage />} />

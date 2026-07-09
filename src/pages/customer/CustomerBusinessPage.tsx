@@ -183,6 +183,43 @@ function DiceCampaignBlock({
   )
 }
 
+function LotteryCampaignBlock({
+  campaign,
+  lotteryState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+  }
+  lotteryState?: {
+    drawDate?: string
+    hasTicket?: boolean
+    canClaimTicket?: boolean
+    totalTickets?: number
+    drawCompleted?: boolean
+  }
+}) {
+  const blocked = Boolean(lotteryState && !lotteryState.canClaimTicket && !lotteryState.hasTicket)
+  const drawLabel = lotteryState?.drawDate ?? campaign.endDate
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      blockedLabel={lotteryState?.drawCompleted ? 'Draw complete' : 'Entries closed'}
+      statsLine={
+        lotteryState?.hasTicket
+          ? `✓ Ticket claimed · Draw ${drawLabel}`
+          : `Draw on ${drawLabel}${lotteryState?.totalTickets ? ` · ${lotteryState.totalTickets} entered` : ''}`
+      }
+    />
+  )
+}
+
 function LoyaltyCampaignBlock({
   campaign,
   state,
@@ -291,9 +328,10 @@ export function CustomerBusinessPage() {
   const shakeCampaigns = biz.campaigns.filter(c => c.mechanic === 'shake')
   const spinCampaigns = biz.campaigns.filter(c => c.mechanic === 'spin')
   const diceCampaigns = biz.campaigns.filter(c => c.mechanic === 'dice')
+  const lotteryCampaigns = biz.campaigns.filter(c => c.mechanic === 'lottery')
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
   const otherCampaigns = biz.campaigns.filter(
-    c => !['stamp', 'shake', 'spin', 'dice', 'check-in-loyalty'].includes(c.mechanic),
+    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'check-in-loyalty'].includes(c.mechanic),
   )
 
   return (
@@ -340,6 +378,19 @@ export function CustomerBusinessPage() {
                     key={c.id}
                     campaign={c}
                     playState={stateByCampaignId.get(c.id)?.state as PlayState | undefined}
+                  />
+                ))}
+                {lotteryCampaigns.map(c => (
+                  <LotteryCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    lotteryState={stateByCampaignId.get(c.id)?.state as {
+                      drawDate?: string
+                      hasTicket?: boolean
+                      canClaimTicket?: boolean
+                      totalTickets?: number
+                      drawCompleted?: boolean
+                    } | undefined}
                   />
                 ))}
                 {loyaltyCampaigns.map(c => (

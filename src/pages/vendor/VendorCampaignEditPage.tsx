@@ -47,6 +47,16 @@ import {
   type DiceOutcomeUi,
 } from '@/lib/dice-campaign-config'
 import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
+import { LotteryPrizeEditor } from '@/components/vendor/LotteryPrizeEditor'
+import {
+  buildLotteryCampaignPayload,
+  defaultLotteryPrizes,
+  defaultLotteryRedeem,
+  isLotteryConfigValid,
+  lotteryPrizesEqual,
+  lotteryPrizesFromApi,
+  type LotteryPrizeUi,
+} from '@/lib/lottery-campaign-config'
 import { formatRedeemBeforeSummary, RedeemBeforeField } from '@/components/vendor/RedeemBeforeField'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
@@ -183,6 +193,10 @@ export function VendorCampaignEditPage() {
   const [originalSpinSegments, setOriginalSpinSegments] = useState<SpinSegmentUi[]>(defaultSpinSegments())
   const [diceOutcomes, setDiceOutcomes] = useState<DiceOutcomeUi[]>(defaultDiceOutcomes())
   const [originalDiceOutcomes, setOriginalDiceOutcomes] = useState<DiceOutcomeUi[]>(defaultDiceOutcomes())
+  const [lotteryPrizes, setLotteryPrizes] = useState<LotteryPrizeUi[]>(defaultLotteryPrizes())
+  const [lotteryRedeem, setLotteryRedeem] = useState(defaultLotteryRedeem())
+  const [originalLotteryPrizes, setOriginalLotteryPrizes] = useState<LotteryPrizeUi[]>(defaultLotteryPrizes())
+  const [originalLotteryRedeem, setOriginalLotteryRedeem] = useState(defaultLotteryRedeem())
   const [activeHoursEnabled, setActiveHoursEnabled] = useState(false)
   const [activeStartTime, setActiveStartTime] = useState('09:00')
   const [activeEndTime, setActiveEndTime] = useState('21:00')
@@ -264,6 +278,14 @@ export function VendorCampaignEditPage() {
       }
     }
 
+    if (campaign.mechanic === 'lottery') {
+      const hydrated = lotteryPrizesFromApi(campaign.lotteryConfig ?? null, campaign.rewards)
+      setLotteryPrizes(hydrated.prizes)
+      setLotteryRedeem(hydrated.redeem)
+      setOriginalLotteryPrizes(hydrated.prizes)
+      setOriginalLotteryRedeem(hydrated.redeem)
+    }
+
     if (campaign.mechanic === 'shake' && campaign.startDate !== campaign.endDate) {
       const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
       dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
@@ -312,6 +334,7 @@ export function VendorCampaignEditPage() {
   const isShake = mechanic === 'shake'
   const isSpin = mechanic === 'spin'
   const isDice = mechanic === 'dice'
+  const isLottery = mechanic === 'lottery'
   const isStamp = mechanic === 'stamp'
   const isLoyalty = mechanic === 'check-in-loyalty'
   const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
@@ -360,6 +383,7 @@ export function VendorCampaignEditPage() {
     rewards: isShake && !rewardsEqual(rewards, toShakeRewards(campaign.rewards)),
     spinConfig: isSpin && !spinSegmentsEqual(spinSegments, originalSpinSegments),
     diceConfig: isDice && !diceOutcomesEqual(diceOutcomes, originalDiceOutcomes),
+    lotteryConfig: isLottery && !lotteryPrizesEqual(lotteryPrizes, originalLotteryPrizes, lotteryRedeem, originalLotteryRedeem),
     activeHours: (isSpin || isDice) && (
       activeHoursEnabled !== originalActiveHoursEnabled
       || activeStartTime !== originalActiveStartTime
@@ -382,6 +406,7 @@ export function VendorCampaignEditPage() {
     if (isShake) return rewardsAreValid(rewards)
     if (isSpin) return isSpinSegmentConfigValid(spinSegments)
     if (isDice) return isDiceConfigValid(diceOutcomes)
+    if (isLottery) return isLotteryConfigValid(lotteryPrizes, lotteryRedeem)
     if (isStamp) return stampFormValid()
     if (isLoyalty) return loyaltyFormValid()
     return true
@@ -437,6 +462,12 @@ export function VendorCampaignEditPage() {
           payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
           payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
         }
+      }
+
+      if (isLottery) {
+        if (changedFields.endDate) payload.endDate = endDate
+        if (changedFields.endTime) payload.endTime = endTime
+        if (changedFields.lotteryConfig) payload.lotteryConfig = buildLotteryCampaignPayload(lotteryPrizes, lotteryRedeem).lotteryConfig
       }
 
       if (isStamp && (changedFields.claimPeriod || changedFields.stampConfig || changedFields.userCap)) {
@@ -526,6 +557,7 @@ export function VendorCampaignEditPage() {
   const mechanicTitle = isShake ? 'Shake & Win — Reward Distribution'
     : isSpin ? 'Spin a Wheel — Segments & Rewards'
     : isDice ? 'Roll a Dice — Face Rewards'
+    : isLottery ? 'Lottery — Prizes'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
     : 'Campaign Configuration'
 
@@ -822,9 +854,21 @@ export function VendorCampaignEditPage() {
                 </div>
               </Card>
 
-              {(isShake || isSpin || isDice || isStamp) && (
+              {(isShake || isSpin || isDice || isLottery || isStamp) && (
               <Card className="p-6">
                 <h2 className="text-base font-bold text-v-text mb-1">{mechanicTitle}</h2>
+
+                {isLottery && (
+                  <div>
+                    <p className="text-xs text-v-text-3 mb-4">Configure jackpot and prize tiers. Draw runs automatically on the campaign end date.</p>
+                    <LotteryPrizeEditor prizes={lotteryPrizes} setPrizes={setLotteryPrizes} readOnly={isEnded} />
+                    {!isEnded && (
+                      <div className="mt-5 border-t border-v-border pt-5">
+                        <RedeemBeforeField value={lotteryRedeem} onChange={setLotteryRedeem} />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {isDice && (
                   <div>

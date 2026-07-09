@@ -509,6 +509,21 @@ export interface CampaignDto {
       redeemRelativeUnit?: 'day' | 'week' | 'month'
     }[]
   } | null
+  lotteryConfig?: {
+    prizes: {
+      id?: string
+      tier: 'jackpot' | 'prize'
+      name: string
+      reward: string
+      icon?: string
+    }[]
+    drawCompleted?: boolean
+    drawCompletedAt?: string | null
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
 }
 
 export interface CreateShakeCampaignPayload {
@@ -629,7 +644,29 @@ export interface CreateDiceCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload
+export interface CreateLotteryCampaignPayload {
+  name: string
+  mechanic: 'lottery'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  lotteryConfig: {
+    prizes: {
+      id?: string
+      tier: 'jackpot' | 'prize'
+      name: string
+      reward: string
+      icon?: string
+    }[]
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -728,6 +765,21 @@ export interface PublicCampaign {
       redeemRelativeUnit?: 'day' | 'week' | 'month'
     }[]
   } | null
+  drawDate?: string
+  lotteryConfig?: {
+    prizes: {
+      id?: string
+      tier: 'jackpot' | 'prize'
+      name: string
+      reward: string
+      icon?: string
+    }[]
+    drawCompleted?: boolean
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
   rewards: { id: string; name: string; description: string; icon: string; tier?: string | null }[]
 }
 
@@ -817,11 +869,18 @@ export interface CustomerRewardDto {
   reward: string
   icon: string
   earnedAt: string
-  status: 'earned' | 'pending' | 'redeemed' | 'expired'
+  status: 'earned' | 'pending' | 'redeemed' | 'expired' | 'lottery_pending' | 'lottery_lost' | 'lottery_archived'
   requestedAt?: string
   redeemedAt?: string
   code: string
   redeemBefore?: string | null
+  lottery?: {
+    ticketNumber: number | null
+    serialCode: string | null
+    drawDate: string | null
+    ticketStatus: string | null
+    hasViewedResult: boolean
+  }
 }
 
 export interface CampaignPin {
@@ -905,6 +964,7 @@ export interface UpdateCampaignPayload {
   startTime?: string
   spinConfig?: CreateSpinCampaignPayload['spinConfig']
   diceConfig?: CreateDiceCampaignPayload['diceConfig']
+  lotteryConfig?: CreateLotteryCampaignPayload['lotteryConfig']
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {
@@ -1013,6 +1073,56 @@ export async function fetchCustomerRewards() {
 
 export async function requestRewardRedemption(rewardId: string) {
   await api.post(`/campaigns/customer/rewards/${rewardId}/request-redemption`)
+}
+
+export interface LotteryState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  drawDate: string
+  drawCompleted: boolean
+  drawCompletedAt?: string | null
+  active: boolean
+  canClaimTicket: boolean
+  hasTicket: boolean
+  ticket?: {
+    id: string
+    ticketNumber: number
+    serialCode: string
+    status: string
+    claimedAt: string
+  } | null
+  walletRewardStatus?: string | null
+  walletRewardId?: string | null
+  totalTickets: number
+  prizes: { tier: string; name: string; reward: string; icon: string }[]
+}
+
+export async function fetchLotteryState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: LotteryState }>(`/campaigns/${campaignId}/lottery-state`)
+  return data.data
+}
+
+export async function claimLotteryTicket(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      ticketId: string
+      ticketNumber: number
+      serialCode: string
+      drawDate: string
+      walletRewardId: string
+      prizes: { tier: string; name: string; reward: string; icon: string }[]
+    }
+  }>(`/campaigns/${campaignId}/lottery/claim-ticket`, { playSessionToken })
+  return data.data
+}
+
+export async function viewLotteryResult(rewardId: string) {
+  const { data } = await api.post<{ success: boolean; data: { archived: boolean } }>(
+    `/campaigns/customer/rewards/${rewardId}/view-lottery-result`,
+  )
+  return data.data
 }
 
 export interface LoyaltyState {

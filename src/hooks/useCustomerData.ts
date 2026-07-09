@@ -52,9 +52,11 @@ export function useCustomerRewards() {
   })
 
   return useQuery({
-    queryKey: ['customer-rewards'],
+    queryKey: ['customer-rewards', customerId],
     queryFn: fetchCustomerRewards,
     enabled: session?.role === 'customer',
+    staleTime: 0,
+    refetchOnMount: 'always',
     refetchInterval: query => {
       const hasPending = query.state.data?.some(r => r.status === 'pending')
       if (!hasPending) return false
