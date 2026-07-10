@@ -528,7 +528,7 @@ export interface CampaignDto {
     condition: 'quantity' | 'spend'
     buyQuantity: number
     spendAmount: number
-    rewardKind: 'flat' | 'percent' | 'item' | 'points'
+    rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
     redeemExpiryMode?: 'fixed' | 'relative'
     redeemFixedDate?: string | null
@@ -689,7 +689,7 @@ export interface CreateBuyXGetYCampaignPayload {
     condition: 'quantity' | 'spend'
     buyQuantity: number
     spendAmount: number
-    rewardKind: 'flat' | 'percent' | 'item' | 'points'
+    rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
     redeemExpiryMode: 'fixed' | 'relative'
     redeemFixedDate?: string
@@ -816,7 +816,7 @@ export interface PublicCampaign {
     condition: 'quantity' | 'spend'
     buyQuantity: number
     spendAmount: number
-    rewardKind: 'flat' | 'percent' | 'item' | 'points'
+    rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
     redeemExpiryMode?: 'fixed' | 'relative'
     redeemFixedDate?: string | null
