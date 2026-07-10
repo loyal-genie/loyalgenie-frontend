@@ -555,6 +555,20 @@ export interface CampaignDto {
     redeemRelativeAmount?: number
     redeemRelativeUnit?: 'day' | 'week' | 'month'
   } | null
+  comboConfig?: {
+    variant: 'discount' | 'freeitem'
+    items?: string[]
+    originalPrice?: number
+    bundlePrice?: number
+    paidItems?: string[]
+    freeItems?: string[]
+    totalSpots: number
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
   friendConfig?: {
     minFriends: number
     rewardKind: 'flat' | 'percent' | 'item'
@@ -774,6 +788,29 @@ export interface CreateFlashCampaignPayload {
   }
 }
 
+export interface CreateComboCampaignPayload {
+  name: string
+  mechanic: 'combo'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  comboConfig: {
+    variant: 'discount' | 'freeitem'
+    items: string[]
+    originalPrice: number
+    bundlePrice: number
+    paidItems: string[]
+    freeItems: string[]
+    totalSpots: number
+    termsAndConditions?: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
 export interface CreateFriendCampaignPayload {
   name: string
   mechanic: 'friend'
@@ -811,7 +848,7 @@ export interface CreateGroupUnlockCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload | CreateFlashCampaignPayload | CreateFriendCampaignPayload | CreateGroupUnlockCampaignPayload
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload | CreateFlashCampaignPayload | CreateComboCampaignPayload | CreateFriendCampaignPayload | CreateGroupUnlockCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -950,6 +987,20 @@ export interface PublicCampaign {
     totalSlots: number
     rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  comboConfig?: {
+    variant: 'discount' | 'freeitem'
+    items?: string[]
+    originalPrice?: number
+    bundlePrice?: number
+    paidItems?: string[]
+    freeItems?: string[]
+    totalSpots: number
     termsAndConditions?: string
     redeemExpiryMode?: 'fixed' | 'relative'
     redeemFixedDate?: string | null
@@ -1168,6 +1219,7 @@ export interface UpdateCampaignPayload {
   buyXGetYConfig?: CreateBuyXGetYCampaignPayload['buyXGetYConfig']
   couponConfig?: CreateCouponCampaignPayload['couponConfig']
   flashConfig?: CreateFlashCampaignPayload['flashConfig']
+  comboConfig?: CreateComboCampaignPayload['comboConfig']
   friendConfig?: CreateFriendCampaignPayload['friendConfig']
   groupUnlockConfig?: CreateGroupUnlockCampaignPayload['groupUnlockConfig']
 }
@@ -1470,6 +1522,52 @@ export async function claimFlashReward(campaignId: string, playSessionToken: str
       icon: string
     }
   }>(`/campaigns/${campaignId}/flash/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface ComboState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  totalSpots: number
+  spotsRemaining: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  termsAndConditions: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchComboState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: ComboState }>(
+    `/campaigns/${campaignId}/combo-state`,
+  )
+  return data.data
+}
+
+export async function claimComboReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/combo/claim`, { playSessionToken })
   return data.data
 }
 

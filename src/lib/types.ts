@@ -1,4 +1,4 @@
-export type MechanicType = 'shake' | 'stamp' | 'check-in-loyalty' | 'spin' | 'dice' | 'lottery' | 'buy-x-get-y' | 'coupon' | 'flash' | 'friend' | 'groupunlock'
+export type MechanicType = 'shake' | 'stamp' | 'check-in-loyalty' | 'spin' | 'dice' | 'lottery' | 'buy-x-get-y' | 'coupon' | 'flash' | 'combo' | 'friend' | 'groupunlock'
 export type CampaignStatus = 'active' | 'draft' | 'ended' | 'paused'
 export type RewardType = 'single' | 'range'
 

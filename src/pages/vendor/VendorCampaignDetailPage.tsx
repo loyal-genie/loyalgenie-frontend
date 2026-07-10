@@ -37,18 +37,21 @@ export function VendorCampaignDetailPage() {
 
   const isStamp = campaign.mechanic === 'stamp'
   const isGroupUnlock = campaign.mechanic === 'groupunlock'
+  const isCombo = campaign.mechanic === 'combo'
+  const comboTotalSpots = campaign.comboConfig?.totalSpots ?? campaign.userCap
   const isClaimOffer =
     campaign.mechanic === 'groupunlock'
     || campaign.mechanic === 'coupon'
     || campaign.mechanic === 'flash'
+    || campaign.mechanic === 'combo'
     || campaign.mechanic === 'friend'
     || campaign.mechanic === 'buy-x-get-y'
   const stampStats = campaign.stampStats
   const targetPeople =
     campaign.groupUnlockConfig?.targetParticipants
     ?? campaign.userCap
-  const engRate = (isGroupUnlock ? targetPeople : campaign.userCap) > 0
-    ? Math.round((campaign.currentUsers / (isGroupUnlock ? targetPeople : campaign.userCap)) * 100) : 0
+  const engRate = (isCombo ? comboTotalSpots : isGroupUnlock ? targetPeople : campaign.userCap) > 0
+    ? Math.round((campaign.currentUsers / (isCombo ? comboTotalSpots : isGroupUnlock ? targetPeople : campaign.userCap)) * 100) : 0
   const winRate = campaign.participations > 0
     ? Math.round((campaign.rewardsClaimed / campaign.participations) * 100) : 0
   const redRate = campaign.rewardsClaimed > 0
@@ -80,6 +83,10 @@ export function VendorCampaignDetailPage() {
     { label: 'Target Participants', value: String(targetPeople) },
     { label: 'Reserved so far', value: String(campaign.currentUsers) },
     { label: 'Spots left', value: String(Math.max(0, targetPeople - campaign.currentUsers)) },
+  ] : isCombo ? [
+    { label: 'Total Spots', value: String(comboTotalSpots) },
+    { label: 'Claims so far', value: String(campaign.currentUsers) },
+    { label: 'Spots left', value: String(Math.max(0, comboTotalSpots - campaign.currentUsers)) },
   ] : isClaimOffer ? [
     { label: 'User Cap', value: String(campaign.userCap) },
     { label: 'Claims so far', value: String(campaign.currentUsers) },

@@ -69,6 +69,7 @@ import {
 } from '@/lib/buy-x-get-y-campaign-config'
 import { CouponOfferEditor } from '@/components/vendor/CouponOfferEditor'
 import { FlashOfferEditor } from '@/components/vendor/FlashOfferEditor'
+import { ComboOfferEditor } from '@/components/vendor/ComboOfferEditor'
 import { FriendOfferEditor } from '@/components/vendor/FriendOfferEditor'
 import { GroupUnlockOfferEditor } from '@/components/vendor/GroupUnlockOfferEditor'
 import {
@@ -89,6 +90,15 @@ import {
   isFlashConfigValid,
   type FlashConfigUi,
 } from '@/lib/flash-campaign-config'
+import {
+  buildComboCampaignPayload,
+  comboFromApi,
+  defaultComboConfig,
+  defaultComboRedeem,
+  formatComboSentence,
+  isComboConfigValid,
+  type ComboConfigUi,
+} from '@/lib/combo-campaign-config'
 import {
   buildFriendCampaignPayload,
   friendFromApi,
@@ -266,6 +276,26 @@ function flashEqual(
     && redeemA.redeemRelativeUnit === redeemB.redeemRelativeUnit
 }
 
+function comboEqual(
+  a: ComboConfigUi,
+  b: ComboConfigUi,
+  redeemA: RedeemBeforeValue,
+  redeemB: RedeemBeforeValue,
+) {
+  return a.variant === b.variant
+    && JSON.stringify(a.items) === JSON.stringify(b.items)
+    && a.originalPrice === b.originalPrice
+    && a.bundlePrice === b.bundlePrice
+    && JSON.stringify(a.paidItems) === JSON.stringify(b.paidItems)
+    && JSON.stringify(a.freeItems) === JSON.stringify(b.freeItems)
+    && a.totalSpots === b.totalSpots
+    && a.termsAndConditions === b.termsAndConditions
+    && redeemA.redeemExpiryMode === redeemB.redeemExpiryMode
+    && redeemA.redeemFixedDate === redeemB.redeemFixedDate
+    && redeemA.redeemRelativeAmount === redeemB.redeemRelativeAmount
+    && redeemA.redeemRelativeUnit === redeemB.redeemRelativeUnit
+}
+
 function friendEqual(
   a: FriendConfigUi,
   b: FriendConfigUi,
@@ -340,6 +370,10 @@ export function VendorCampaignEditPage() {
   const [flashRedeem, setFlashRedeem] = useState(defaultFlashRedeem())
   const [originalFlashConfig, setOriginalFlashConfig] = useState<FlashConfigUi>(defaultFlashConfig())
   const [originalFlashRedeem, setOriginalFlashRedeem] = useState(defaultFlashRedeem())
+  const [comboConfig, setComboConfig] = useState<ComboConfigUi>(defaultComboConfig())
+  const [comboRedeem, setComboRedeem] = useState(defaultComboRedeem())
+  const [originalComboConfig, setOriginalComboConfig] = useState<ComboConfigUi>(defaultComboConfig())
+  const [originalComboRedeem, setOriginalComboRedeem] = useState(defaultComboRedeem())
   const [friendConfig, setFriendConfig] = useState<FriendConfigUi>(defaultFriendConfig())
   const [friendRedeem, setFriendRedeem] = useState(defaultFriendRedeem())
   const [originalFriendConfig, setOriginalFriendConfig] = useState<FriendConfigUi>(defaultFriendConfig())
@@ -490,6 +524,23 @@ export function VendorCampaignEditPage() {
       setOriginalActiveEndTime(end)
     }
 
+    if (campaign.mechanic === 'combo') {
+      const hydrated = comboFromApi(campaign.comboConfig)
+      setComboConfig(hydrated.config)
+      setComboRedeem(hydrated.redeem)
+      setOriginalComboConfig(hydrated.config)
+      setOriginalComboRedeem(hydrated.redeem)
+      const start = campaign.startTime ?? '00:00'
+      const end = campaign.endTime ?? '23:59'
+      const hoursEnabled = start !== '00:00' || end !== '23:59'
+      setActiveHoursEnabled(hoursEnabled)
+      setActiveStartTime(start)
+      setActiveEndTime(end)
+      setOriginalActiveHoursEnabled(hoursEnabled)
+      setOriginalActiveStartTime(start)
+      setOriginalActiveEndTime(end)
+    }
+
     if (campaign.mechanic === 'friend') {
       const hydrated = friendFromApi(campaign.friendConfig)
       setFriendConfig(hydrated.config)
@@ -576,6 +627,7 @@ export function VendorCampaignEditPage() {
   const isBuyXGetY = mechanic === 'buy-x-get-y'
   const isCoupon = mechanic === 'coupon'
   const isFlash = mechanic === 'flash'
+  const isCombo = mechanic === 'combo'
   const isFriend = mechanic === 'friend'
   const isGroupUnlock = mechanic === 'groupunlock'
   const isStamp = mechanic === 'stamp'
@@ -630,9 +682,10 @@ export function VendorCampaignEditPage() {
     buyXGetYConfig: isBuyXGetY && !buyXGetYEqual(buyXGetYConfig, originalBuyXGetYConfig, buyXGetYRedeem, originalBuyXGetYRedeem),
     couponConfig: isCoupon && !couponEqual(couponConfig, originalCouponConfig, couponRedeem, originalCouponRedeem),
     flashConfig: isFlash && !flashEqual(flashConfig, originalFlashConfig, flashRedeem, originalFlashRedeem),
+    comboConfig: isCombo && !comboEqual(comboConfig, originalComboConfig, comboRedeem, originalComboRedeem),
     friendConfig: isFriend && !friendEqual(friendConfig, originalFriendConfig, friendRedeem, originalFriendRedeem),
     groupUnlockConfig: isGroupUnlock && !groupUnlockEqual(groupUnlockConfig, originalGroupUnlockConfig, groupUnlockRedeem, originalGroupUnlockRedeem),
-    activeHours: (isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isFriend || isGroupUnlock) && (
+    activeHours: (isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) && (
       activeHoursEnabled !== originalActiveHoursEnabled
       || activeStartTime !== originalActiveStartTime
       || activeEndTime !== originalActiveEndTime
@@ -658,6 +711,7 @@ export function VendorCampaignEditPage() {
     if (isBuyXGetY) return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
     if (isCoupon) return isCouponConfigValid(couponConfig, couponRedeem)
     if (isFlash) return isFlashConfigValid(flashConfig, flashRedeem)
+    if (isCombo) return isComboConfigValid(comboConfig, comboRedeem)
     if (isFriend) return isFriendConfigValid(friendConfig, friendRedeem)
     if (isGroupUnlock) return isGroupUnlockConfigValid(groupUnlockConfig, groupUnlockRedeem)
     if (isStamp) return stampFormValid()
@@ -752,6 +806,18 @@ export function VendorCampaignEditPage() {
         if (changedFields.endTime) payload.endTime = endTime
         if (changedFields.flashConfig) {
           payload.flashConfig = buildFlashCampaignPayload(flashConfig, flashRedeem).flashConfig
+        }
+        if (changedFields.activeHours) {
+          payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
+          payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
+        }
+      }
+
+      if (isCombo) {
+        if (changedFields.endDate) payload.endDate = endDate
+        if (changedFields.endTime) payload.endTime = endTime
+        if (changedFields.comboConfig) {
+          payload.comboConfig = buildComboCampaignPayload(comboConfig, comboRedeem).comboConfig
         }
         if (changedFields.activeHours) {
           payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
@@ -890,6 +956,14 @@ export function VendorCampaignEditPage() {
       { label: 'Redeem before', value: formatRedeemBeforeSummary(flashRedeem), changed: changedFields.flashConfig, previous: formatRedeemBeforeSummary(originalFlashRedeem) },
       { label: 'Terms & Conditions', value: flashConfig.termsAndConditions.trim() || '—', changed: changedFields.flashConfig, previous: originalFlashConfig.termsAndConditions.trim() || '—' },
     ] : []),
+    ...(isCombo ? [
+      { label: 'Combo type', value: comboConfig.variant === 'freeitem' ? 'Take X, Get Y Free' : 'Discounted Bundle', changed: changedFields.comboConfig, previous: originalComboConfig.variant === 'freeitem' ? 'Take X, Get Y Free' : 'Discounted Bundle' },
+      { label: 'Total spots', value: `${comboConfig.totalSpots} spots`, changed: changedFields.comboConfig, previous: `${originalComboConfig.totalSpots} spots` },
+      ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
+      { label: 'Offer', value: formatComboSentence(comboConfig), changed: changedFields.comboConfig, previous: formatComboSentence(originalComboConfig) },
+      { label: 'Redeem before', value: formatRedeemBeforeSummary(comboRedeem), changed: changedFields.comboConfig, previous: formatRedeemBeforeSummary(originalComboRedeem) },
+      { label: 'Terms & Conditions', value: comboConfig.termsAndConditions.trim() || '—', changed: changedFields.comboConfig, previous: originalComboConfig.termsAndConditions.trim() || '—' },
+    ] : []),
     ...(isFriend ? [
       { label: 'User Cap', value: `${userCap} users`, changed: changedFields.userCap, previous: `${campaign.userCap} users` },
       ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
@@ -914,6 +988,7 @@ export function VendorCampaignEditPage() {
     : isBuyXGetY ? 'Buy X Get Y — Offer Terms'
     : isCoupon ? 'Coupon Codes — Offer Terms'
     : isFlash ? 'Flash Deal — Offer Terms'
+    : isCombo ? 'Package/Combo Deal — Offer Terms'
     : isFriend ? 'Bring a Friend — Offer Terms'
     : isGroupUnlock ? 'Community Offer — Offer Terms'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
@@ -1137,7 +1212,7 @@ export function VendorCampaignEditPage() {
                       </>
                     ))}
 
-                    {(isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isFriend || isGroupUnlock) && !isEnded && (
+                    {(isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) && !isEnded && (
                       <div className="pt-2 border-t border-v-border mb-4">
                         <div className="flex items-center justify-between mb-2">
                             <div>
@@ -1188,6 +1263,19 @@ export function VendorCampaignEditPage() {
                         <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
                         <p>Flash Deal has no separate user cap — the number of spots in the offer editor is the cap ({flashConfig.totalSlots} spots).</p>
                       </div>
+                    )}
+
+                    {isCombo && (
+                      <>
+                        <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                          <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                          <p>Package/Combo Deal has no separate user cap — the number of spots in the offer editor is the cap ({comboConfig.totalSpots} spots).</p>
+                        </div>
+                        <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                          <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                          <p>Package/Combo Deal rewards trigger automatically on claim — no win probability to configure. Bundle items, pricing, spots, and expiry are set below.</p>
+                        </div>
+                      </>
                     )}
 
                     {isGroupUnlock && (
@@ -1258,7 +1346,7 @@ export function VendorCampaignEditPage() {
                 </div>
               </Card>
 
-              {(isShake || isSpin || isDice || isLottery || isBuyXGetY || isCoupon || isFlash || isFriend || isStamp) && (
+              {(isShake || isSpin || isDice || isLottery || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isStamp) && (
               <Card className="p-6">
                 <h2 className="text-base font-bold text-v-text mb-1">{mechanicTitle}</h2>
 
@@ -1314,6 +1402,21 @@ export function VendorCampaignEditPage() {
                           Reward redeem before — same window for every claimed flash deal.
                         </p>
                         <RedeemBeforeField value={flashRedeem} onChange={setFlashRedeem} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isCombo && (
+                  <div>
+                    <p className="text-xs text-v-text-3 mb-4">Configure the combo bundle, spots, and terms. Customers claim before spots run out.</p>
+                    <ComboOfferEditor config={comboConfig} setConfig={setComboConfig} readOnly={isEnded} />
+                    {!isEnded && (
+                      <div className="mt-5 border-t border-v-border pt-5">
+                        <p className="text-xs text-v-text-3 mb-3">
+                          Reward redeem before — same window for every claimed combo.
+                        </p>
+                        <RedeemBeforeField value={comboRedeem} onChange={setComboRedeem} />
                       </div>
                     )}
                   </div>

@@ -215,6 +215,16 @@ function FlashCoverArt() {
   )
 }
 
+function ComboCoverArt() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div className="relative size-24 rotate-3 rounded-xl border-2 border-white/30 bg-white/10 shadow-lg flex items-center justify-center">
+        <span className="text-4xl">🎁</span>
+      </div>
+    </div>
+  )
+}
+
 function FriendCoverArt() {
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -244,6 +254,7 @@ function CoverArt({ mechanic }: { mechanic: string }) {
   if (mechanic === 'buy-x-get-y') return <BuyXGetYCoverArt />
   if (mechanic === 'coupon') return <CouponCoverArt />
   if (mechanic === 'flash') return <FlashCoverArt />
+  if (mechanic === 'combo') return <ComboCoverArt />
   if (mechanic === 'friend') return <FriendCoverArt />
   if (mechanic === 'groupunlock') return <GroupUnlockCoverArt />
   return <ShakeCoverArt />
