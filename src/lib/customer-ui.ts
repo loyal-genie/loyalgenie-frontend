@@ -6,6 +6,7 @@ import {
   CUSTOMER_CATEGORIES,
   type CustomerCategory,
 } from './business-display'
+import { campaignDaysLeft, fmtCampaignDate, todayInCampaignTz } from '@/lib/campaign-dates'
 
 export { formatBusinessCategory, categoryMatches, CUSTOMER_CATEGORIES, type CustomerCategory }
 
@@ -19,6 +20,7 @@ export function getGameRouteForMechanic(mechanic: MechanicType | string, campaig
     spin: `/customer/games/spin?campaign=${campaignId}`,
     dice: `/customer/games/dice?campaign=${campaignId}`,
     lottery: `/customer/games/lottery?campaign=${campaignId}`,
+    'buy-x-get-y': `/customer/games/buy-x-get-y?campaign=${campaignId}`,
     'check-in-loyalty': `/customer/campaigns/${campaignId}`,
     scratch: `/customer/games/dice?campaign=${campaignId}`,
   }
@@ -46,6 +48,7 @@ const MECHANIC_CHIP_LABELS: Record<string, string> = {
   'check-in-loyalty': 'Check-in',
   dice: 'Roll a Dice',
   lottery: 'Lottery',
+  'buy-x-get-y': 'Buy X Get Y',
   scratch: 'Scratch Card',
 }
 
@@ -60,6 +63,7 @@ const MECHANIC_HEADER_CHIP: Record<string, string> = {
   'check-in-loyalty': 'CHECK-IN',
   dice: 'ROLL A DICE',
   lottery: 'LOTTERY',
+  'buy-x-get-y': 'BUY X GET Y',
   scratch: 'SCRATCH',
 }
 
@@ -74,6 +78,7 @@ export const CAMPAIGN_CARD_GRADIENTS: Record<string, { from: string; to: string;
   'check-in-loyalty': { from: '#34D399', to: '#047857', emoji: '📅' },
   dice: { from: '#FB7185', to: '#F43F5E', emoji: '🎲' },
   lottery: { from: '#F59E0B', to: '#B45309', emoji: '🎟️' },
+  'buy-x-get-y': { from: '#F97316', to: '#C2410C', emoji: '💰' },
   scratch: { from: '#3B82F6', to: '#1D4ED8', emoji: '🎴' },
 }
 
@@ -91,20 +96,26 @@ export function formatExpiry(end: string): string {
   return `Expires on ${new Date(end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
 }
 
-export function walletDaysUntil(iso: string, now = Date.now()) {
-  return Math.ceil((new Date(iso).getTime() - now) / 86400000)
+export function walletDaysUntil(iso: string, now = new Date()) {
+  return campaignDaysLeft(iso.slice(0, 10), todayInCampaignTz(now))
+}
+
+/** True when redeem-before calendar day has passed (matches backend expiry — valid through that day). */
+export function isWalletRewardPastRedeem(expiresAt: string | null | undefined, now = new Date()) {
+  if (!expiresAt) return false
+  return todayInCampaignTz(now) > expiresAt.slice(0, 10)
 }
 
 export function walletExpiryChip(expiresAt: string | null | undefined) {
   if (!expiresAt) return null
   const d = walletDaysUntil(expiresAt)
-  if (d <= 0) return { text: 'Expired', style: { background: '#FEE2E2', color: '#DC2626' } }
+  if (d < 0) return { text: 'Expired', style: { background: '#FEE2E2', color: '#DC2626' } }
+  if (d === 0) return { text: 'Expires today!', style: { background: '#FEE2E2', color: '#DC2626' } }
   if (d === 1) return { text: 'Expires tomorrow!', style: { background: '#FEE2E2', color: '#DC2626' } }
   if (d <= 3) return { text: `Expires in ${d} days`, style: { background: '#FEE2E2', color: '#DC2626' } }
   if (d <= 7) return { text: `Expires in ${d} days`, style: { background: '#FEF3C7', color: '#D97706' } }
-  const dt = new Date(expiresAt)
   return {
-    text: `Expires ${dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
+    text: `Expires ${fmtCampaignDate(expiresAt.slice(0, 10)).replace(/ \d{4}$/, '')}`,
     style: { background: '#F3F4F6', color: '#6B7280' },
   }
 }
@@ -134,6 +145,7 @@ export function getMechanicHeaderChipShort(mechanic: string): string {
     'check-in-loyalty': 'CHECK-IN',
     dice: 'DICE',
     lottery: 'LOTTERY',
+    'buy-x-get-y': 'BUY X GET Y',
     scratch: 'SCRATCH',
   }
   return short[mechanic] ?? getMechanicHeaderChip(mechanic)
@@ -147,6 +159,7 @@ export function getCampaignSubtitle(mechanic: MechanicType | string, name: strin
     'check-in-loyalty': 'Check in every day and earn points per visit.',
     lottery: 'Enter for a chance at big rewards.',
     dice: 'Roll the dice for surprise perks.',
+    'buy-x-get-y': 'Buy or spend to unlock a reward.',
   }
   return subtitles[mechanic] ?? name
 }

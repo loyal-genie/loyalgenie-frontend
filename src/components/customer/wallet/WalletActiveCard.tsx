@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import {
   getCampaignGradient,
   getMechanicHeaderChipShort,
+  isWalletRewardPastRedeem,
   walletExpiryChip,
   walletFmtDateTime,
   walletTimeAgo,
@@ -28,7 +29,11 @@ interface WalletActiveCardProps {
   onRedeem: () => void
   onCheckLotteryStatus?: () => void
   onDismissLotteryLoss?: () => void
+  onExpiredStatus?: () => void
 }
+
+const EXPIRED_COVER_FROM = '#7F1D1D'
+const EXPIRED_COVER_TO = '#B91C1C'
 
 export function WalletActiveCard({
   reward,
@@ -40,15 +45,19 @@ export function WalletActiveCard({
   onRedeem,
   onCheckLotteryStatus,
   onDismissLotteryLoss,
+  onExpiredStatus,
 }: WalletActiveCardProps) {
   const meta = getCampaignGradient(reward.mechanic)
-  const bgFrom = context.bgFrom ?? meta.from
-  const bgTo = context.bgTo ?? meta.to
+  const isExpired =
+    !isRedeemed
+    && (reward.status === 'expired' || isWalletRewardPastRedeem(context.expiresAt ?? reward.redeemBefore))
+  const bgFrom = isExpired ? EXPIRED_COVER_FROM : (context.bgFrom ?? meta.from)
+  const bgTo = isExpired ? EXPIRED_COVER_TO : (context.bgTo ?? meta.to)
   const chip = walletExpiryChip(context.expiresAt)
-  const urgent = chip?.style.color === '#DC2626'
+  const urgent = !isExpired && chip?.style.color === '#DC2626'
   const isLotteryPending = reward.status === 'lottery_pending'
   const isLotteryLost = reward.status === 'lottery_lost'
-  const canRedeem = reward.status === 'earned' || reward.status === 'pending'
+  const canRedeem = !isExpired && (reward.status === 'earned' || reward.status === 'pending')
 
   return (
     <motion.div
@@ -62,7 +71,7 @@ export function WalletActiveCard({
         style={{
           boxShadow: isRedeemed
             ? '0 4px 20px rgba(34,197,94,0.20)'
-            : urgent
+            : isExpired || urgent
               ? '0 4px 20px rgba(239,68,68,0.20)'
               : '0 4px 16px rgba(0,0,0,0.09)',
         }}
@@ -145,6 +154,17 @@ export function WalletActiveCard({
                   Got it
                 </motion.button>
               )}
+              {isExpired && onExpiredStatus && (
+                <motion.button
+                  whileTap={{ scale: 0.94 }}
+                  type="button"
+                  onClick={onExpiredStatus}
+                  className="ml-auto px-4 py-1.5 rounded-xl text-[12px] font-extrabold border-0 cursor-pointer"
+                  style={{ background: 'rgba(255,255,255,0.95)', color: EXPIRED_COVER_FROM }}
+                >
+                  Status →
+                </motion.button>
+              )}
               {canRedeem && (
                 <motion.button
                   whileTap={{ scale: 0.94 }}
@@ -163,13 +183,15 @@ export function WalletActiveCard({
         </div>
 
         {!isRedeemed && (
-          <div className="bg-white px-4 py-2.5">
-            <p className="text-[10px] text-gray-400">
-              {isLotteryPending
-                ? `Ticket · Draw ${reward.lottery?.drawDate ?? 'pending'}`
-                : isLotteryLost
-                  ? 'Better luck next time'
-                  : `Won ${walletTimeAgo(reward.earnedAt)}`}
+          <div className={`px-4 py-2.5 ${isExpired ? 'bg-red-50' : 'bg-white'}`}>
+            <p className={`text-[10px] ${isExpired ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+              {isExpired
+                ? 'This reward expired before it could be redeemed.'
+                : isLotteryPending
+                  ? `Ticket · Draw ${reward.lottery?.drawDate ?? 'pending'}`
+                  : isLotteryLost
+                    ? 'Better luck next time'
+                    : `Won ${walletTimeAgo(reward.earnedAt)}`}
             </p>
           </div>
         )}

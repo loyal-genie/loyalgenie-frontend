@@ -18,6 +18,7 @@ export function getMechanicLabel(mechanic: MechanicType): string {
     spin: 'Spin a Wheel',
     dice: 'Roll a Dice',
     lottery: 'Lottery',
+    'buy-x-get-y': 'Buy X Get Y',
   }
   return map[mechanic]
 }
@@ -30,6 +31,7 @@ export function getMechanicEmoji(mechanic: MechanicType | string): string {
     spin: '🎡',
     dice: '🎲',
     lottery: '🎟️',
+    'buy-x-get-y': '💰',
     scratch: '🎴',
   }
   return map[mechanic] ?? '🎮'
@@ -43,6 +45,7 @@ export function getMechanicColor(mechanic: MechanicType): string {
     spin: '#06B6D4',
     dice: '#22C55E',
     lottery: '#8B5CF6',
+    'buy-x-get-y': '#F97316',
   }
   return map[mechanic]
 }
@@ -86,4 +89,5 @@ export const MECHANIC_META: Record<MechanicType, { label: string; badgeBg: strin
   shake: { label: 'SCRATCH', badgeBg: '#DBEAFE', badgeText: '#1E40AF', cardFrom: '#3B82F6', cardTo: '#1D4ED8', emoji: '🃏' },
   dice: { label: 'ROLL A DICE', badgeBg: '#FFF1F2', badgeText: '#BE123C', cardFrom: '#FB7185', cardTo: '#F43F5E', emoji: '🎲' },
   lottery: { label: 'LOTTERY', badgeBg: '#FEF9C3', badgeText: '#854D0E', cardFrom: '#EAB308', cardTo: '#A16207', emoji: '🎟️' },
+  'buy-x-get-y': { label: 'BUY X GET Y', badgeBg: '#FFEDD5', badgeText: '#9A3412', cardFrom: '#F97316', cardTo: '#C2410C', emoji: '💰' },
 }

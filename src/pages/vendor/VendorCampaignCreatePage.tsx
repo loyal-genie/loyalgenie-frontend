@@ -15,10 +15,19 @@ import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid, type 
 import { applySpinRedeem, buildSpinCampaignPayload, defaultSpinSegments, getSpinRedeem, isSpinSegmentConfigValid, spinWinRateFromSegments, type SpinSegmentUi } from '@/lib/spin-campaign-config'
 import { applyDiceRedeem, buildDiceCampaignPayload, defaultDiceOutcomes, diceWinRateFromOutcomes, getDiceRedeem, isDiceConfigValid, type DiceOutcomeUi } from '@/lib/dice-campaign-config'
 import { buildLotteryCampaignPayload, defaultLotteryPrizes, defaultLotteryRedeem, isLotteryConfigValid, type LotteryPrizeUi } from '@/lib/lottery-campaign-config'
+import {
+  buildBuyXGetYCampaignPayload,
+  defaultBuyXGetYConfig,
+  defaultBuyXGetYRedeem,
+  formatBuyXGetYSentence,
+  isBuyXGetYConfigValid,
+  type BuyXGetYConfigUi,
+} from '@/lib/buy-x-get-y-campaign-config'
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
 import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
 import { LotteryPrizeEditor } from '@/components/vendor/LotteryPrizeEditor'
+import { BuyXGetYOfferEditor } from '@/components/vendor/BuyXGetYOfferEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -33,7 +42,8 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
   { type: 'check-in-loyalty', desc: 'Daily check-ins earn loyalty points. Unlock rewards at point milestones.', tags: ['Daily visits', 'Points', 'Milestones'] },
   { type: 'spin',    desc: 'Spin a colourful wheel and land on exciting rewards.',                       tags: ['Visual', 'Exciting'] },
   { type: 'dice',    desc: 'Roll the dice — certain faces win. Pure luck, maximum thrill.',              tags: ['Gamble feel', 'Quick'] },
-  { type: 'lottery', desc: 'Scratch & reveal a lottery ticket with a jackpot and tiered prizes.',       tags: ['Jackpot', 'Tiered rewards'] },
+  { type: 'lottery', desc: 'Customers claim a ticket; winners are drawn automatically on the end date.', tags: ['Jackpot', 'Tiered rewards'] },
+  { type: 'buy-x-get-y', desc: 'Customers buy or spend to unlock a reward — purchases or spend thresholds.', tags: ['Perceived value', 'Loss aversion'] },
 ]
 
 const STEPS = ['Mechanic', 'Basics', 'Game Config', 'Review']
@@ -106,6 +116,8 @@ export function VendorCampaignCreatePage() {
   // Lottery — jackpot + tier prizes with universal redeem-before
   const [lotteryPrizes, setLotteryPrizes] = useState<LotteryPrizeUi[]>(defaultLotteryPrizes())
   const [lotteryRedeem, setLotteryRedeem] = useState(defaultLotteryRedeem())
+  const [buyXGetYConfig, setBuyXGetYConfig] = useState<BuyXGetYConfigUi>(defaultBuyXGetYConfig())
+  const [buyXGetYRedeem, setBuyXGetYRedeem] = useState(defaultBuyXGetYRedeem())
 
   const [loyaltyConfig, setLoyaltyConfig] = useState({
     pointsPerCheckIn: 10,
@@ -120,9 +132,10 @@ export function VendorCampaignCreatePage() {
   const createMutation = useCreateCampaign()
 
   const isLottery        = mechanic === 'lottery'
+  const isBuyXGetY       = mechanic === 'buy-x-get-y'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
-  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin' || mechanic === 'dice' || mechanic === 'lottery'
+  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin' || mechanic === 'dice' || mechanic === 'lottery' || mechanic === 'buy-x-get-y'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
@@ -190,6 +203,7 @@ export function VendorCampaignCreatePage() {
     if (mechanic === 'spin')  return isSpinSegmentConfigValid(spinSegments)
     if (mechanic === 'dice')  return isDiceConfigValid(diceOutcomes)
     if (mechanic === 'lottery') return isLotteryConfigValid(lotteryPrizes, lotteryRedeem)
+    if (mechanic === 'buy-x-get-y') return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
     if (mechanic === 'stamp') {
       const dropsValid = [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
         d.to <= stampConfig.totalStamps && isStampDropValid(d),
@@ -212,7 +226,7 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery') {
+    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y') {
       setLaunchError('This campaign type is not available yet.')
       return
     }
@@ -295,6 +309,23 @@ export function VendorCampaignCreatePage() {
           startTime: dates.startTime,
           endTime: dates.endTime,
           ...buildLotteryCampaignPayload(lotteryPrizes, lotteryRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'buy-x-get-y') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'buy-x-get-y',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          userCap: basics.userCap,
+          ...buildBuyXGetYCampaignPayload(buyXGetYConfig, buyXGetYRedeem),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -495,8 +526,8 @@ export function VendorCampaignCreatePage() {
                     </div>
                   )}
 
-                  {/* Active hours — daily play window for instant-win campaigns */}
-                  {isShakeSpinOrDice && (
+                  {/* Active hours — daily window for instant-win + Buy X Get Y */}
+                  {(isShakeSpinOrDice || isBuyXGetY) && (
                     <div className="mt-4 pt-4 border-t border-v-border">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -549,6 +580,10 @@ export function VendorCampaignCreatePage() {
                   {/* Stamp: single user cap */}
                   {isStamp && (
                     <Stepper label="User Cap" hint="users" value={basics.userCap} min={1} max={2000} step={1} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
+                  )}
+
+                  {isBuyXGetY && (
+                    <Stepper label="User Cap" hint="users" value={basics.userCap} min={10} max={5000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
                   )}
 
                   {/* Check-in Loyalty: all users by default, optional cap */}
@@ -615,6 +650,13 @@ export function VendorCampaignCreatePage() {
                     </div>
                   )}
                 </div>
+
+                {isBuyXGetY && (
+                  <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                    <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                    <p>Buy X Get Y rewards trigger automatically — no win probability to configure. Reward type and redeem-before are set in the next step.</p>
+                  </div>
+                )}
 
                 {/* Stamp info note */}
                 {isStamp && (
@@ -916,6 +958,18 @@ export function VendorCampaignCreatePage() {
             </Card>
           )}
 
+          {step === 2 && mechanic === 'buy-x-get-y' && (
+            <Card className="p-6">
+              <BuyXGetYOfferEditor config={buyXGetYConfig} setConfig={setBuyXGetYConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claim of this offer.
+                </p>
+                <RedeemBeforeField value={buyXGetYRedeem} onChange={setBuyXGetYRedeem} />
+              </div>
+            </Card>
+          )}
+
           {/* ── Step 3: Review & Launch ── */}
           {step === reviewStepIndex && (
             <div className="space-y-4">
@@ -942,7 +996,7 @@ export function VendorCampaignCreatePage() {
                     ...(isStamp ? [{ label: 'Claim Period', value: `${durationModeToDays(basics.claimDurationMode)} days after enrollment closes` }] : []),
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
-                    ...(basics.activeHoursEnabled && isShakeSpinOrDice ? [{
+                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY) ? [{
                       label: 'Active Hours',
                       value: `${fmtTime(basics.activeStartTime)} – ${fmtTime(basics.activeEndTime)} daily`,
                     }] : []),
@@ -962,6 +1016,12 @@ export function VendorCampaignCreatePage() {
                       { label: 'Draw date', value: dates.end ? fmtDate(dates.end) : '—' },
                       { label: 'Redeem before', value: formatRedeemBeforeSummary(lotteryRedeem) },
                     ] : []),
+                    ...(mechanic === 'buy-x-get-y' ? [
+                      { label: 'Offer', value: formatBuyXGetYSentence(buyXGetYConfig) },
+                      { label: 'Trigger', value: buyXGetYConfig.condition === 'spend' ? `₹${buyXGetYConfig.spendAmount} spend` : `${buyXGetYConfig.buyQuantity} purchases` },
+                      { label: 'Reward', value: buyXGetYConfig.rewardValue || '—' },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(buyXGetYRedeem) },
+                    ] : []),
                     {
                       label: 'Rewards',
                       value:
@@ -970,7 +1030,8 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin && o.reward.trim()).length} of 6 faces win · ${diceWinRate}% win rate · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)` :
                         mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in · ${loyaltyConfig.milestones.filter(m => m.name.trim()).length} milestone(s)` :
-                        mechanic === 'lottery' ? `Jackpot + ${lotteryPrizes.filter(p => p.tier !== 'jackpot').length} prize${lotteryPrizes.filter(p => p.tier !== 'jackpot').length !== 1 ? 's' : ''} · Draw ${fmtDate(dates.end)}` : '—',
+                        mechanic === 'lottery' ? `Jackpot + ${lotteryPrizes.filter(p => p.tier !== 'jackpot').length} prize${lotteryPrizes.filter(p => p.tier !== 'jackpot').length !== 1 ? 's' : ''} · Draw ${fmtDate(dates.end)}` :
+                        mechanic === 'buy-x-get-y' ? formatBuyXGetYSentence(buyXGetYConfig) : '—',
                     },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between py-3 border-b border-v-border last:border-0">
