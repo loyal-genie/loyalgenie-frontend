@@ -364,6 +364,44 @@ function FriendCampaignBlock({
   )
 }
 
+function GroupUnlockCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    groupJoined?: number
+    targetParticipants?: number
+    active?: boolean
+  }
+}) {
+  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      blockedLabel={offerState?.hasClaimed ? 'Already reserved' : 'Spots gone'}
+      statsLine={
+        offerState?.hasClaimed
+          ? `✓ Reserved · ${offerState.rewardLabel ?? 'Community Offer'}`
+          : `${offerState?.rewardLabel ?? 'Community Offer'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      }
+    />
+  )
+}
+
 function LoyaltyCampaignBlock({
   campaign,
   state,
@@ -477,9 +515,10 @@ export function CustomerBusinessPage() {
   const couponCampaigns = biz.campaigns.filter(c => c.mechanic === 'coupon')
   const flashCampaigns = biz.campaigns.filter(c => c.mechanic === 'flash')
   const friendCampaigns = biz.campaigns.filter(c => c.mechanic === 'friend')
+  const groupUnlockCampaigns = biz.campaigns.filter(c => c.mechanic === 'groupunlock')
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
   const otherCampaigns = biz.campaigns.filter(
-    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'coupon', 'flash', 'friend', 'check-in-loyalty'].includes(c.mechanic),
+    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'coupon', 'flash', 'friend', 'groupunlock', 'check-in-loyalty'].includes(c.mechanic),
   )
 
   return (
@@ -589,6 +628,21 @@ export function CustomerBusinessPage() {
                       canClaim?: boolean
                       hasClaimed?: boolean
                       spotsRemaining?: number
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {groupUnlockCampaigns.map(c => (
+                  <GroupUnlockCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      groupJoined?: number
+                      targetParticipants?: number
                       active?: boolean
                     } | undefined}
                   />

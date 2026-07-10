@@ -24,6 +24,7 @@ export function getGameRouteForMechanic(mechanic: MechanicType | string, campaig
     coupon: `/customer/games/coupon?campaign=${campaignId}`,
     flash: `/customer/games/flash?campaign=${campaignId}`,
     friend: `/customer/games/friend?campaign=${campaignId}`,
+    groupunlock: `/customer/games/groupunlock?campaign=${campaignId}`,
     'check-in-loyalty': `/customer/campaigns/${campaignId}`,
     scratch: `/customer/games/dice?campaign=${campaignId}`,
   }
@@ -55,6 +56,7 @@ const MECHANIC_CHIP_LABELS: Record<string, string> = {
   coupon: 'Coupon Codes',
   flash: 'Flash Deal',
   friend: 'Bring a Friend',
+  groupunlock: 'Community Offer',
   scratch: 'Scratch Card',
 }
 
@@ -73,6 +75,7 @@ const MECHANIC_HEADER_CHIP: Record<string, string> = {
   coupon: 'COUPON',
   flash: 'FLASH DEAL',
   friend: 'BRING A FRIEND',
+  groupunlock: 'COMMUNITY OFFER',
   scratch: 'SCRATCH',
 }
 
@@ -91,6 +94,7 @@ export const CAMPAIGN_CARD_GRADIENTS: Record<string, { from: string; to: string;
   coupon: { from: '#14B8A6', to: '#0F766E', emoji: '🎫' },
   flash: { from: '#7DD3FC', to: '#38BDF8', emoji: '⚡' },
   friend: { from: '#F9A8D4', to: '#F472B6', emoji: '👫' },
+  groupunlock: { from: '#C7D2FE', to: '#818CF8', emoji: '🤝' },
   scratch: { from: '#3B82F6', to: '#1D4ED8', emoji: '🎴' },
 }
 
@@ -161,6 +165,7 @@ export function getMechanicHeaderChipShort(mechanic: string): string {
     coupon: 'COUPON',
     flash: 'FLASH',
     friend: 'FRIEND',
+    groupunlock: 'COMMUNITY',
     scratch: 'SCRATCH',
   }
   return short[mechanic] ?? getMechanicHeaderChip(mechanic)
@@ -178,6 +183,7 @@ export function getCampaignSubtitle(mechanic: MechanicType | string, name: strin
     coupon: 'Claim a limited coupon and redeem at the counter.',
     flash: 'Grab a limited flash deal before spots run out.',
     friend: 'Bring friends along and unlock a reward together.',
+    groupunlock: 'Reserve your spot — the reward unlocks when enough people join.',
   }
   return subtitles[mechanic] ?? name
 }

@@ -12,6 +12,7 @@ import {
   fetchCouponState,
   fetchFlashState,
   fetchFriendState,
+  fetchGroupUnlockState,
   fetchAuthSession,
   getApiErrorMessage,
 } from '@/lib/api'
@@ -36,6 +37,7 @@ import { BuyXGetYCampaignDetail } from '@/components/customer/BuyXGetYCampaignDe
 import { CouponCampaignDetail } from '@/components/customer/CouponCampaignDetail'
 import { FlashCampaignDetail } from '@/components/customer/FlashCampaignDetail'
 import { FriendCampaignDetail } from '@/components/customer/FriendCampaignDetail'
+import { GroupUnlockCampaignDetail } from '@/components/customer/GroupUnlockCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
@@ -143,6 +145,13 @@ export function CustomerCampaignPage() {
     staleTime: 0,
   })
 
+  const { data: groupUnlockState, isLoading: groupUnlockStateLoading } = useQuery({
+    queryKey: ['groupunlock-state', id, serverSession?.userId],
+    queryFn: () => fetchGroupUnlockState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'groupunlock',
+    staleTime: 0,
+  })
+
   const verifyMutation = useMutation({
     mutationFn: async (enteredPin: string) => {
       if (!getToken('customer')) throw new Error('NOT_AUTHENTICATED')
@@ -225,6 +234,7 @@ export function CustomerCampaignPage() {
     || (campaign?.mechanic === 'coupon' && couponStateLoading)
     || (campaign?.mechanic === 'flash' && flashStateLoading)
     || (campaign?.mechanic === 'friend' && friendStateLoading)
+    || (campaign?.mechanic === 'groupunlock' && groupUnlockStateLoading)
 
   const instantWinBlocked = (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playState && !playState.canPlay
   const shakeBlocked = instantWinBlocked
@@ -240,7 +250,8 @@ export function CustomerCampaignPage() {
   const couponBlocked = campaign?.mechanic === 'coupon' && couponState && !couponState.canClaim && !couponState.hasClaimed
   const flashBlocked = campaign?.mechanic === 'flash' && flashState && !flashState.canClaim && !flashState.hasClaimed
   const friendBlocked = campaign?.mechanic === 'friend' && friendState && !friendState.canClaim && !friendState.hasClaimed
-  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked || buyXGetYBlocked || couponBlocked || flashBlocked || friendBlocked)
+  const groupUnlockBlocked = campaign?.mechanic === 'groupunlock' && groupUnlockState && !groupUnlockState.canClaim && !groupUnlockState.hasClaimed
+  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked || buyXGetYBlocked || couponBlocked || flashBlocked || friendBlocked || groupUnlockBlocked)
 
   useEffect(() => {
     if (!blocked || stampCollect || loyaltySplash || !campaign || sessionLoading || isLoading || stateStillLoading) return
@@ -361,7 +372,9 @@ export function CustomerCampaignPage() {
                   ? 'Claim flash deal'
                   : campaign.mechanic === 'friend'
                     ? 'Claim reward'
-                    : "Let's shake!"
+                    : campaign.mechanic === 'groupunlock'
+                      ? 'Reserve spot'
+                      : "Let's shake!"
 
   if (campaign.mechanic === 'shake') {
     return (
@@ -504,6 +517,24 @@ export function CustomerCampaignPage() {
         hasClaimed={friendState?.hasClaimed}
         spotsRemaining={friendState?.spotsRemaining}
         userCap={friendState?.userCap}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'groupunlock') {
+    return (
+      <GroupUnlockCampaignDetail
+        campaign={campaign}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={groupUnlockState?.hasClaimed}
+        groupJoined={groupUnlockState?.groupJoined}
+        targetParticipants={groupUnlockState?.targetParticipants}
         onBack={handleBack}
         onKey={handleKey}
         onDelete={handleDelete}

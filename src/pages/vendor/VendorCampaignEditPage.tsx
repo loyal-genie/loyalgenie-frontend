@@ -70,6 +70,7 @@ import {
 import { CouponOfferEditor } from '@/components/vendor/CouponOfferEditor'
 import { FlashOfferEditor } from '@/components/vendor/FlashOfferEditor'
 import { FriendOfferEditor } from '@/components/vendor/FriendOfferEditor'
+import { GroupUnlockOfferEditor } from '@/components/vendor/GroupUnlockOfferEditor'
 import {
   buildCouponCampaignPayload,
   couponFromApi,
@@ -98,6 +99,16 @@ import {
   isFriendConfigValid,
   type FriendConfigUi,
 } from '@/lib/friend-campaign-config'
+import {
+  buildGroupUnlockCampaignPayload,
+  groupUnlockFromApi,
+  defaultGroupUnlockConfig,
+  defaultGroupUnlockRedeem,
+  formatGroupUnlockRewardLabel,
+  formatGroupUnlockSentence,
+  isGroupUnlockConfigValid,
+  type GroupUnlockConfigUi,
+} from '@/lib/groupunlock-campaign-config'
 import { formatRedeemBeforeSummary, RedeemBeforeField, type RedeemBeforeValue } from '@/components/vendor/RedeemBeforeField'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
@@ -270,6 +281,21 @@ function friendEqual(
     && redeemA.redeemRelativeUnit === redeemB.redeemRelativeUnit
 }
 
+function groupUnlockEqual(
+  a: GroupUnlockConfigUi,
+  b: GroupUnlockConfigUi,
+  redeemA: RedeemBeforeValue,
+  redeemB: RedeemBeforeValue,
+) {
+  return a.targetParticipants === b.targetParticipants
+    && a.rewardKind === b.rewardKind
+    && a.rewardValue === b.rewardValue
+    && redeemA.redeemExpiryMode === redeemB.redeemExpiryMode
+    && redeemA.redeemFixedDate === redeemB.redeemFixedDate
+    && redeemA.redeemRelativeAmount === redeemB.redeemRelativeAmount
+    && redeemA.redeemRelativeUnit === redeemB.redeemRelativeUnit
+}
+
 export function VendorCampaignEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -318,6 +344,10 @@ export function VendorCampaignEditPage() {
   const [friendRedeem, setFriendRedeem] = useState(defaultFriendRedeem())
   const [originalFriendConfig, setOriginalFriendConfig] = useState<FriendConfigUi>(defaultFriendConfig())
   const [originalFriendRedeem, setOriginalFriendRedeem] = useState(defaultFriendRedeem())
+  const [groupUnlockConfig, setGroupUnlockConfig] = useState<GroupUnlockConfigUi>(defaultGroupUnlockConfig())
+  const [groupUnlockRedeem, setGroupUnlockRedeem] = useState(defaultGroupUnlockRedeem())
+  const [originalGroupUnlockConfig, setOriginalGroupUnlockConfig] = useState<GroupUnlockConfigUi>(defaultGroupUnlockConfig())
+  const [originalGroupUnlockRedeem, setOriginalGroupUnlockRedeem] = useState(defaultGroupUnlockRedeem())
   const [activeHoursEnabled, setActiveHoursEnabled] = useState(false)
   const [activeStartTime, setActiveStartTime] = useState('09:00')
   const [activeEndTime, setActiveEndTime] = useState('21:00')
@@ -477,6 +507,23 @@ export function VendorCampaignEditPage() {
       setOriginalActiveEndTime(end)
     }
 
+    if (campaign.mechanic === 'groupunlock') {
+      const hydrated = groupUnlockFromApi(campaign.groupUnlockConfig)
+      setGroupUnlockConfig(hydrated.config)
+      setGroupUnlockRedeem(hydrated.redeem)
+      setOriginalGroupUnlockConfig(hydrated.config)
+      setOriginalGroupUnlockRedeem(hydrated.redeem)
+      const start = campaign.startTime ?? '00:00'
+      const end = campaign.endTime ?? '23:59'
+      const hoursEnabled = start !== '00:00' || end !== '23:59'
+      setActiveHoursEnabled(hoursEnabled)
+      setActiveStartTime(start)
+      setActiveEndTime(end)
+      setOriginalActiveHoursEnabled(hoursEnabled)
+      setOriginalActiveStartTime(start)
+      setOriginalActiveEndTime(end)
+    }
+
     if (campaign.mechanic === 'shake' && campaign.startDate !== campaign.endDate) {
       const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
       dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
@@ -530,6 +577,7 @@ export function VendorCampaignEditPage() {
   const isCoupon = mechanic === 'coupon'
   const isFlash = mechanic === 'flash'
   const isFriend = mechanic === 'friend'
+  const isGroupUnlock = mechanic === 'groupunlock'
   const isStamp = mechanic === 'stamp'
   const isLoyalty = mechanic === 'check-in-loyalty'
   const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
@@ -583,7 +631,8 @@ export function VendorCampaignEditPage() {
     couponConfig: isCoupon && !couponEqual(couponConfig, originalCouponConfig, couponRedeem, originalCouponRedeem),
     flashConfig: isFlash && !flashEqual(flashConfig, originalFlashConfig, flashRedeem, originalFlashRedeem),
     friendConfig: isFriend && !friendEqual(friendConfig, originalFriendConfig, friendRedeem, originalFriendRedeem),
-    activeHours: (isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isFriend) && (
+    groupUnlockConfig: isGroupUnlock && !groupUnlockEqual(groupUnlockConfig, originalGroupUnlockConfig, groupUnlockRedeem, originalGroupUnlockRedeem),
+    activeHours: (isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isFriend || isGroupUnlock) && (
       activeHoursEnabled !== originalActiveHoursEnabled
       || activeStartTime !== originalActiveStartTime
       || activeEndTime !== originalActiveEndTime
@@ -610,6 +659,7 @@ export function VendorCampaignEditPage() {
     if (isCoupon) return isCouponConfigValid(couponConfig, couponRedeem)
     if (isFlash) return isFlashConfigValid(flashConfig, flashRedeem)
     if (isFriend) return isFriendConfigValid(friendConfig, friendRedeem)
+    if (isGroupUnlock) return isGroupUnlockConfigValid(groupUnlockConfig, groupUnlockRedeem)
     if (isStamp) return stampFormValid()
     if (isLoyalty) return loyaltyFormValid()
     return true
@@ -715,6 +765,18 @@ export function VendorCampaignEditPage() {
         if (changedFields.userCap) payload.userCap = userCap
         if (changedFields.friendConfig) {
           payload.friendConfig = buildFriendCampaignPayload(friendConfig, friendRedeem).friendConfig
+        }
+        if (changedFields.activeHours) {
+          payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
+          payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
+        }
+      }
+
+      if (isGroupUnlock) {
+        if (changedFields.endDate) payload.endDate = endDate
+        if (changedFields.endTime) payload.endTime = endTime
+        if (changedFields.groupUnlockConfig) {
+          payload.groupUnlockConfig = buildGroupUnlockCampaignPayload(groupUnlockConfig, groupUnlockRedeem).groupUnlockConfig
         }
         if (changedFields.activeHours) {
           payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
@@ -836,6 +898,13 @@ export function VendorCampaignEditPage() {
       { label: 'Reward value', value: formatFriendRewardLabel(friendConfig), changed: changedFields.friendConfig, previous: formatFriendRewardLabel(originalFriendConfig) },
       { label: 'Redeem before', value: formatRedeemBeforeSummary(friendRedeem), changed: changedFields.friendConfig, previous: formatRedeemBeforeSummary(originalFriendRedeem) },
     ] : []),
+    ...(isGroupUnlock ? [
+      { label: 'Target participants', value: `${groupUnlockConfig.targetParticipants} people`, changed: changedFields.groupUnlockConfig, previous: `${originalGroupUnlockConfig.targetParticipants} people` },
+      ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
+      { label: 'Offer', value: formatGroupUnlockSentence(groupUnlockConfig), changed: changedFields.groupUnlockConfig, previous: formatGroupUnlockSentence(originalGroupUnlockConfig) },
+      { label: 'Reward', value: formatGroupUnlockRewardLabel(groupUnlockConfig), changed: changedFields.groupUnlockConfig, previous: formatGroupUnlockRewardLabel(originalGroupUnlockConfig) },
+      { label: 'Redeem before', value: formatRedeemBeforeSummary(groupUnlockRedeem), changed: changedFields.groupUnlockConfig, previous: formatRedeemBeforeSummary(originalGroupUnlockRedeem) },
+    ] : []),
   ]
 
   const mechanicTitle = isShake ? 'Shake & Win — Reward Distribution'
@@ -846,6 +915,7 @@ export function VendorCampaignEditPage() {
     : isCoupon ? 'Coupon Codes — Offer Terms'
     : isFlash ? 'Flash Deal — Offer Terms'
     : isFriend ? 'Bring a Friend — Offer Terms'
+    : isGroupUnlock ? 'Community Offer — Offer Terms'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
     : 'Campaign Configuration'
 
@@ -1067,7 +1137,7 @@ export function VendorCampaignEditPage() {
                       </>
                     ))}
 
-                    {(isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isFriend) && !isEnded && (
+                    {(isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isFriend || isGroupUnlock) && !isEnded && (
                       <div className="pt-2 border-t border-v-border mb-4">
                         <div className="flex items-center justify-between mb-2">
                             <div>
@@ -1118,6 +1188,19 @@ export function VendorCampaignEditPage() {
                         <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
                         <p>Flash Deal has no separate user cap — the number of spots in the offer editor is the cap ({flashConfig.totalSlots} spots).</p>
                       </div>
+                    )}
+
+                    {isGroupUnlock && (
+                      <>
+                        <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                          <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                          <p>Community Offer has no separate user cap — the target number of participants in the offer editor is the cap ({groupUnlockConfig.targetParticipants} people).</p>
+                        </div>
+                        <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                          <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                          <p>Customers reserve a spot via staff PIN, but the reward stays locked for everyone until the target number of participants is reached — no win probability to configure.</p>
+                        </div>
+                      </>
                     )}
 
                     {isFriend && (
@@ -1246,6 +1329,21 @@ export function VendorCampaignEditPage() {
                           Reward redeem before — same window for every claimed Bring a Friend reward.
                         </p>
                         <RedeemBeforeField value={friendRedeem} onChange={setFriendRedeem} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isGroupUnlock && (
+                  <div>
+                    <p className="text-xs text-v-text-3 mb-4">Configure the target participants and reward. Customers reserve a spot and unlock together when the target is reached.</p>
+                    <GroupUnlockOfferEditor config={groupUnlockConfig} setConfig={setGroupUnlockConfig} readOnly={isEnded} />
+                    {!isEnded && (
+                      <div className="mt-5 border-t border-v-border pt-5">
+                        <p className="text-xs text-v-text-3 mb-3">
+                          Reward redeem before — same window for every claimed Community Offer reward.
+                        </p>
+                        <RedeemBeforeField value={groupUnlockRedeem} onChange={setGroupUnlockRedeem} />
                       </div>
                     )}
                   </div>

@@ -564,6 +564,15 @@ export interface CampaignDto {
     redeemRelativeAmount?: number
     redeemRelativeUnit?: 'day' | 'week' | 'month'
   } | null
+  groupUnlockConfig?: {
+    targetParticipants: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
 }
 
 export interface CreateShakeCampaignPayload {
@@ -784,7 +793,25 @@ export interface CreateFriendCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload | CreateFlashCampaignPayload | CreateFriendCampaignPayload
+export interface CreateGroupUnlockCampaignPayload {
+  name: string
+  mechanic: 'groupunlock'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  groupUnlockConfig: {
+    targetParticipants: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload | CreateFlashCampaignPayload | CreateFriendCampaignPayload | CreateGroupUnlockCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -931,6 +958,15 @@ export interface PublicCampaign {
   } | null
   friendConfig?: {
     minFriends: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  groupUnlockConfig?: {
+    targetParticipants: number
     rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
     redeemExpiryMode?: 'fixed' | 'relative'
@@ -1127,6 +1163,7 @@ export interface UpdateCampaignPayload {
   couponConfig?: CreateCouponCampaignPayload['couponConfig']
   flashConfig?: CreateFlashCampaignPayload['flashConfig']
   friendConfig?: CreateFriendCampaignPayload['friendConfig']
+  groupUnlockConfig?: CreateGroupUnlockCampaignPayload['groupUnlockConfig']
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {
@@ -1474,6 +1511,54 @@ export async function claimFriendReward(campaignId: string, playSessionToken: st
       icon: string
     }
   }>(`/campaigns/${campaignId}/friend/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface GroupUnlockState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  targetParticipants: number
+  spotsRemaining: number
+  groupJoined: number
+  unlocked: boolean
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  rewardKind: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchGroupUnlockState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: GroupUnlockState }>(
+    `/campaigns/${campaignId}/groupunlock-state`,
+  )
+  return data.data
+}
+
+export async function claimGroupUnlockReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/groupunlock/claim`, { playSessionToken })
   return data.data
 }
 
