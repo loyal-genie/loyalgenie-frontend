@@ -1,4 +1,4 @@
-export type LiveCampaignMechanic = 'stamp' | 'shake' | 'check-in-loyalty' | 'spin' | 'dice' | 'lottery' | 'buy-x-get-y' | 'coupon'
+export type LiveCampaignMechanic = 'stamp' | 'shake' | 'check-in-loyalty' | 'spin' | 'dice' | 'lottery' | 'buy-x-get-y' | 'coupon' | 'flash'
 
 export interface CampaignTheme {
   gradient: string
@@ -64,6 +64,13 @@ export const CAMPAIGN_THEMES: Record<string, CampaignTheme> = {
     badgeText: 'text-[#115e59]',
     accent: '#0d9488',
     chipLabel: 'Coupon Codes',
+  },
+  flash: {
+    gradient: 'linear-gradient(135deg, #bae6fd 0%, #7dd3fc 45%, #38bdf8 100%)',
+    badgeBg: 'bg-[#e0f2fe]',
+    badgeText: 'text-[#0369a1]',
+    accent: '#0ea5e9',
+    chipLabel: 'Flash Deal',
   },
 }
 

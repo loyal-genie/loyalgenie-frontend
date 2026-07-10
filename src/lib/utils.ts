@@ -20,6 +20,7 @@ export function getMechanicLabel(mechanic: MechanicType): string {
     lottery: 'Lottery',
     'buy-x-get-y': 'Buy X Get Y',
     coupon: 'Coupon Codes',
+    flash: 'Flash Deal',
   }
   return map[mechanic]
 }
@@ -34,6 +35,7 @@ export function getMechanicEmoji(mechanic: MechanicType | string): string {
     lottery: '🎟️',
     'buy-x-get-y': '💰',
     coupon: '🎫',
+    flash: '⚡',
     scratch: '🎴',
   }
   return map[mechanic] ?? '🎮'
@@ -49,6 +51,7 @@ export function getMechanicColor(mechanic: MechanicType): string {
     lottery: '#8B5CF6',
     'buy-x-get-y': '#F97316',
     coupon: '#0D9488',
+    flash: '#38BDF8',
   }
   return map[mechanic]
 }
@@ -94,4 +97,5 @@ export const MECHANIC_META: Record<MechanicType, { label: string; badgeBg: strin
   lottery: { label: 'LOTTERY', badgeBg: '#FEF9C3', badgeText: '#854D0E', cardFrom: '#EAB308', cardTo: '#A16207', emoji: '🎟️' },
   'buy-x-get-y': { label: 'BUY X GET Y', badgeBg: '#FFEDD5', badgeText: '#9A3412', cardFrom: '#F97316', cardTo: '#C2410C', emoji: '💰' },
   coupon: { label: 'COUPON', badgeBg: '#CCFBF1', badgeText: '#115E59', cardFrom: '#14B8A6', cardTo: '#0F766E', emoji: '🎫' },
+  flash: { label: 'FLASH DEAL', badgeBg: '#E0F2FE', badgeText: '#0369A1', cardFrom: '#7DD3FC', cardTo: '#38BDF8', emoji: '⚡' },
 }

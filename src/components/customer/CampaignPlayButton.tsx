@@ -9,6 +9,7 @@ const PLAY_BUTTON_LABELS: Record<string, string> = {
   lottery: 'Enter PIN & Claim Ticket 🎟️',
   'buy-x-get-y': 'Enter PIN & Claim 💰',
   coupon: 'Enter PIN & Claim 🎫',
+  flash: 'Enter PIN & Claim ⚡',
   stamp: 'Enter PIN & Collect Stamp 🎯',
 }
 
@@ -21,6 +22,7 @@ const PLAY_BUTTON_STYLES: Record<string, string> = {
   lottery: 'bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white shadow-[0_8px_20px_rgba(245,158,11,0.35)]',
   'buy-x-get-y': 'bg-gradient-to-r from-[#fb923c] to-[#ea580c] text-white shadow-[0_8px_20px_rgba(249,115,22,0.35)]',
   coupon: 'bg-gradient-to-r from-[#14b8a6] to-[#0d9488] text-white shadow-[0_8px_20px_rgba(13,148,136,0.35)]',
+  flash: 'bg-gradient-to-r from-[#7dd3fc] to-[#38bdf8] text-sky-950 shadow-[0_8px_20px_rgba(56,189,248,0.35)]',
   stamp: 'bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white shadow-[0_8px_20px_rgba(251,191,36,0.32)]',
 }
 

@@ -292,6 +292,42 @@ function CouponCampaignBlock({
   )
 }
 
+function FlashCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    active?: boolean
+  }
+}) {
+  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Spots gone'}
+      statsLine={
+        offerState?.hasClaimed
+          ? `✓ Claimed · ${offerState.rewardLabel ?? 'Flash Deal'}`
+          : `${offerState?.rewardLabel ?? 'Flash Deal'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      }
+    />
+  )
+}
+
 function LoyaltyCampaignBlock({
   campaign,
   state,
@@ -403,9 +439,10 @@ export function CustomerBusinessPage() {
   const lotteryCampaigns = biz.campaigns.filter(c => c.mechanic === 'lottery')
   const buyXGetYCampaigns = biz.campaigns.filter(c => c.mechanic === 'buy-x-get-y')
   const couponCampaigns = biz.campaigns.filter(c => c.mechanic === 'coupon')
+  const flashCampaigns = biz.campaigns.filter(c => c.mechanic === 'flash')
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
   const otherCampaigns = biz.campaigns.filter(
-    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'coupon', 'check-in-loyalty'].includes(c.mechanic),
+    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'coupon', 'flash', 'check-in-loyalty'].includes(c.mechanic),
   )
 
   return (
@@ -482,6 +519,19 @@ export function CustomerBusinessPage() {
                 ))}
                 {couponCampaigns.map(c => (
                   <CouponCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {flashCampaigns.map(c => (
+                  <FlashCampaignBlock
                     key={c.id}
                     campaign={c}
                     offerState={stateByCampaignId.get(c.id)?.state as {
