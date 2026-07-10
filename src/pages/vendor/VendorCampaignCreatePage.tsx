@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card'
 import { getMechanicLabel, getMechanicEmoji, getMechanicColor } from '@/lib/utils'
 import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
-import { RewardPoolEditor, NumericInput, newRewardEntry, type RewardEntry } from '@/components/vendor/RewardPoolEditor'
+import { RewardPoolEditor, newRewardEntry, type RewardEntry } from '@/components/vendor/RewardPoolEditor'
 import { StampDropEditor } from '@/components/vendor/StampDropEditor'
 import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
 import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid, type StampDropUiState } from '@/lib/stamp-drop-config'
@@ -23,7 +23,7 @@ import { isMechanicLive } from '@/lib/live-mechanics'
 const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
   { type: 'shake',   desc: 'Customer shakes their phone to reveal a mystery reward instantly.',          tags: ['Instant', 'High engagement'] },
   { type: 'stamp',   desc: 'Collect stamps on every visit. Rewards trigger at configured positions.',    tags: ['Repeat visits', 'Loyalty', 'Surprise'] },
-  { type: 'check-in-loyalty', desc: 'Daily check-ins earn loyalty points. Unlock rewards at point milestones.', tags: ['Daily visits', 'Points', 'Milestones'] },
+  { type: 'check-in-loyalty', desc: 'Daily check-ins earn loyalty points. Redeem points for rewards from your catalog.', tags: ['Daily visits', 'Points'] },
   { type: 'spin',    desc: 'Spin a colourful wheel and land on exciting rewards.',                       tags: ['Visual', 'Exciting'] },
   { type: 'dice',    desc: 'Roll the dice — certain faces win. Pure luck, maximum thrill.',              tags: ['Gamble feel', 'Quick'] },
   { type: 'lottery', desc: 'Scratch & reveal a lottery ticket with a jackpot and tiered prizes.',       tags: ['Jackpot', 'Tiered rewards'] },
@@ -31,7 +31,6 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
 
 const STEPS = ['Mechanic', 'Basics', 'Game Config', 'Review']
 const SPIN_COLORS = ['#7C3AED', '#EC4899', '#F59E0B', '#06B6D4', '#22C55E', '#F43F5E', '#8B5CF6', '#10B981']
-const ICONS = ['🎁', '☕', '🧁', '🥪', '🍰', '🏷️', '🎉', '🍳', '👑', '🎫', '🎟️', '💰']
 
 const DURATION_ALL: { key: DurationMode; label: string; sub: string }[] = [
   { key: 'today',  label: 'Today',    sub: 'Right now'  },
@@ -121,10 +120,6 @@ export function VendorCampaignCreatePage() {
 
   const [loyaltyConfig, setLoyaltyConfig] = useState({
     pointsPerCheckIn: 10,
-    milestones: [
-      { id: '1', name: 'Free Coffee', description: '', icon: '☕', pointsThreshold: 50 },
-      { id: '2', name: 'Free Meal', description: '', icon: '🍽️', pointsThreshold: 100 },
-    ] as { id: string; name: string; description: string; icon: string; pointsThreshold: number }[],
   })
 
   const [launched, setLaunched] = useState(false)
@@ -134,7 +129,8 @@ export function VendorCampaignCreatePage() {
   const isLottery        = mechanic === 'lottery'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
-  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty'
+  // Check-in has no Game Config — points live on Basics; rewards come from the standalone Rewards catalog.
+  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
@@ -208,11 +204,6 @@ export function VendorCampaignCreatePage() {
       )
       return dropsValid
     }
-    if (mechanic === 'check-in-loyalty') {
-      const thresholds = loyaltyConfig.milestones.map(m => m.pointsThreshold)
-      const unique = new Set(thresholds)
-      return loyaltyConfig.milestones.every(m => m.name.trim() && m.pointsThreshold > 0) && unique.size === thresholds.length
-    }
     return true
   }
 
@@ -270,14 +261,6 @@ export function VendorCampaignCreatePage() {
           endTime: dates.endTime,
           userCap: effectiveUserCap,
           checkInConfig: { pointsPerCheckIn: loyaltyConfig.pointsPerCheckIn },
-          milestones: loyaltyConfig.milestones
-            .filter(m => m.name.trim())
-            .map(m => ({
-              name: m.name.trim(),
-              description: m.description,
-              icon: m.icon,
-              pointsThreshold: m.pointsThreshold,
-            })),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -750,84 +733,6 @@ export function VendorCampaignCreatePage() {
             </Card>
           )}
 
-          {/* CHECK-IN LOYALTY */}
-          {step === 2 && mechanic === 'check-in-loyalty' && (
-            <Card className="p-6">
-              <h2 className="text-base font-bold text-v-text mb-1">Check-in Loyalty — Points & Milestones</h2>
-              <p className="text-xs text-v-text-3 mb-5">Customers earn points on each daily check-in. Configure rewards when they reach point thresholds.</p>
-              <div className="space-y-5">
-                <Stepper
-                  label="Points per Check-in"
-                  hint="points earned per visit"
-                  value={loyaltyConfig.pointsPerCheckIn}
-                  min={1}
-                  max={999}
-                  onChange={v => setLoyaltyConfig(p => ({ ...p, pointsPerCheckIn: v }))}
-                />
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-semibold text-v-text-2 uppercase tracking-wider">Reward Milestones</span>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setLoyaltyConfig(p => ({
-                        ...p,
-                        milestones: [...p.milestones, { id: Math.random().toString(36).slice(2), name: '', description: '', icon: '🎁', pointsThreshold: (p.milestones.at(-1)?.pointsThreshold ?? 0) + 50 }],
-                      }))}
-                    >
-                      <Plus className="w-3 h-3" /> Add Milestone
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {loyaltyConfig.milestones.map((m) => (
-                      <div key={m.id} className="p-3 bg-white border border-v-border rounded-xl">
-                        <div className="flex items-start gap-2">
-                          <select value={m.icon} onChange={e => setLoyaltyConfig(p => ({ ...p, milestones: p.milestones.map(x => x.id === m.id ? { ...x, icon: e.target.value } : x) }))} className="text-lg bg-transparent border-none focus:outline-none cursor-pointer pt-0.5">
-                            {ICONS.map(ic => <option key={ic} value={ic}>{ic}</option>)}
-                          </select>
-                          <div className="flex-1 space-y-1.5">
-                            <input className="w-full bg-v-surface-2 border border-v-border rounded-lg px-2.5 py-1.5 text-sm" placeholder="Reward name" value={m.name} onChange={e => setLoyaltyConfig(p => ({ ...p, milestones: p.milestones.map(x => x.id === m.id ? { ...x, name: e.target.value } : x) }))} />
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-v-text-3 shrink-0">At points:</span>
-                              <NumericInput
-                                value={m.pointsThreshold}
-                                onChange={n => setLoyaltyConfig(p => ({ ...p, milestones: p.milestones.map(x => x.id === m.id ? { ...x, pointsThreshold: n } : x) }))}
-                                min={1}
-                                max={99_999}
-                                className="w-20 bg-white border border-v-border rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:border-v-purple"
-                              />
-                            </div>
-                          </div>
-                          {loyaltyConfig.milestones.length > 1 && (
-                            <button type="button" onClick={() => setLoyaltyConfig(p => ({ ...p, milestones: p.milestones.filter(x => x.id !== m.id) }))} className="p-1 rounded-lg text-v-text-3 hover:text-v-danger">
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-v-text-3 mt-2">Each milestone threshold must be unique. Redemption is verified at your counter.</p>
-                </div>
-
-                <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
-                  <p className="text-xs font-bold text-v-purple mb-2">Preview</p>
-                  <p className="text-sm text-v-text-2">Check-in = <strong>+{loyaltyConfig.pointsPerCheckIn} pts</strong> per day</p>
-                  <div className="mt-2 space-y-1">
-                    {loyaltyConfig.milestones.filter(m => m.name).map(m => (
-                      <div key={m.id} className="flex items-center gap-2 text-xs text-v-text-2">
-                        <span>{m.icon}</span>
-                        <span>{m.name}</span>
-                        <span className="text-v-purple font-bold ml-auto">{m.pointsThreshold} pts</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
           {/* ROLL A DICE */}
           {step === 2 && mechanic === 'dice' && (
             <Card className="p-6">
@@ -957,7 +862,7 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'spin'    ? `${spinSegments.filter(s => s.isWin && s.reward).length} winning segment${spinSegments.filter(s => s.isWin).length !== 1 ? 's' : ''} · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin).length} of 6 faces win · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)` :
-                        mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in · ${loyaltyConfig.milestones.filter(m => m.name.trim()).length} milestone(s)` :
+                        mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in` :
                         mechanic === 'lottery' ? `Jackpot + ${lotteryConfig.prizes.length} prize${lotteryConfig.prizes.length !== 1 ? 's' : ''}` : '—',
                     },
                   ].map(item => (
@@ -1029,21 +934,9 @@ export function VendorCampaignCreatePage() {
                       <span className="text-v-text-2">Points per check-in</span>
                       <span className="font-semibold text-v-purple">+{loyaltyConfig.pointsPerCheckIn} pts</span>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-v-text-2 uppercase tracking-wider mb-2">Milestones</p>
-                      {loyaltyConfig.milestones.filter(m => m.name.trim()).length === 0 ? (
-                        <p className="text-xs text-v-text-3">No milestones configured</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {loyaltyConfig.milestones.filter(m => m.name.trim()).map(m => (
-                            <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-v-surface-2 border border-v-border">
-                              <span className="font-medium text-v-text">{m.icon} {m.name}</span>
-                              <span className="text-xs font-bold text-v-purple">{m.pointsThreshold} pts</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <p className="text-xs text-v-text-3">
+                      Customers redeem points for rewards from your Rewards catalog — not campaign milestones.
+                    </p>
                   </div>
                 </Card>
               )}
@@ -1068,7 +961,7 @@ export function VendorCampaignCreatePage() {
                   userCap={effectiveUserCap}
                   userCapLimited={basics.userCapLimited}
                   pointsPerCheckIn={loyaltyConfig.pointsPerCheckIn}
-                  milestoneCount={loyaltyConfig.milestones.filter(m => m.name.trim()).length}
+                  milestoneCount={0}
                 />
               )}
               {isLottery && (

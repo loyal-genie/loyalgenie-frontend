@@ -119,7 +119,10 @@ export function LoyaltyCampaignImpact({
   variant = 'light',
 }: LoyaltyImpactProps) {
   const tileClass = variant === 'light' ? 'bg-white rounded-xl p-3.5' : 'bg-v-surface-2 rounded-xl p-3.5'
-  const maxRewards = userCapLimited && userCap ? calcLoyaltyMaxRewards(userCap, milestoneCount) : null
+  const showMilestones = milestoneCount > 0
+  const maxRewards = userCapLimited && userCap && showMilestones
+    ? calcLoyaltyMaxRewards(userCap, milestoneCount)
+    : null
 
   return (
     <Card className="p-5 bg-v-surface-3 border-v-border-b">
@@ -127,26 +130,32 @@ export function LoyaltyCampaignImpact({
         <TrendingUp className="w-4 h-4 text-v-purple" />
         <h3 className="text-sm font-bold text-v-text">Expected Campaign Impact</h3>
       </div>
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+      <div className={`grid gap-3 ${showMilestones ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'}`}>
         <div className={tileClass}>
           <div className="text-xl font-black text-v-purple">+{pointsPerCheckIn}</div>
           <div className="text-xs font-semibold text-v-text-2 mt-1">Points / Check-in</div>
           <div className="text-[10px] text-v-text-3 mt-0.5">Earned once per day per customer</div>
         </div>
-        <div className={tileClass}>
-          <div className="text-xl font-black text-v-text">{milestoneCount}</div>
-          <div className="text-xs font-semibold text-v-text-2 mt-1">Reward Milestones</div>
-          <div className="text-[10px] text-v-text-3 mt-0.5">Unlock one reward per milestone</div>
-        </div>
+        {showMilestones && (
+          <div className={tileClass}>
+            <div className="text-xl font-black text-v-text">{milestoneCount}</div>
+            <div className="text-xs font-semibold text-v-text-2 mt-1">Reward Milestones</div>
+            <div className="text-[10px] text-v-text-3 mt-0.5">Unlock one reward per milestone</div>
+          </div>
+        )}
         <div className={tileClass}>
           <div className="text-xl font-black text-v-text">
-            {maxRewards != null ? formatWinnerCount(maxRewards) : 'Open'}
+            {maxRewards != null ? formatWinnerCount(maxRewards) : userCapLimited && userCap ? formatWinnerCount(userCap) : 'Open'}
           </div>
-          <div className="text-xs font-semibold text-v-text-2 mt-1">Max Rewards</div>
+          <div className="text-xs font-semibold text-v-text-2 mt-1">
+            {showMilestones ? 'Max Rewards' : 'Enrollment'}
+          </div>
           <div className="text-[10px] text-v-text-3 mt-0.5">
             {maxRewards != null
               ? `${userCap!.toLocaleString()} customers × ${milestoneCount} milestone${milestoneCount !== 1 ? 's' : ''}`
-              : 'No enrollment cap — scales with check-ins'}
+              : userCapLimited && userCap
+                ? `Up to ${userCap.toLocaleString()} customers`
+                : 'No enrollment cap — scales with check-ins'}
           </div>
         </div>
       </div>
