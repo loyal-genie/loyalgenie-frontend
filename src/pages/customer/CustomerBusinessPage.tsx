@@ -328,6 +328,42 @@ function FlashCampaignBlock({
   )
 }
 
+function FriendCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    active?: boolean
+  }
+}) {
+  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Claims full'}
+      statsLine={
+        offerState?.hasClaimed
+          ? `✓ Claimed · ${offerState.rewardLabel ?? 'Bring a Friend'}`
+          : `${offerState?.rewardLabel ?? 'Bring a Friend'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      }
+    />
+  )
+}
+
 function LoyaltyCampaignBlock({
   campaign,
   state,
@@ -440,9 +476,10 @@ export function CustomerBusinessPage() {
   const buyXGetYCampaigns = biz.campaigns.filter(c => c.mechanic === 'buy-x-get-y')
   const couponCampaigns = biz.campaigns.filter(c => c.mechanic === 'coupon')
   const flashCampaigns = biz.campaigns.filter(c => c.mechanic === 'flash')
+  const friendCampaigns = biz.campaigns.filter(c => c.mechanic === 'friend')
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
   const otherCampaigns = biz.campaigns.filter(
-    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'coupon', 'flash', 'check-in-loyalty'].includes(c.mechanic),
+    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'coupon', 'flash', 'friend', 'check-in-loyalty'].includes(c.mechanic),
   )
 
   return (
@@ -532,6 +569,19 @@ export function CustomerBusinessPage() {
                 ))}
                 {flashCampaigns.map(c => (
                   <FlashCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {friendCampaigns.map(c => (
+                  <FriendCampaignBlock
                     key={c.id}
                     campaign={c}
                     offerState={stateByCampaignId.get(c.id)?.state as {

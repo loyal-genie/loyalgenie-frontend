@@ -11,6 +11,7 @@ import {
   fetchBuyXGetYState,
   fetchCouponState,
   fetchFlashState,
+  fetchFriendState,
   fetchAuthSession,
   getApiErrorMessage,
 } from '@/lib/api'
@@ -34,6 +35,7 @@ import { LotteryCampaignDetail } from '@/components/customer/LotteryCampaignDeta
 import { BuyXGetYCampaignDetail } from '@/components/customer/BuyXGetYCampaignDetail'
 import { CouponCampaignDetail } from '@/components/customer/CouponCampaignDetail'
 import { FlashCampaignDetail } from '@/components/customer/FlashCampaignDetail'
+import { FriendCampaignDetail } from '@/components/customer/FriendCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
@@ -134,6 +136,13 @@ export function CustomerCampaignPage() {
     staleTime: 0,
   })
 
+  const { data: friendState, isLoading: friendStateLoading } = useQuery({
+    queryKey: ['friend-state', id, serverSession?.userId],
+    queryFn: () => fetchFriendState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'friend',
+    staleTime: 0,
+  })
+
   const verifyMutation = useMutation({
     mutationFn: async (enteredPin: string) => {
       if (!getToken('customer')) throw new Error('NOT_AUTHENTICATED')
@@ -215,6 +224,7 @@ export function CustomerCampaignPage() {
     || (campaign?.mechanic === 'buy-x-get-y' && buyXGetYStateLoading)
     || (campaign?.mechanic === 'coupon' && couponStateLoading)
     || (campaign?.mechanic === 'flash' && flashStateLoading)
+    || (campaign?.mechanic === 'friend' && friendStateLoading)
 
   const instantWinBlocked = (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playState && !playState.canPlay
   const shakeBlocked = instantWinBlocked
@@ -229,7 +239,8 @@ export function CustomerCampaignPage() {
   const buyXGetYBlocked = campaign?.mechanic === 'buy-x-get-y' && buyXGetYState && !buyXGetYState.canClaim && !buyXGetYState.hasClaimed
   const couponBlocked = campaign?.mechanic === 'coupon' && couponState && !couponState.canClaim && !couponState.hasClaimed
   const flashBlocked = campaign?.mechanic === 'flash' && flashState && !flashState.canClaim && !flashState.hasClaimed
-  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked || buyXGetYBlocked || couponBlocked || flashBlocked)
+  const friendBlocked = campaign?.mechanic === 'friend' && friendState && !friendState.canClaim && !friendState.hasClaimed
+  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked || buyXGetYBlocked || couponBlocked || flashBlocked || friendBlocked)
 
   useEffect(() => {
     if (!blocked || stampCollect || loyaltySplash || !campaign || sessionLoading || isLoading || stateStillLoading) return
@@ -348,7 +359,9 @@ export function CustomerCampaignPage() {
                 ? 'Claim coupon'
                 : campaign.mechanic === 'flash'
                   ? 'Claim flash deal'
-                  : "Let's shake!"
+                  : campaign.mechanic === 'friend'
+                    ? 'Claim reward'
+                    : "Let's shake!"
 
   if (campaign.mechanic === 'shake') {
     return (
@@ -473,6 +486,24 @@ export function CustomerCampaignPage() {
         hasClaimed={flashState?.hasClaimed}
         spotsRemaining={flashState?.spotsRemaining}
         totalSlots={flashState?.totalSlots}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'friend') {
+    return (
+      <FriendCampaignDetail
+        campaign={campaign}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={friendState?.hasClaimed}
+        spotsRemaining={friendState?.spotsRemaining}
+        userCap={friendState?.userCap}
         onBack={handleBack}
         onKey={handleKey}
         onDelete={handleDelete}

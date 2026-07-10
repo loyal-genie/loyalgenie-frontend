@@ -39,6 +39,15 @@ import {
   isFlashConfigValid,
   type FlashConfigUi,
 } from '@/lib/flash-campaign-config'
+import {
+  buildFriendCampaignPayload,
+  defaultFriendConfig,
+  defaultFriendRedeem,
+  formatFriendRewardLabel,
+  formatFriendSentence,
+  isFriendConfigValid,
+  type FriendConfigUi,
+} from '@/lib/friend-campaign-config'
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
 import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
@@ -46,6 +55,7 @@ import { LotteryPrizeEditor } from '@/components/vendor/LotteryPrizeEditor'
 import { BuyXGetYOfferEditor } from '@/components/vendor/BuyXGetYOfferEditor'
 import { CouponOfferEditor } from '@/components/vendor/CouponOfferEditor'
 import { FlashOfferEditor } from '@/components/vendor/FlashOfferEditor'
+import { FriendOfferEditor } from '@/components/vendor/FriendOfferEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -64,6 +74,7 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
   { type: 'buy-x-get-y', desc: 'Customers buy or spend to unlock a reward — purchases or spend thresholds.', tags: ['Perceived value', 'Loss aversion'] },
   { type: 'coupon', desc: 'Limited coupon pool — customers claim a code and redeem at the counter.', tags: ['Scarcity', 'Easy claim'] },
   { type: 'flash', desc: 'Urgent limited-spot deal — customers claim fast before spots run out.', tags: ['Urgency', 'Scarcity'] },
+  { type: 'friend', desc: 'Reward customers who bring friends along — unlock perks through referrals.', tags: ['Referral', 'Social'] },
 ]
 
 const STEPS = ['Mechanic', 'Basics', 'Game Config', 'Review']
@@ -142,6 +153,8 @@ export function VendorCampaignCreatePage() {
   const [couponRedeem, setCouponRedeem] = useState(defaultCouponRedeem())
   const [flashConfig, setFlashConfig] = useState<FlashConfigUi>(defaultFlashConfig())
   const [flashRedeem, setFlashRedeem] = useState(defaultFlashRedeem())
+  const [friendConfig, setFriendConfig] = useState<FriendConfigUi>(defaultFriendConfig())
+  const [friendRedeem, setFriendRedeem] = useState(defaultFriendRedeem())
 
   const [loyaltyConfig, setLoyaltyConfig] = useState({
     pointsPerCheckIn: 10,
@@ -159,9 +172,10 @@ export function VendorCampaignCreatePage() {
   const isBuyXGetY       = mechanic === 'buy-x-get-y'
   const isCoupon         = mechanic === 'coupon'
   const isFlash          = mechanic === 'flash'
+  const isFriend         = mechanic === 'friend'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
-  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin' || mechanic === 'dice' || mechanic === 'lottery' || mechanic === 'buy-x-get-y' || mechanic === 'coupon' || mechanic === 'flash'
+  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin' || mechanic === 'dice' || mechanic === 'lottery' || mechanic === 'buy-x-get-y' || mechanic === 'coupon' || mechanic === 'flash' || mechanic === 'friend'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
@@ -211,6 +225,9 @@ export function VendorCampaignCreatePage() {
   const selectMechanic = (m: MechanicType) => {
     if (!isMechanicLive(m)) return
     setMechanic(m)
+    if (m === 'friend') {
+      setBasics(p => ({ ...p, userCap: 200 }))
+    }
   }
 
   const schedule = computeDates(basics.durationMode, basics.customStart, basics.customEnd, basics.customStartTime, basics.customEndTime)
@@ -232,6 +249,7 @@ export function VendorCampaignCreatePage() {
     if (mechanic === 'buy-x-get-y') return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
     if (mechanic === 'coupon') return isCouponConfigValid(couponConfig, couponRedeem)
     if (mechanic === 'flash') return isFlashConfigValid(flashConfig, flashRedeem)
+    if (mechanic === 'friend') return isFriendConfigValid(friendConfig, friendRedeem)
     if (mechanic === 'stamp') {
       const dropsValid = [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
         d.to <= stampConfig.totalStamps && isStampDropValid(d),
@@ -254,7 +272,7 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y' && mechanic !== 'coupon' && mechanic !== 'flash') {
+    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y' && mechanic !== 'coupon' && mechanic !== 'flash' && mechanic !== 'friend') {
       setLaunchError('This campaign type is not available yet.')
       return
     }
@@ -386,6 +404,23 @@ export function VendorCampaignCreatePage() {
           startTime: dailyWindow.startTime,
           endTime: dailyWindow.endTime,
           ...buildFlashCampaignPayload(flashConfig, flashRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'friend') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'friend',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          userCap: basics.userCap,
+          ...buildFriendCampaignPayload(friendConfig, friendRedeem),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -587,7 +622,7 @@ export function VendorCampaignCreatePage() {
                   )}
 
                   {/* Active hours — daily window for instant-win + Buy X Get Y */}
-                  {(isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash) && (
+                  {(isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash || isFriend) && (
                     <div className="mt-4 pt-4 border-t border-v-border">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -644,6 +679,16 @@ export function VendorCampaignCreatePage() {
 
                   {isBuyXGetY && (
                     <Stepper label="User Cap" hint="users" value={basics.userCap} min={10} max={5000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
+                  )}
+
+                  {isFriend && (
+                    <>
+                      <Stepper label="User Cap" hint="users" value={basics.userCap} min={10} max={5000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Bring a Friend rewards trigger automatically once the minimum friend count is met — no win probability to configure. Reward type and expiry are set in the next step.</p>
+                      </div>
+                    </>
                   )}
 
                   {isCoupon && (
@@ -1068,6 +1113,18 @@ export function VendorCampaignCreatePage() {
             </Card>
           )}
 
+          {step === 2 && mechanic === 'friend' && (
+            <Card className="p-6">
+              <FriendOfferEditor config={friendConfig} setConfig={setFriendConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed Bring a Friend reward.
+                </p>
+                <RedeemBeforeField value={friendRedeem} onChange={setFriendRedeem} />
+              </div>
+            </Card>
+          )}
+
           {/* ── Step 3: Review & Launch ── */}
           {step === reviewStepIndex && (
             <div className="space-y-4">
@@ -1094,7 +1151,7 @@ export function VendorCampaignCreatePage() {
                     ...(isStamp ? [{ label: 'Claim Period', value: `${durationModeToDays(basics.claimDurationMode)} days after enrollment closes` }] : []),
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
-                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash) ? [{
+                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash || isFriend) ? [{
                       label: 'Active Hours',
                       value: `${fmtTime(basics.activeStartTime)} – ${fmtTime(basics.activeEndTime)} daily`,
                     }] : []),
@@ -1134,6 +1191,12 @@ export function VendorCampaignCreatePage() {
                       { label: 'Redeem before', value: formatRedeemBeforeSummary(flashRedeem) },
                       { label: 'Terms & Conditions', value: flashConfig.termsAndConditions.trim() || '—' },
                     ] : []),
+                    ...(mechanic === 'friend' ? [
+                      { label: 'Minimum friends', value: `${friendConfig.minFriends} friend${friendConfig.minFriends !== 1 ? 's' : ''}` },
+                      { label: 'Offer', value: formatFriendSentence(friendConfig) },
+                      { label: 'Reward value', value: formatFriendRewardLabel(friendConfig) },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(friendRedeem) },
+                    ] : []),
                     {
                       label: 'Rewards',
                       value:
@@ -1145,7 +1208,8 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'lottery' ? `Jackpot + ${lotteryPrizes.filter(p => p.tier !== 'jackpot').length} prize${lotteryPrizes.filter(p => p.tier !== 'jackpot').length !== 1 ? 's' : ''} · Draw ${fmtDate(dates.end)}` :
                         mechanic === 'buy-x-get-y' ? formatBuyXGetYSentence(buyXGetYConfig) :
                         mechanic === 'coupon' ? formatCouponSentence(couponConfig) :
-                        mechanic === 'flash' ? formatFlashSentence(flashConfig) : '—',
+                        mechanic === 'flash' ? formatFlashSentence(flashConfig) :
+                        mechanic === 'friend' ? formatFriendSentence(friendConfig) : '—',
                     },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between py-3 border-b border-v-border last:border-0">
