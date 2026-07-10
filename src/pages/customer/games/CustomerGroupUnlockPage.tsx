@@ -152,7 +152,9 @@ export function CustomerGroupUnlockPage() {
             >
               Reserving…
             </motion.p>
-            <p className="text-sm text-indigo-800/80 mt-2">Adding reward to your wallet</p>
+            <p className="text-sm text-indigo-800/80 mt-2">
+              {claimed?.reward ? 'Spot reserved — check wallet for unlock status' : 'Adding reward to your wallet'}
+            </p>
           </motion.div>
         ) : (
           <motion.div

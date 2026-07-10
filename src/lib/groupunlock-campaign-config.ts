@@ -51,7 +51,7 @@ export function formatGroupUnlockSentence(config: GroupUnlockConfigUi): string {
 }
 
 export function isGroupUnlockConfigValid(config: GroupUnlockConfigUi, redeem: RedeemBeforeValue): boolean {
-  if (config.targetParticipants < 2) return false
+  if (config.targetParticipants < 1) return false
   if (!config.rewardValue.trim()) return false
   if (config.rewardKind === 'percent') {
     const n = Number(config.rewardValue)

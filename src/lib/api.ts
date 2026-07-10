@@ -1063,7 +1063,7 @@ export interface CustomerRewardDto {
   reward: string
   icon: string
   earnedAt: string
-  status: 'earned' | 'pending' | 'redeemed' | 'expired' | 'lottery_pending' | 'lottery_lost' | 'lottery_archived'
+  status: 'earned' | 'pending' | 'redeemed' | 'expired' | 'lottery_pending' | 'lottery_lost' | 'lottery_archived' | 'group_pending'
   requestedAt?: string
   redeemedAt?: string
   code: string
@@ -1074,6 +1074,12 @@ export interface CustomerRewardDto {
     drawDate: string | null
     ticketStatus: string | null
     hasViewedResult: boolean
+  }
+  groupUnlock?: {
+    targetParticipants: number
+    groupJoined: number
+    peopleLeft: number
+    unlocked: boolean
   }
 }
 

@@ -43,7 +43,7 @@ export function GroupUnlockOfferEditor({ config, setConfig, readOnly }: GroupUnl
         label="Target Participants"
         hint="people required"
         value={config.targetParticipants}
-        min={2}
+        min={1}
         max={2000}
         step={1}
         onChange={v => patch({ targetParticipants: v })}
