@@ -12,7 +12,6 @@ const REWARD_KINDS: { id: RewardKind; label: string }[] = [
   { id: 'flat', label: 'Flat ₹' },
   { id: 'percent', label: '% Off' },
   { id: 'item', label: 'Item/Service' },
-  { id: 'points', label: 'Points' },
 ]
 
 interface BuyXGetYOfferEditorProps {
@@ -111,7 +110,6 @@ export function BuyXGetYOfferEditor({ config, setConfig, readOnly }: BuyXGetYOff
         <label className={`${labelClass} mb-1.5 block`}>
           {config.rewardKind === 'flat' && 'Discount Amount (₹)'}
           {config.rewardKind === 'percent' && 'Discount %'}
-          {config.rewardKind === 'points' && 'Points Awarded'}
           {config.rewardKind === 'item' && 'Reward Description'}
         </label>
         <input
@@ -121,9 +119,7 @@ export function BuyXGetYOfferEditor({ config, setConfig, readOnly }: BuyXGetYOff
               ? 'e.g. 150'
               : config.rewardKind === 'percent'
                 ? 'e.g. 20'
-                : config.rewardKind === 'points'
-                  ? 'e.g. 100'
-                  : 'e.g. Free item or service'
+                : 'e.g. Free item or service'
           }
           value={config.rewardValue}
           onChange={e => patch({ rewardValue: e.target.value })}

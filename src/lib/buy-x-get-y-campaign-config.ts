@@ -1,7 +1,7 @@
 import { isRedeemBeforeValid, type RedeemBeforeValue } from '@/components/vendor/RedeemBeforeField'
 
 export type BuyCondition = 'quantity' | 'spend'
-export type RewardKind = 'flat' | 'percent' | 'item' | 'points'
+export type RewardKind = 'flat' | 'percent' | 'item'
 
 export interface BuyXGetYConfigUi {
   condition: BuyCondition
@@ -37,8 +37,6 @@ export function formatBuyXGetYRewardLabel(config: BuyXGetYConfigUi): string {
       return v ? `₹${v} Off` : '₹ Off'
     case 'percent':
       return v ? `${v}% Off` : '% Off'
-    case 'points':
-      return v ? `${v} Points` : 'Points'
     case 'item':
     default:
       return v || 'Free Item'
@@ -86,7 +84,7 @@ export function buyXGetYFromApi(
         condition: 'quantity' | 'spend'
         buyQuantity: number
         spendAmount: number
-        rewardKind: 'flat' | 'percent' | 'item' | 'points'
+        rewardKind: 'flat' | 'percent' | 'item'
         rewardValue: string
         redeemExpiryMode?: 'fixed' | 'relative'
         redeemFixedDate?: string | null
