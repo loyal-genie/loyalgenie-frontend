@@ -57,7 +57,17 @@ import {
   lotteryPrizesFromApi,
   type LotteryPrizeUi,
 } from '@/lib/lottery-campaign-config'
-import { formatRedeemBeforeSummary, RedeemBeforeField } from '@/components/vendor/RedeemBeforeField'
+import { BuyXGetYOfferEditor } from '@/components/vendor/BuyXGetYOfferEditor'
+import {
+  buildBuyXGetYCampaignPayload,
+  defaultBuyXGetYConfig,
+  defaultBuyXGetYRedeem,
+  buyXGetYFromApi,
+  formatBuyXGetYSentence,
+  isBuyXGetYConfigValid,
+  type BuyXGetYConfigUi,
+} from '@/lib/buy-x-get-y-campaign-config'
+import { formatRedeemBeforeSummary, RedeemBeforeField, type RedeemBeforeValue } from '@/components/vendor/RedeemBeforeField'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
   formatWinnerCount,
@@ -165,6 +175,23 @@ function rewardsEqual(a: RewardEntry[], b: RewardEntry[]) {
   })
 }
 
+function buyXGetYEqual(
+  a: BuyXGetYConfigUi,
+  b: BuyXGetYConfigUi,
+  redeemA: RedeemBeforeValue,
+  redeemB: RedeemBeforeValue,
+) {
+  return a.condition === b.condition
+    && a.buyQuantity === b.buyQuantity
+    && a.spendAmount === b.spendAmount
+    && a.rewardKind === b.rewardKind
+    && a.rewardValue === b.rewardValue
+    && redeemA.redeemExpiryMode === redeemB.redeemExpiryMode
+    && redeemA.redeemFixedDate === redeemB.redeemFixedDate
+    && redeemA.redeemRelativeAmount === redeemB.redeemRelativeAmount
+    && redeemA.redeemRelativeUnit === redeemB.redeemRelativeUnit
+}
+
 export function VendorCampaignEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -197,6 +224,10 @@ export function VendorCampaignEditPage() {
   const [lotteryRedeem, setLotteryRedeem] = useState(defaultLotteryRedeem())
   const [originalLotteryPrizes, setOriginalLotteryPrizes] = useState<LotteryPrizeUi[]>(defaultLotteryPrizes())
   const [originalLotteryRedeem, setOriginalLotteryRedeem] = useState(defaultLotteryRedeem())
+  const [buyXGetYConfig, setBuyXGetYConfig] = useState<BuyXGetYConfigUi>(defaultBuyXGetYConfig())
+  const [buyXGetYRedeem, setBuyXGetYRedeem] = useState(defaultBuyXGetYRedeem())
+  const [originalBuyXGetYConfig, setOriginalBuyXGetYConfig] = useState<BuyXGetYConfigUi>(defaultBuyXGetYConfig())
+  const [originalBuyXGetYRedeem, setOriginalBuyXGetYRedeem] = useState(defaultBuyXGetYRedeem())
   const [activeHoursEnabled, setActiveHoursEnabled] = useState(false)
   const [activeStartTime, setActiveStartTime] = useState('09:00')
   const [activeEndTime, setActiveEndTime] = useState('21:00')
@@ -286,6 +317,25 @@ export function VendorCampaignEditPage() {
       setOriginalLotteryRedeem(hydrated.redeem)
     }
 
+    if (campaign.mechanic === 'buy-x-get-y') {
+      const hydrated = buyXGetYFromApi(campaign.buyXGetYConfig)
+      setBuyXGetYConfig(hydrated.config)
+      setBuyXGetYRedeem(hydrated.redeem)
+      setOriginalBuyXGetYConfig(hydrated.config)
+      setOriginalBuyXGetYRedeem(hydrated.redeem)
+      setUserCap(campaign.userCap)
+      setUserCapLimited(true)
+      const start = campaign.startTime ?? '00:00'
+      const end = campaign.endTime ?? '23:59'
+      const hoursEnabled = start !== '00:00' || end !== '23:59'
+      setActiveHoursEnabled(hoursEnabled)
+      setActiveStartTime(start)
+      setActiveEndTime(end)
+      setOriginalActiveHoursEnabled(hoursEnabled)
+      setOriginalActiveStartTime(start)
+      setOriginalActiveEndTime(end)
+    }
+
     if (campaign.mechanic === 'shake' && campaign.startDate !== campaign.endDate) {
       const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
       dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
@@ -335,6 +385,7 @@ export function VendorCampaignEditPage() {
   const isSpin = mechanic === 'spin'
   const isDice = mechanic === 'dice'
   const isLottery = mechanic === 'lottery'
+  const isBuyXGetY = mechanic === 'buy-x-get-y'
   const isStamp = mechanic === 'stamp'
   const isLoyalty = mechanic === 'check-in-loyalty'
   const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
@@ -384,7 +435,8 @@ export function VendorCampaignEditPage() {
     spinConfig: isSpin && !spinSegmentsEqual(spinSegments, originalSpinSegments),
     diceConfig: isDice && !diceOutcomesEqual(diceOutcomes, originalDiceOutcomes),
     lotteryConfig: isLottery && !lotteryPrizesEqual(lotteryPrizes, originalLotteryPrizes, lotteryRedeem, originalLotteryRedeem),
-    activeHours: (isSpin || isDice) && (
+    buyXGetYConfig: isBuyXGetY && !buyXGetYEqual(buyXGetYConfig, originalBuyXGetYConfig, buyXGetYRedeem, originalBuyXGetYRedeem),
+    activeHours: (isSpin || isDice || isBuyXGetY) && (
       activeHoursEnabled !== originalActiveHoursEnabled
       || activeStartTime !== originalActiveStartTime
       || activeEndTime !== originalActiveEndTime
@@ -407,6 +459,7 @@ export function VendorCampaignEditPage() {
     if (isSpin) return isSpinSegmentConfigValid(spinSegments)
     if (isDice) return isDiceConfigValid(diceOutcomes)
     if (isLottery) return isLotteryConfigValid(lotteryPrizes, lotteryRedeem)
+    if (isBuyXGetY) return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
     if (isStamp) return stampFormValid()
     if (isLoyalty) return loyaltyFormValid()
     return true
@@ -468,6 +521,18 @@ export function VendorCampaignEditPage() {
         if (changedFields.endDate) payload.endDate = endDate
         if (changedFields.endTime) payload.endTime = endTime
         if (changedFields.lotteryConfig) payload.lotteryConfig = buildLotteryCampaignPayload(lotteryPrizes, lotteryRedeem).lotteryConfig
+      }
+
+      if (isBuyXGetY) {
+        if (changedFields.endDate) payload.endDate = endDate
+        if (changedFields.endTime) payload.endTime = endTime
+        if (changedFields.buyXGetYConfig) {
+          payload.buyXGetYConfig = buildBuyXGetYCampaignPayload(buyXGetYConfig, buyXGetYRedeem).buyXGetYConfig
+        }
+        if (changedFields.activeHours) {
+          payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
+          payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
+        }
       }
 
       if (isStamp && (changedFields.claimPeriod || changedFields.stampConfig || changedFields.userCap)) {
@@ -552,12 +617,21 @@ export function VendorCampaignEditPage() {
       { label: 'User Cap', value: userCapLimited ? `${userCap} users` : 'All customers (no limit)', changed: changedFields.userCap || changedFields.userCapLimited, previous: originalUserCapLimited ? `${campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap} users` : 'All customers (no limit)' },
       { label: 'Points per Check-in', value: `+${pointsPerCheckIn} pts`, changed: changedFields.pointsPerCheckIn, previous: `+${originalPointsPerCheckIn} pts` },
     ] : []),
+    ...(isBuyXGetY ? [
+      { label: 'User Cap', value: `${userCap} users`, changed: changedFields.userCap, previous: `${campaign.userCap} users` },
+      ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
+      { label: 'Offer', value: formatBuyXGetYSentence(buyXGetYConfig), changed: changedFields.buyXGetYConfig, previous: formatBuyXGetYSentence(originalBuyXGetYConfig) },
+      { label: 'Trigger', value: buyXGetYConfig.condition === 'spend' ? `₹${buyXGetYConfig.spendAmount} spend` : `${buyXGetYConfig.buyQuantity} purchases`, changed: changedFields.buyXGetYConfig },
+      { label: 'Reward', value: buyXGetYConfig.rewardValue || '—', changed: changedFields.buyXGetYConfig },
+      { label: 'Redeem before', value: formatRedeemBeforeSummary(buyXGetYRedeem), changed: changedFields.buyXGetYConfig, previous: formatRedeemBeforeSummary(originalBuyXGetYRedeem) },
+    ] : []),
   ]
 
   const mechanicTitle = isShake ? 'Shake & Win — Reward Distribution'
     : isSpin ? 'Spin a Wheel — Segments & Rewards'
     : isDice ? 'Roll a Dice — Face Rewards'
     : isLottery ? 'Lottery — Prizes'
+    : isBuyXGetY ? 'Buy X Get Y — Offer Terms'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
     : 'Campaign Configuration'
 
@@ -779,7 +853,7 @@ export function VendorCampaignEditPage() {
                       </>
                     ))}
 
-                    {(isSpin || isDice) && !isEnded && (
+                    {(isSpin || isDice || isBuyXGetY) && !isEnded && (
                       <div className="pt-2 border-t border-v-border mb-4">
                         <div className="flex items-center justify-between mb-2">
                             <div>
@@ -801,6 +875,12 @@ export function VendorCampaignEditPage() {
                     )}
 
                     {isStamp && (isEnded ? (
+                      <LockedField label="User Cap" value={`${campaign.userCap} users`} />
+                    ) : (
+                      <Stepper label="User Cap" hint="users" value={userCap} min={Math.max(campaign.currentUsers, 1)} max={2000} step={1} onChange={setUserCap} />
+                    ))}
+
+                    {isBuyXGetY && (isEnded ? (
                       <LockedField label="User Cap" value={`${campaign.userCap} users`} />
                     ) : (
                       <Stepper label="User Cap" hint="users" value={userCap} min={Math.max(campaign.currentUsers, 1)} max={2000} step={1} onChange={setUserCap} />
@@ -854,7 +934,7 @@ export function VendorCampaignEditPage() {
                 </div>
               </Card>
 
-              {(isShake || isSpin || isDice || isLottery || isStamp) && (
+              {(isShake || isSpin || isDice || isLottery || isBuyXGetY || isStamp) && (
               <Card className="p-6">
                 <h2 className="text-base font-bold text-v-text mb-1">{mechanicTitle}</h2>
 
@@ -865,6 +945,21 @@ export function VendorCampaignEditPage() {
                     {!isEnded && (
                       <div className="mt-5 border-t border-v-border pt-5">
                         <RedeemBeforeField value={lotteryRedeem} onChange={setLotteryRedeem} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isBuyXGetY && (
+                  <div>
+                    <p className="text-xs text-v-text-3 mb-4">Configure the buy/spend trigger and reward. Claims unlock automatically when the threshold is met.</p>
+                    <BuyXGetYOfferEditor config={buyXGetYConfig} setConfig={setBuyXGetYConfig} readOnly={isEnded} />
+                    {!isEnded && (
+                      <div className="mt-5 border-t border-v-border pt-5">
+                        <p className="text-xs text-v-text-3 mb-3">
+                          Reward redeem before — same window for every claim of this offer.
+                        </p>
+                        <RedeemBeforeField value={buyXGetYRedeem} onChange={setBuyXGetYRedeem} />
                       </div>
                     )}
                   </div>

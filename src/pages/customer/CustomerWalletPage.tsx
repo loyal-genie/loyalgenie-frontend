@@ -10,12 +10,12 @@ import { WalletHistoryCard } from '@/components/customer/wallet/WalletHistoryCar
 import type { WalletCardContext } from '@/components/customer/wallet/WalletActiveCard'
 import {
   getCampaignGradient,
+  isWalletRewardPastRedeem,
   walletDaysUntil,
 } from '@/lib/customer-ui'
 import { getApiErrorMessage } from '@/lib/api'
 import {
   useBusinessesWithCampaigns,
-  useCustomerLoyaltyProfiles,
   useCustomerNotifications,
   useCustomerRewards,
   useRequestRedemption,
@@ -63,12 +63,10 @@ export function CustomerWalletPage() {
   const [redeemError, setRedeemError] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [countdowns, setCountdowns] = useState<Record<string, number>>({})
-  const [sessionRedeemed, setSessionRedeemed] = useState<Record<string, string>>({})
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const { data: rewards = [], isLoading, isError, error, refetch } = useCustomerRewards()
   const { data: businesses } = useBusinessesWithCampaigns()
-  const { data: loyaltyProfiles = [] } = useCustomerLoyaltyProfiles()
   const { data: notificationData } = useCustomerNotifications()
   const notificationCount = notificationData?.unreadCount ?? 0
   const [lotteryStatusId, setLotteryStatusId] = useState<string | null>(null)
@@ -104,7 +102,7 @@ export function CustomerWalletPage() {
     intervalRef.current = setInterval(() => {
       setCountdowns(prev => {
         const next = { ...prev }
-        const justDone: string[] = []
+        const timedOut: string[] = []
         for (const id in next) {
           const reward = rewards.find(r => r.id === id)
           if (reward?.status === 'redeemed') {
@@ -113,12 +111,15 @@ export function CustomerWalletPage() {
           }
           if (next[id] > 0) {
             next[id] -= 1
-            if (next[id] === 0) justDone.push(id)
+            if (next[id] === 0) {
+              timedOut.push(id)
+              delete next[id]
+            }
           }
         }
-        if (justDone.length > 0) {
-          const now = new Date().toISOString()
-          justDone.forEach(id => setSessionRedeemed(sr => ({ ...sr, [id]: now })))
+        // Timer expiry is NOT a redemption — close the code screen; reward stays pending/active
+        if (timedOut.length > 0) {
+          setOpenId(current => (current && timedOut.includes(current) ? null : current))
         }
         return next
       })
@@ -152,10 +153,6 @@ export function CustomerWalletPage() {
     const redirect = window.setTimeout(() => {
       setOpenId(null)
       setTab('history')
-      setSessionRedeemed(prev => {
-        const { [openId]: _, ...rest } = prev
-        return rest
-      })
     }, 2500)
 
     return () => window.clearTimeout(redirect)
@@ -179,19 +176,29 @@ export function CustomerWalletPage() {
     openScreen()
   }
 
-  const closeScreen = () => setOpenId(null)
+  const closeScreen = () => {
+    if (openId) {
+      setCountdowns(prev => {
+        if (!(openId in prev)) return prev
+        const { [openId]: _, ...rest } = prev
+        return rest
+      })
+    }
+    setOpenId(null)
+  }
 
+  const isDateExpiredReward = (r: CustomerRewardDto) =>
+    (r.status === 'earned' || r.status === 'pending')
+    && isWalletRewardPastRedeem(r.redeemBefore ?? cardContext.get(r.id)?.expiresAt)
+
+  // Active = redeemable only. Never keep client-fake or API-redeemed items here.
   const pendingRewards = rewards
-    .filter(r =>
-      r.status === 'earned'
-      || r.status === 'pending'
-      || r.status === 'lottery_pending'
-      || r.status === 'lottery_lost'
-      || sessionRedeemed[r.id],
-    )
+    .filter(r => {
+      if (r.status === 'lottery_pending' || r.status === 'lottery_lost') return true
+      if (r.status === 'earned' || r.status === 'pending') return !isDateExpiredReward(r)
+      return false
+    })
     .sort((a, b) => {
-      if (sessionRedeemed[a.id] && !sessionRedeemed[b.id]) return 1
-      if (sessionRedeemed[b.id] && !sessionRedeemed[a.id]) return -1
       const ctxA = cardContext.get(a.id)
       const ctxB = cardContext.get(b.id)
       const da = ctxA?.expiresAt ? walletDaysUntil(ctxA.expiresAt) : 999
@@ -200,20 +207,26 @@ export function CustomerWalletPage() {
     })
 
   const historyRewards = rewards
-    .filter(r => (r.status === 'redeemed' || r.status === 'expired' || r.status === 'lottery_archived') && !sessionRedeemed[r.id])
+    .filter(r => {
+      if (r.status === 'redeemed' || r.status === 'expired' || r.status === 'lottery_archived') return true
+      return isDateExpiredReward(r)
+    })
     .sort(
       (a, b) =>
         new Date(b.redeemedAt ?? b.earnedAt).getTime() - new Date(a.redeemedAt ?? a.earnedAt).getTime(),
     )
 
-  const toRedeemCount = pendingRewards.filter(r => !sessionRedeemed[r.id]).length
-  const totalPoints = loyaltyProfiles.reduce((sum, p) => sum + p.loyaltyPoints, 0)
-  const topStreak = Math.max(0, ...loyaltyProfiles.map(p => p.totalCheckIns))
+  const activeCount = pendingRewards.length
+  const redeemedCount = rewards.filter(r => r.status === 'redeemed').length
+  const expiredCount = rewards.filter(r =>
+    r.status === 'expired' || isDateExpiredReward(r),
+  ).length
 
   const urgentCount = pendingRewards.filter(r => {
-    if (sessionRedeemed[r.id]) return false
     const exp = cardContext.get(r.id)?.expiresAt
-    return exp ? walletDaysUntil(exp) <= 3 : false
+    if (!exp) return false
+    const days = walletDaysUntil(exp)
+    return days >= 0 && days <= 3
   }).length
 
   const openView =
@@ -293,7 +306,7 @@ export function CustomerWalletPage() {
           <RedemptionScreen
             view={openView}
             countdown={countdowns[openView.reward.id] ?? 0}
-            redeemedAt={sessionRedeemed[openView.reward.id] ?? null}
+            redeemedAt={null}
             onClose={closeScreen}
           />
         )}
@@ -352,12 +365,9 @@ export function CustomerWalletPage() {
         >
           <div className="flex divide-x divide-white/10">
             {[
-              { value: toRedeemCount, label: 'Active' },
-              { value: topStreak, label: 'Day Streak 🔥' },
-              {
-                value: totalPoints >= 1000 ? `${(totalPoints / 1000).toFixed(1)}k` : totalPoints,
-                label: 'Points ⭐',
-              },
+              { value: activeCount, label: 'Active' },
+              { value: redeemedCount, label: 'Redeemed' },
+              { value: expiredCount, label: 'Expired' },
             ].map(({ value, label }, i) => (
               <div key={label} className="flex-1 text-center py-4 px-2">
                 <motion.p
@@ -419,7 +429,7 @@ export function CustomerWalletPage() {
                   />
                 )}
                 <span className="relative z-10">
-                  {t === 'active' ? `Active (${toRedeemCount})` : `History (${historyRewards.length})`}
+                  {t === 'active' ? `Active (${activeCount})` : `History (${historyRewards.length})`}
                 </span>
               </button>
             ))}
@@ -472,8 +482,8 @@ export function CustomerWalletPage() {
                           reward={r}
                           context={cardContext.get(r.id) ?? buildCardContext(r, businesses)}
                           index={i}
-                          isRedeemed={!!sessionRedeemed[r.id] || r.status === 'redeemed'}
-                          redeemedAt={r.redeemedAt ?? sessionRedeemed[r.id] ?? null}
+                          isRedeemed={false}
+                          redeemedAt={null}
                           redeeming={redeemMutation.isPending && redeemMutation.variables === r.id}
                           onRedeem={() => startRedeem(r)}
                           onCheckLotteryStatus={() => setLotteryStatusId(r.id)}

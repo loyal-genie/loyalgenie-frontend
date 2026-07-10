@@ -5,8 +5,10 @@ const MECHANIC_LABELS: Record<string, string> = {
   spin: 'Spin Wheel',
   shake: 'Shake & Win',
   lottery: 'Lottery',
+  'buy-x-get-y': 'Buy X Get Y',
   dice: 'Dice',
   scratch: 'Scratch Card',
+  'check-in-loyalty': 'Check-in Loyalty',
 }
 
 export function MechanicBadge({ mechanic }: { mechanic: string }) {

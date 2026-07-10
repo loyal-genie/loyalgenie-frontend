@@ -524,6 +524,17 @@ export interface CampaignDto {
     redeemRelativeAmount?: number
     redeemRelativeUnit?: 'day' | 'week' | 'month'
   } | null
+  buyXGetYConfig?: {
+    condition: 'quantity' | 'spend'
+    buyQuantity: number
+    spendAmount: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
 }
 
 export interface CreateShakeCampaignPayload {
@@ -666,7 +677,28 @@ export interface CreateLotteryCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload
+export interface CreateBuyXGetYCampaignPayload {
+  name: string
+  mechanic: 'buy-x-get-y'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  userCap: number
+  buyXGetYConfig: {
+    condition: 'quantity' | 'spend'
+    buyQuantity: number
+    spendAmount: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -775,6 +807,17 @@ export interface PublicCampaign {
       icon?: string
     }[]
     drawCompleted?: boolean
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  buyXGetYConfig?: {
+    condition: 'quantity' | 'spend'
+    buyQuantity: number
+    spendAmount: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
     redeemExpiryMode?: 'fixed' | 'relative'
     redeemFixedDate?: string | null
     redeemRelativeAmount?: number
@@ -965,6 +1008,7 @@ export interface UpdateCampaignPayload {
   spinConfig?: CreateSpinCampaignPayload['spinConfig']
   diceConfig?: CreateDiceCampaignPayload['diceConfig']
   lotteryConfig?: CreateLotteryCampaignPayload['lotteryConfig']
+  buyXGetYConfig?: CreateBuyXGetYCampaignPayload['buyXGetYConfig']
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {
@@ -1122,6 +1166,55 @@ export async function viewLotteryResult(rewardId: string) {
   const { data } = await api.post<{ success: boolean; data: { archived: boolean } }>(
     `/campaigns/customer/rewards/${rewardId}/view-lottery-result`,
   )
+  return data.data
+}
+
+export interface BuyXGetYState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  userCap: number
+  spotsRemaining: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  rewardKind: string
+  condition: string
+  buyQuantity: number
+  spendAmount: number
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchBuyXGetYState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: BuyXGetYState }>(
+    `/campaigns/${campaignId}/buy-x-get-y-state`,
+  )
+  return data.data
+}
+
+export async function claimBuyXGetYReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/buy-x-get-y/claim`, { playSessionToken })
   return data.data
 }
 

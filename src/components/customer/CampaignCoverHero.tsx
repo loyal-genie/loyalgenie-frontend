@@ -185,12 +185,23 @@ function LotteryCoverArt() {
   )
 }
 
+function BuyXGetYCoverArt() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div className="relative size-24 -rotate-6 rounded-xl border-2 border-white/30 bg-white/10 shadow-lg flex items-center justify-center">
+        <span className="text-4xl">💰</span>
+      </div>
+    </div>
+  )
+}
+
 function CoverArt({ mechanic }: { mechanic: string }) {
   if (mechanic === 'stamp') return <StampCoverArt />
   if (mechanic === 'check-in-loyalty') return <CheckInCoverArt />
   if (mechanic === 'spin') return <SpinCoverArt />
   if (mechanic === 'dice') return <DiceCoverArt />
   if (mechanic === 'lottery') return <LotteryCoverArt />
+  if (mechanic === 'buy-x-get-y') return <BuyXGetYCoverArt />
   return <ShakeCoverArt />
 }
 

@@ -8,6 +8,7 @@ import {
   fetchStampState,
   fetchLoyaltyState,
   fetchLotteryState,
+  fetchBuyXGetYState,
   fetchAuthSession,
   getApiErrorMessage,
 } from '@/lib/api'
@@ -28,6 +29,7 @@ import { ShakeCampaignDetail } from '@/components/customer/ShakeCampaignDetail'
 import { SpinCampaignDetail } from '@/components/customer/SpinCampaignDetail'
 import { DiceCampaignDetail } from '@/components/customer/DiceCampaignDetail'
 import { LotteryCampaignDetail } from '@/components/customer/LotteryCampaignDetail'
+import { BuyXGetYCampaignDetail } from '@/components/customer/BuyXGetYCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
@@ -104,6 +106,13 @@ export function CustomerCampaignPage() {
     queryKey: ['lottery-state', id, serverSession?.userId],
     queryFn: () => fetchLotteryState(id!),
     enabled: Boolean(id) && authReady && campaign?.mechanic === 'lottery',
+    staleTime: 0,
+  })
+
+  const { data: buyXGetYState, isLoading: buyXGetYStateLoading } = useQuery({
+    queryKey: ['buy-x-get-y-state', id, serverSession?.userId],
+    queryFn: () => fetchBuyXGetYState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'buy-x-get-y',
     staleTime: 0,
   })
 
@@ -185,6 +194,7 @@ export function CustomerCampaignPage() {
     || (campaign?.mechanic === 'stamp' && stampStateLoading)
     || (campaign?.mechanic === 'check-in-loyalty' && loyaltyStateLoading)
     || (campaign?.mechanic === 'lottery' && lotteryStateLoading)
+    || (campaign?.mechanic === 'buy-x-get-y' && buyXGetYStateLoading)
 
   const instantWinBlocked = (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playState && !playState.canPlay
   const shakeBlocked = instantWinBlocked
@@ -196,7 +206,8 @@ export function CustomerCampaignPage() {
   )
   const loyaltyBlocked = campaign?.mechanic === 'check-in-loyalty' && loyaltyState?.checkedInToday
   const lotteryBlocked = campaign?.mechanic === 'lottery' && lotteryState && !lotteryState.canClaimTicket && !lotteryState.hasTicket
-  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked)
+  const buyXGetYBlocked = campaign?.mechanic === 'buy-x-get-y' && buyXGetYState && !buyXGetYState.canClaim && !buyXGetYState.hasClaimed
+  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked || buyXGetYBlocked)
 
   useEffect(() => {
     if (!blocked || stampCollect || loyaltySplash || !campaign || sessionLoading || isLoading || stateStillLoading) return
@@ -309,7 +320,9 @@ export function CustomerCampaignPage() {
           ? 'Roll the dice'
           : campaign.mechanic === 'lottery'
             ? 'Claim ticket'
-            : "Let's shake!"
+            : campaign.mechanic === 'buy-x-get-y'
+              ? 'Claim offer'
+              : "Let's shake!"
 
   if (campaign.mechanic === 'shake') {
     return (
@@ -381,6 +394,23 @@ export function CustomerCampaignPage() {
         hasTicket={lotteryState?.hasTicket}
         drawDate={lotteryState?.drawDate ?? campaign.drawDate ?? campaign.endDate}
         totalTickets={lotteryState?.totalTickets}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'buy-x-get-y') {
+    return (
+      <BuyXGetYCampaignDetail
+        campaign={campaign}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={buyXGetYState?.hasClaimed}
+        spotsRemaining={buyXGetYState?.spotsRemaining}
         onBack={handleBack}
         onKey={handleKey}
         onDelete={handleDelete}

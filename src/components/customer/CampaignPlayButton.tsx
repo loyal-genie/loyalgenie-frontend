@@ -7,6 +7,7 @@ const PLAY_BUTTON_LABELS: Record<string, string> = {
   spin: 'Enter PIN & Spin 🎡',
   dice: 'Enter PIN & Roll 🎲',
   lottery: 'Enter PIN & Claim Ticket 🎟️',
+  'buy-x-get-y': 'Enter PIN & Claim 💰',
   stamp: 'Enter PIN & Collect Stamp 🎯',
 }
 
@@ -17,6 +18,7 @@ const PLAY_BUTTON_STYLES: Record<string, string> = {
   spin: 'bg-gradient-to-r from-[#3b82f6] to-[#1e40af] text-white shadow-[0_8px_20px_rgba(37,99,235,0.35)]',
   dice: 'bg-gradient-to-r from-[#fb7185] to-[#f43f5e] text-white shadow-[0_8px_20px_rgba(244,63,94,0.32)]',
   lottery: 'bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white shadow-[0_8px_20px_rgba(245,158,11,0.35)]',
+  'buy-x-get-y': 'bg-gradient-to-r from-[#fb923c] to-[#ea580c] text-white shadow-[0_8px_20px_rgba(249,115,22,0.35)]',
   stamp: 'bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white shadow-[0_8px_20px_rgba(251,191,36,0.32)]',
 }
 

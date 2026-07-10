@@ -220,6 +220,42 @@ function LotteryCampaignBlock({
   )
 }
 
+function BuyXGetYCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    active?: boolean
+  }
+}) {
+  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Offer closed'}
+      statsLine={
+        offerState?.hasClaimed
+          ? `✓ Claimed · ${offerState.rewardLabel ?? 'Reward'}`
+          : `${offerState?.rewardLabel ?? 'Reward'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      }
+    />
+  )
+}
+
 function LoyaltyCampaignBlock({
   campaign,
   state,
@@ -329,9 +365,10 @@ export function CustomerBusinessPage() {
   const spinCampaigns = biz.campaigns.filter(c => c.mechanic === 'spin')
   const diceCampaigns = biz.campaigns.filter(c => c.mechanic === 'dice')
   const lotteryCampaigns = biz.campaigns.filter(c => c.mechanic === 'lottery')
+  const buyXGetYCampaigns = biz.campaigns.filter(c => c.mechanic === 'buy-x-get-y')
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
   const otherCampaigns = biz.campaigns.filter(
-    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'check-in-loyalty'].includes(c.mechanic),
+    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'check-in-loyalty'].includes(c.mechanic),
   )
 
   return (
@@ -390,6 +427,19 @@ export function CustomerBusinessPage() {
                       canClaimTicket?: boolean
                       totalTickets?: number
                       drawCompleted?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {buyXGetYCampaigns.map(c => (
+                  <BuyXGetYCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      active?: boolean
                     } | undefined}
                   />
                 ))}
