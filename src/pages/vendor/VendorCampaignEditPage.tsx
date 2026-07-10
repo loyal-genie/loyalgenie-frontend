@@ -67,6 +67,16 @@ import {
   isBuyXGetYConfigValid,
   type BuyXGetYConfigUi,
 } from '@/lib/buy-x-get-y-campaign-config'
+import { CouponOfferEditor } from '@/components/vendor/CouponOfferEditor'
+import {
+  buildCouponCampaignPayload,
+  couponFromApi,
+  defaultCouponConfig,
+  defaultCouponRedeem,
+  formatCouponSentence,
+  isCouponConfigValid,
+  type CouponConfigUi,
+} from '@/lib/coupon-campaign-config'
 import { formatRedeemBeforeSummary, RedeemBeforeField, type RedeemBeforeValue } from '@/components/vendor/RedeemBeforeField'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
@@ -192,6 +202,22 @@ function buyXGetYEqual(
     && redeemA.redeemRelativeUnit === redeemB.redeemRelativeUnit
 }
 
+function couponEqual(
+  a: CouponConfigUi,
+  b: CouponConfigUi,
+  redeemA: RedeemBeforeValue,
+  redeemB: RedeemBeforeValue,
+) {
+  return a.totalCoupons === b.totalCoupons
+    && a.rewardKind === b.rewardKind
+    && a.rewardValue === b.rewardValue
+    && a.termsAndConditions === b.termsAndConditions
+    && redeemA.redeemExpiryMode === redeemB.redeemExpiryMode
+    && redeemA.redeemFixedDate === redeemB.redeemFixedDate
+    && redeemA.redeemRelativeAmount === redeemB.redeemRelativeAmount
+    && redeemA.redeemRelativeUnit === redeemB.redeemRelativeUnit
+}
+
 export function VendorCampaignEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -228,6 +254,10 @@ export function VendorCampaignEditPage() {
   const [buyXGetYRedeem, setBuyXGetYRedeem] = useState(defaultBuyXGetYRedeem())
   const [originalBuyXGetYConfig, setOriginalBuyXGetYConfig] = useState<BuyXGetYConfigUi>(defaultBuyXGetYConfig())
   const [originalBuyXGetYRedeem, setOriginalBuyXGetYRedeem] = useState(defaultBuyXGetYRedeem())
+  const [couponConfig, setCouponConfig] = useState<CouponConfigUi>(defaultCouponConfig())
+  const [couponRedeem, setCouponRedeem] = useState(defaultCouponRedeem())
+  const [originalCouponConfig, setOriginalCouponConfig] = useState<CouponConfigUi>(defaultCouponConfig())
+  const [originalCouponRedeem, setOriginalCouponRedeem] = useState(defaultCouponRedeem())
   const [activeHoursEnabled, setActiveHoursEnabled] = useState(false)
   const [activeStartTime, setActiveStartTime] = useState('09:00')
   const [activeEndTime, setActiveEndTime] = useState('21:00')
@@ -336,6 +366,23 @@ export function VendorCampaignEditPage() {
       setOriginalActiveEndTime(end)
     }
 
+    if (campaign.mechanic === 'coupon') {
+      const hydrated = couponFromApi(campaign.couponConfig)
+      setCouponConfig(hydrated.config)
+      setCouponRedeem(hydrated.redeem)
+      setOriginalCouponConfig(hydrated.config)
+      setOriginalCouponRedeem(hydrated.redeem)
+      const start = campaign.startTime ?? '00:00'
+      const end = campaign.endTime ?? '23:59'
+      const hoursEnabled = start !== '00:00' || end !== '23:59'
+      setActiveHoursEnabled(hoursEnabled)
+      setActiveStartTime(start)
+      setActiveEndTime(end)
+      setOriginalActiveHoursEnabled(hoursEnabled)
+      setOriginalActiveStartTime(start)
+      setOriginalActiveEndTime(end)
+    }
+
     if (campaign.mechanic === 'shake' && campaign.startDate !== campaign.endDate) {
       const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
       dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
@@ -386,6 +433,7 @@ export function VendorCampaignEditPage() {
   const isDice = mechanic === 'dice'
   const isLottery = mechanic === 'lottery'
   const isBuyXGetY = mechanic === 'buy-x-get-y'
+  const isCoupon = mechanic === 'coupon'
   const isStamp = mechanic === 'stamp'
   const isLoyalty = mechanic === 'check-in-loyalty'
   const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
@@ -436,7 +484,8 @@ export function VendorCampaignEditPage() {
     diceConfig: isDice && !diceOutcomesEqual(diceOutcomes, originalDiceOutcomes),
     lotteryConfig: isLottery && !lotteryPrizesEqual(lotteryPrizes, originalLotteryPrizes, lotteryRedeem, originalLotteryRedeem),
     buyXGetYConfig: isBuyXGetY && !buyXGetYEqual(buyXGetYConfig, originalBuyXGetYConfig, buyXGetYRedeem, originalBuyXGetYRedeem),
-    activeHours: (isSpin || isDice || isBuyXGetY) && (
+    couponConfig: isCoupon && !couponEqual(couponConfig, originalCouponConfig, couponRedeem, originalCouponRedeem),
+    activeHours: (isSpin || isDice || isBuyXGetY || isCoupon) && (
       activeHoursEnabled !== originalActiveHoursEnabled
       || activeStartTime !== originalActiveStartTime
       || activeEndTime !== originalActiveEndTime
@@ -460,6 +509,7 @@ export function VendorCampaignEditPage() {
     if (isDice) return isDiceConfigValid(diceOutcomes)
     if (isLottery) return isLotteryConfigValid(lotteryPrizes, lotteryRedeem)
     if (isBuyXGetY) return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
+    if (isCoupon) return isCouponConfigValid(couponConfig, couponRedeem)
     if (isStamp) return stampFormValid()
     if (isLoyalty) return loyaltyFormValid()
     return true
@@ -528,6 +578,18 @@ export function VendorCampaignEditPage() {
         if (changedFields.endTime) payload.endTime = endTime
         if (changedFields.buyXGetYConfig) {
           payload.buyXGetYConfig = buildBuyXGetYCampaignPayload(buyXGetYConfig, buyXGetYRedeem).buyXGetYConfig
+        }
+        if (changedFields.activeHours) {
+          payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
+          payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
+        }
+      }
+
+      if (isCoupon) {
+        if (changedFields.endDate) payload.endDate = endDate
+        if (changedFields.endTime) payload.endTime = endTime
+        if (changedFields.couponConfig) {
+          payload.couponConfig = buildCouponCampaignPayload(couponConfig, couponRedeem).couponConfig
         }
         if (changedFields.activeHours) {
           payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
@@ -625,6 +687,14 @@ export function VendorCampaignEditPage() {
       { label: 'Reward', value: buyXGetYConfig.rewardValue || '—', changed: changedFields.buyXGetYConfig },
       { label: 'Redeem before', value: formatRedeemBeforeSummary(buyXGetYRedeem), changed: changedFields.buyXGetYConfig, previous: formatRedeemBeforeSummary(originalBuyXGetYRedeem) },
     ] : []),
+    ...(isCoupon ? [
+      { label: 'Coupon pool', value: `${couponConfig.totalCoupons} coupons`, changed: changedFields.couponConfig, previous: `${originalCouponConfig.totalCoupons} coupons` },
+      ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
+      { label: 'Offer', value: formatCouponSentence(couponConfig), changed: changedFields.couponConfig, previous: formatCouponSentence(originalCouponConfig) },
+      { label: 'Coupon value', value: couponConfig.rewardValue || '—', changed: changedFields.couponConfig, previous: originalCouponConfig.rewardValue || '—' },
+      { label: 'Redeem before', value: formatRedeemBeforeSummary(couponRedeem), changed: changedFields.couponConfig, previous: formatRedeemBeforeSummary(originalCouponRedeem) },
+      { label: 'Terms & Conditions', value: couponConfig.termsAndConditions.trim() || '—', changed: changedFields.couponConfig, previous: originalCouponConfig.termsAndConditions.trim() || '—' },
+    ] : []),
   ]
 
   const mechanicTitle = isShake ? 'Shake & Win — Reward Distribution'
@@ -632,6 +702,7 @@ export function VendorCampaignEditPage() {
     : isDice ? 'Roll a Dice — Face Rewards'
     : isLottery ? 'Lottery — Prizes'
     : isBuyXGetY ? 'Buy X Get Y — Offer Terms'
+    : isCoupon ? 'Coupon Codes — Offer Terms'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
     : 'Campaign Configuration'
 
@@ -853,7 +924,7 @@ export function VendorCampaignEditPage() {
                       </>
                     ))}
 
-                    {(isSpin || isDice || isBuyXGetY) && !isEnded && (
+                    {(isSpin || isDice || isBuyXGetY || isCoupon) && !isEnded && (
                       <div className="pt-2 border-t border-v-border mb-4">
                         <div className="flex items-center justify-between mb-2">
                             <div>
@@ -885,6 +956,13 @@ export function VendorCampaignEditPage() {
                     ) : (
                       <Stepper label="User Cap" hint="users" value={userCap} min={Math.max(campaign.currentUsers, 1)} max={2000} step={1} onChange={setUserCap} />
                     ))}
+
+                    {isCoupon && (
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Coupon Codes has no separate user cap — the number of coupons in the offer editor is the cap ({couponConfig.totalCoupons} coupons).</p>
+                      </div>
+                    )}
 
                     {isLoyalty && (
                       <div className="space-y-3">
@@ -934,7 +1012,7 @@ export function VendorCampaignEditPage() {
                 </div>
               </Card>
 
-              {(isShake || isSpin || isDice || isLottery || isBuyXGetY || isStamp) && (
+              {(isShake || isSpin || isDice || isLottery || isBuyXGetY || isCoupon || isStamp) && (
               <Card className="p-6">
                 <h2 className="text-base font-bold text-v-text mb-1">{mechanicTitle}</h2>
 
@@ -960,6 +1038,21 @@ export function VendorCampaignEditPage() {
                           Reward redeem before — same window for every claim of this offer.
                         </p>
                         <RedeemBeforeField value={buyXGetYRedeem} onChange={setBuyXGetYRedeem} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isCoupon && (
+                  <div>
+                    <p className="text-xs text-v-text-3 mb-4">Configure the coupon pool, value, and terms. Customers claim a code and redeem at the counter.</p>
+                    <CouponOfferEditor config={couponConfig} setConfig={setCouponConfig} readOnly={isEnded} />
+                    {!isEnded && (
+                      <div className="mt-5 border-t border-v-border pt-5">
+                        <p className="text-xs text-v-text-3 mb-3">
+                          Reward redeem before — same window for every claimed coupon.
+                        </p>
+                        <RedeemBeforeField value={couponRedeem} onChange={setCouponRedeem} />
                       </div>
                     )}
                   </div>

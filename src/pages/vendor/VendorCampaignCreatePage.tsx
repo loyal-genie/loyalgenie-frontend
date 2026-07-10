@@ -23,11 +23,20 @@ import {
   isBuyXGetYConfigValid,
   type BuyXGetYConfigUi,
 } from '@/lib/buy-x-get-y-campaign-config'
+import {
+  buildCouponCampaignPayload,
+  defaultCouponConfig,
+  defaultCouponRedeem,
+  formatCouponSentence,
+  isCouponConfigValid,
+  type CouponConfigUi,
+} from '@/lib/coupon-campaign-config'
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
 import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
 import { LotteryPrizeEditor } from '@/components/vendor/LotteryPrizeEditor'
 import { BuyXGetYOfferEditor } from '@/components/vendor/BuyXGetYOfferEditor'
+import { CouponOfferEditor } from '@/components/vendor/CouponOfferEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -44,6 +53,7 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
   { type: 'dice',    desc: 'Roll the dice — certain faces win. Pure luck, maximum thrill.',              tags: ['Gamble feel', 'Quick'] },
   { type: 'lottery', desc: 'Customers claim a ticket; winners are drawn automatically on the end date.', tags: ['Jackpot', 'Tiered rewards'] },
   { type: 'buy-x-get-y', desc: 'Customers buy or spend to unlock a reward — purchases or spend thresholds.', tags: ['Perceived value', 'Loss aversion'] },
+  { type: 'coupon', desc: 'Limited coupon pool — customers claim a code and redeem at the counter.', tags: ['Scarcity', 'Easy claim'] },
 ]
 
 const STEPS = ['Mechanic', 'Basics', 'Game Config', 'Review']
@@ -118,6 +128,8 @@ export function VendorCampaignCreatePage() {
   const [lotteryRedeem, setLotteryRedeem] = useState(defaultLotteryRedeem())
   const [buyXGetYConfig, setBuyXGetYConfig] = useState<BuyXGetYConfigUi>(defaultBuyXGetYConfig())
   const [buyXGetYRedeem, setBuyXGetYRedeem] = useState(defaultBuyXGetYRedeem())
+  const [couponConfig, setCouponConfig] = useState<CouponConfigUi>(defaultCouponConfig())
+  const [couponRedeem, setCouponRedeem] = useState(defaultCouponRedeem())
 
   const [loyaltyConfig, setLoyaltyConfig] = useState({
     pointsPerCheckIn: 10,
@@ -133,9 +145,10 @@ export function VendorCampaignCreatePage() {
 
   const isLottery        = mechanic === 'lottery'
   const isBuyXGetY       = mechanic === 'buy-x-get-y'
+  const isCoupon         = mechanic === 'coupon'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
-  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin' || mechanic === 'dice' || mechanic === 'lottery' || mechanic === 'buy-x-get-y'
+  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'check-in-loyalty' || mechanic === 'spin' || mechanic === 'dice' || mechanic === 'lottery' || mechanic === 'buy-x-get-y' || mechanic === 'coupon'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
@@ -204,6 +217,7 @@ export function VendorCampaignCreatePage() {
     if (mechanic === 'dice')  return isDiceConfigValid(diceOutcomes)
     if (mechanic === 'lottery') return isLotteryConfigValid(lotteryPrizes, lotteryRedeem)
     if (mechanic === 'buy-x-get-y') return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
+    if (mechanic === 'coupon') return isCouponConfigValid(couponConfig, couponRedeem)
     if (mechanic === 'stamp') {
       const dropsValid = [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
         d.to <= stampConfig.totalStamps && isStampDropValid(d),
@@ -226,7 +240,7 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y') {
+    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y' && mechanic !== 'coupon') {
       setLaunchError('This campaign type is not available yet.')
       return
     }
@@ -326,6 +340,22 @@ export function VendorCampaignCreatePage() {
           endTime: dailyWindow.endTime,
           userCap: basics.userCap,
           ...buildBuyXGetYCampaignPayload(buyXGetYConfig, buyXGetYRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'coupon') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'coupon',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          ...buildCouponCampaignPayload(couponConfig, couponRedeem),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -527,7 +557,7 @@ export function VendorCampaignCreatePage() {
                   )}
 
                   {/* Active hours — daily window for instant-win + Buy X Get Y */}
-                  {(isShakeSpinOrDice || isBuyXGetY) && (
+                  {(isShakeSpinOrDice || isBuyXGetY || isCoupon) && (
                     <div className="mt-4 pt-4 border-t border-v-border">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -584,6 +614,13 @@ export function VendorCampaignCreatePage() {
 
                   {isBuyXGetY && (
                     <Stepper label="User Cap" hint="users" value={basics.userCap} min={10} max={5000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
+                  )}
+
+                  {isCoupon && (
+                    <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                      <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                      <p>Coupon Codes has no separate user cap — the number of coupons you generate (next step) is the cap.</p>
+                    </div>
                   )}
 
                   {/* Check-in Loyalty: all users by default, optional cap */}
@@ -970,6 +1007,18 @@ export function VendorCampaignCreatePage() {
             </Card>
           )}
 
+          {step === 2 && mechanic === 'coupon' && (
+            <Card className="p-6">
+              <CouponOfferEditor config={couponConfig} setConfig={setCouponConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed coupon.
+                </p>
+                <RedeemBeforeField value={couponRedeem} onChange={setCouponRedeem} />
+              </div>
+            </Card>
+          )}
+
           {/* ── Step 3: Review & Launch ── */}
           {step === reviewStepIndex && (
             <div className="space-y-4">
@@ -991,12 +1040,12 @@ export function VendorCampaignCreatePage() {
                         return dur
                       })(),
                     },
-                    ...(!isLottery && !isLoyalty ? [{ label: isShakeSpinOrDice ? 'Overall User Cap' : 'User Cap', value: `${basics.userCap} users` }] : []),
+                    ...(!isLottery && !isLoyalty && !isCoupon ? [{ label: isShakeSpinOrDice ? 'Overall User Cap' : 'User Cap', value: `${basics.userCap} users` }] : []),
                     ...(isLoyalty ? [{ label: 'User Cap', value: basics.userCapLimited ? `${basics.userCap} users` : 'All customers (no limit)' }] : []),
                     ...(isStamp ? [{ label: 'Claim Period', value: `${durationModeToDays(basics.claimDurationMode)} days after enrollment closes` }] : []),
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
-                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY) ? [{
+                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY || isCoupon) ? [{
                       label: 'Active Hours',
                       value: `${fmtTime(basics.activeStartTime)} – ${fmtTime(basics.activeEndTime)} daily`,
                     }] : []),
@@ -1022,6 +1071,13 @@ export function VendorCampaignCreatePage() {
                       { label: 'Reward', value: buyXGetYConfig.rewardValue || '—' },
                       { label: 'Redeem before', value: formatRedeemBeforeSummary(buyXGetYRedeem) },
                     ] : []),
+                    ...(mechanic === 'coupon' ? [
+                      { label: 'Coupon pool', value: `${couponConfig.totalCoupons} coupons` },
+                      { label: 'Offer', value: formatCouponSentence(couponConfig) },
+                      { label: 'Coupon value', value: couponConfig.rewardValue || '—' },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(couponRedeem) },
+                      { label: 'Terms & Conditions', value: couponConfig.termsAndConditions.trim() || '—' },
+                    ] : []),
                     {
                       label: 'Rewards',
                       value:
@@ -1031,7 +1087,8 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)` :
                         mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in · ${loyaltyConfig.milestones.filter(m => m.name.trim()).length} milestone(s)` :
                         mechanic === 'lottery' ? `Jackpot + ${lotteryPrizes.filter(p => p.tier !== 'jackpot').length} prize${lotteryPrizes.filter(p => p.tier !== 'jackpot').length !== 1 ? 's' : ''} · Draw ${fmtDate(dates.end)}` :
-                        mechanic === 'buy-x-get-y' ? formatBuyXGetYSentence(buyXGetYConfig) : '—',
+                        mechanic === 'buy-x-get-y' ? formatBuyXGetYSentence(buyXGetYConfig) :
+                        mechanic === 'coupon' ? formatCouponSentence(couponConfig) : '—',
                     },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between py-3 border-b border-v-border last:border-0">

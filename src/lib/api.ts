@@ -528,8 +528,18 @@ export interface CampaignDto {
     condition: 'quantity' | 'spend'
     buyQuantity: number
     spendAmount: number
-    rewardKind: 'flat' | 'percent' | 'item' | 'points'
+    rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  couponConfig?: {
+    totalCoupons: number
+    rewardKind: 'flat' | 'percent'
+    rewardValue: string
+    termsAndConditions?: string
     redeemExpiryMode?: 'fixed' | 'relative'
     redeemFixedDate?: string | null
     redeemRelativeAmount?: number
@@ -689,7 +699,7 @@ export interface CreateBuyXGetYCampaignPayload {
     condition: 'quantity' | 'spend'
     buyQuantity: number
     spendAmount: number
-    rewardKind: 'flat' | 'percent' | 'item' | 'points'
+    rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
     redeemExpiryMode: 'fixed' | 'relative'
     redeemFixedDate?: string
@@ -698,7 +708,26 @@ export interface CreateBuyXGetYCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload
+export interface CreateCouponCampaignPayload {
+  name: string
+  mechanic: 'coupon'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  couponConfig: {
+    totalCoupons: number
+    rewardKind: 'flat' | 'percent'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -816,8 +845,18 @@ export interface PublicCampaign {
     condition: 'quantity' | 'spend'
     buyQuantity: number
     spendAmount: number
-    rewardKind: 'flat' | 'percent' | 'item' | 'points'
+    rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  couponConfig?: {
+    totalCoupons: number
+    rewardKind: 'flat' | 'percent'
+    rewardValue: string
+    termsAndConditions?: string
     redeemExpiryMode?: 'fixed' | 'relative'
     redeemFixedDate?: string | null
     redeemRelativeAmount?: number
@@ -1009,6 +1048,7 @@ export interface UpdateCampaignPayload {
   diceConfig?: CreateDiceCampaignPayload['diceConfig']
   lotteryConfig?: CreateLotteryCampaignPayload['lotteryConfig']
   buyXGetYConfig?: CreateBuyXGetYCampaignPayload['buyXGetYConfig']
+  couponConfig?: CreateCouponCampaignPayload['couponConfig']
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {
@@ -1215,6 +1255,53 @@ export async function claimBuyXGetYReward(campaignId: string, playSessionToken: 
       icon: string
     }
   }>(`/campaigns/${campaignId}/buy-x-get-y/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface CouponState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  totalCoupons: number
+  spotsRemaining: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  termsAndConditions: string
+  rewardKind: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchCouponState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: CouponState }>(
+    `/campaigns/${campaignId}/coupon-state`,
+  )
+  return data.data
+}
+
+export async function claimCouponReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/coupon/claim`, { playSessionToken })
   return data.data
 }
 
