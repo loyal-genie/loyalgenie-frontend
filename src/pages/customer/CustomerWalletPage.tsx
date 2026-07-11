@@ -191,10 +191,12 @@ export function CustomerWalletPage() {
     (r.status === 'earned' || r.status === 'pending')
     && isWalletRewardPastRedeem(r.redeemBefore ?? cardContext.get(r.id)?.expiresAt)
 
-  // Active = redeemable only. Never keep client-fake or API-redeemed items here.
+  // Active = redeemable only. Pending lottery tickets live in Check Status, not wallet.
   const pendingRewards = rewards
     .filter(r => {
-      if (r.status === 'lottery_pending' || r.status === 'lottery_lost') return true
+      if (r.status === 'lottery_pending' || r.status === 'lottery_lost' || r.status === 'lottery_archived') {
+        return false
+      }
       if (r.status === 'earned' || r.status === 'pending') return !isDateExpiredReward(r)
       return false
     })
