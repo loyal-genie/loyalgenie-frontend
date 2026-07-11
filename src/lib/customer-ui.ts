@@ -21,6 +21,7 @@ export function getGameRouteForMechanic(mechanic: MechanicType | string, campaig
     dice: `/customer/games/dice?campaign=${campaignId}`,
     lottery: `/customer/games/lottery?campaign=${campaignId}`,
     'buy-x-get-y': `/customer/games/buy-x-get-y?campaign=${campaignId}`,
+    coupon: `/customer/games/coupon?campaign=${campaignId}`,
     'check-in-loyalty': `/customer/campaigns/${campaignId}`,
     scratch: `/customer/games/dice?campaign=${campaignId}`,
   }
@@ -49,6 +50,7 @@ const MECHANIC_CHIP_LABELS: Record<string, string> = {
   dice: 'Roll a Dice',
   lottery: 'Lottery',
   'buy-x-get-y': 'Buy X Get Y',
+  coupon: 'Coupon Codes',
   scratch: 'Scratch Card',
 }
 
@@ -64,6 +66,7 @@ const MECHANIC_HEADER_CHIP: Record<string, string> = {
   dice: 'ROLL A DICE',
   lottery: 'LOTTERY',
   'buy-x-get-y': 'BUY X GET Y',
+  coupon: 'COUPON',
   scratch: 'SCRATCH',
 }
 
@@ -79,6 +82,7 @@ export const CAMPAIGN_CARD_GRADIENTS: Record<string, { from: string; to: string;
   dice: { from: '#FB7185', to: '#F43F5E', emoji: '🎲' },
   lottery: { from: '#F59E0B', to: '#B45309', emoji: '🎟️' },
   'buy-x-get-y': { from: '#F97316', to: '#C2410C', emoji: '💰' },
+  coupon: { from: '#14B8A6', to: '#0F766E', emoji: '🎫' },
   scratch: { from: '#3B82F6', to: '#1D4ED8', emoji: '🎴' },
 }
 
@@ -146,6 +150,7 @@ export function getMechanicHeaderChipShort(mechanic: string): string {
     dice: 'DICE',
     lottery: 'LOTTERY',
     'buy-x-get-y': 'BUY X GET Y',
+    coupon: 'COUPON',
     scratch: 'SCRATCH',
   }
   return short[mechanic] ?? getMechanicHeaderChip(mechanic)
@@ -160,6 +165,7 @@ export function getCampaignSubtitle(mechanic: MechanicType | string, name: strin
     lottery: 'Enter for a chance at big rewards.',
     dice: 'Roll the dice for surprise perks.',
     'buy-x-get-y': 'Buy or spend to unlock a reward.',
+    coupon: 'Claim a limited coupon and redeem at the counter.',
   }
   return subtitles[mechanic] ?? name
 }
