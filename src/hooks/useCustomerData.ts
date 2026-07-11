@@ -22,7 +22,7 @@ export function useBusinessesWithCampaigns() {
 
   useSupabaseRealtime({
     table: 'campaigns',
-    event: 'UPDATE',
+    event: '*',
     enabled: isSupabaseConfigured(),
     onChange: refreshDiscover,
   })
@@ -143,7 +143,7 @@ export function useBusinessCampaignStatesRealtime(businessId: string | undefined
 
   useSupabaseRealtime({
     table: 'campaigns',
-    event: 'UPDATE',
+    event: '*',
     filter: businessId ? `business_id=eq.${businessId}` : undefined,
     enabled: Boolean(businessId) && isSupabaseConfigured(),
     onChange: refreshStates,
