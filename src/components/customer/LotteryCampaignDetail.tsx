@@ -1,4 +1,5 @@
 import { ArrowLeft, Gift, Loader2, Ticket } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { PinKeypad } from '@/components/customer/PinKeypad'
 import { getCustomerMechanicChipLabel } from '@/lib/customer-ui'
 import { fmtCampaignDate } from '@/lib/campaign-dates'
@@ -19,6 +20,10 @@ interface LotteryCampaignDetailProps {
   error?: string
   loading?: boolean
   hasTicket?: boolean
+  canClaimTicket?: boolean
+  ticketCount?: number
+  playsRemaining?: number
+  playsPerDay?: number
   drawDate?: string
   totalTickets?: number
   onBack: () => void
@@ -33,6 +38,10 @@ export function LotteryCampaignDetail({
   error,
   loading,
   hasTicket,
+  canClaimTicket = true,
+  ticketCount = 0,
+  playsRemaining,
+  playsPerDay,
   drawDate,
   totalTickets,
   onBack,
@@ -47,6 +56,7 @@ export function LotteryCampaignDetail({
     icon: r.icon,
   }))
   const draw = drawDate ?? campaign.drawDate ?? campaign.endDate
+  const showPin = Boolean(canClaimTicket)
 
   return (
     <div
@@ -86,7 +96,12 @@ export function LotteryCampaignDetail({
           )}
           {hasTicket && (
             <span className="inline-flex items-center rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100">
-              ✓ Ticket claimed
+              ✓ {ticketCount} ticket{ticketCount === 1 ? '' : 's'} claimed
+            </span>
+          )}
+          {playsPerDay != null && playsRemaining != null && (
+            <span className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/80">
+              {playsRemaining}/{playsPerDay} left today
             </span>
           )}
         </div>
@@ -111,12 +126,7 @@ export function LotteryCampaignDetail({
         )}
 
         <div className="mt-8 w-full">
-          {hasTicket ? (
-            <div className="rounded-2xl bg-white/95 p-5 text-center">
-              <p className="text-sm font-semibold text-amber-900">You already have a ticket!</p>
-              <p className="text-xs text-v-text-3 mt-1">Check your wallet for draw status.</p>
-            </div>
-          ) : (
+          {showPin ? (
             <>
               <p className="text-center text-xs text-white/70 mb-4">Enter staff PIN to claim your ticket</p>
               <PinKeypad
@@ -133,7 +143,34 @@ export function LotteryCampaignDetail({
                   <Loader2 className="size-6 animate-spin text-white/70" />
                 </div>
               )}
+              {hasTicket && (
+                <Link
+                  to={`/customer/campaigns/${campaign.id}/lottery-status`}
+                  className="mt-4 flex w-full items-center justify-center py-3 rounded-full border border-white/30 bg-white/10 text-white text-xs font-bold no-underline"
+                >
+                  Check Status
+                </Link>
+              )}
             </>
+          ) : (
+            <div className="rounded-2xl bg-white/95 p-5 text-center">
+              <p className="text-sm font-semibold text-amber-900">
+                {hasTicket ? 'No claims left today' : 'Entries closed'}
+              </p>
+              <p className="text-xs text-v-text-3 mt-1">
+                {hasTicket
+                  ? 'Come back tomorrow for another ticket, or check your tickets now.'
+                  : 'This lottery is no longer accepting entries.'}
+              </p>
+              {hasTicket && (
+                <Link
+                  to={`/customer/campaigns/${campaign.id}/lottery-status`}
+                  className="mt-4 flex w-full items-center justify-center py-3 rounded-full bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white text-xs font-bold no-underline"
+                >
+                  Check Status
+                </Link>
+              )}
+            </div>
           )}
         </div>
       </div>

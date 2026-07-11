@@ -6,7 +6,7 @@ const PLAY_BUTTON_LABELS: Record<string, string> = {
   shake: 'Enter PIN & Play 🤳',
   spin: 'Enter PIN & Spin 🎡',
   dice: 'Enter PIN & Roll 🎲',
-  lottery: 'Enter PIN & Claim Ticket 🎟️',
+  lottery: 'Enter PIN & Claim',
   'buy-x-get-y': 'Enter PIN & Claim 💰',
   stamp: 'Enter PIN & Collect Stamp 🎯',
 }

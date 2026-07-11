@@ -43,10 +43,14 @@ export function useLotteryPlay() {
       navigate('/customer')
       return
     }
-    if (!playSession && !lotteryState?.hasTicket) {
-      navigate(`/customer/campaigns/${campaignId}`)
+    if (!playSession && !lotteryState?.canClaimTicket) {
+      if (lotteryState?.hasTicket) {
+        navigate(`/customer/campaigns/${campaignId}/lottery-status`, { replace: true })
+      } else {
+        navigate(`/customer/campaigns/${campaignId}`)
+      }
     }
-  }, [campaignId, playSession, navigate, claimResult, lotteryState?.hasTicket])
+  }, [campaignId, playSession, navigate, claimResult, lotteryState?.canClaimTicket, lotteryState?.hasTicket])
 
   const claimMutation = useMutation({
     mutationFn: () => claimLotteryTicket(campaignId!, playSession!),
@@ -54,7 +58,6 @@ export function useLotteryPlay() {
       setClaimResult(result)
       setClaimError('')
       void queryClient.invalidateQueries({ queryKey: ['lottery-state', campaignId] })
-      void queryClient.refetchQueries({ queryKey: ['customer-rewards'] })
       void queryClient.invalidateQueries({ queryKey: ['business-campaign-states'] })
     },
     onError: err => {
@@ -64,7 +67,7 @@ export function useLotteryPlay() {
 
   const loading = campaignLoading || stateLoading
   const canClaim = Boolean(
-    lotteryState?.canClaimTicket && playSession && !claimMutation.isPending && !lotteryState?.hasTicket,
+    lotteryState?.canClaimTicket && playSession && !claimMutation.isPending,
   )
 
   const jackpot = useMemo(
@@ -89,7 +92,7 @@ export function useLotteryPlay() {
     claimResult,
     claimError,
     isClaiming: claimMutation.isPending,
-    walletRewardId: claimResult?.walletRewardId ?? lotteryState?.walletRewardId ?? null,
+    walletRewardId: null as string | null,
     claimTicket: () => {
       if (!canClaim || !campaignId || !playSession) return
       setClaimError('')

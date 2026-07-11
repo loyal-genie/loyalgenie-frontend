@@ -35,24 +35,19 @@ export function CustomerLotteryPage() {
     jackpot,
     loading,
     canClaim,
-    hasTicket,
     claimResult,
     claimError,
     isClaiming,
     claimTicket,
     lotteryState,
-    walletRewardId,
+    campaignId,
   } = useLotteryPlay()
 
   const [uiState, setUiState] = useState<State>('idle')
 
   useEffect(() => {
-    if (hasTicket && lotteryState?.ticket) setUiState('claimed')
-  }, [hasTicket, lotteryState?.ticket])
-
-  useEffect(() => {
-    if (claimResult && uiState === 'claiming') setUiState('claimed')
-  }, [claimResult, uiState])
+    if (claimResult) setUiState('claimed')
+  }, [claimResult])
 
   useEffect(() => {
     if (claimError && uiState === 'claiming') setUiState('idle')
@@ -69,13 +64,12 @@ export function CustomerLotteryPage() {
     else navigate('/customer', { replace: true })
   }
 
-  const goToWallet = () => {
-    navigate('/customer/wallet', {
-      state: {
-        highlightRewardId: walletRewardId ?? undefined,
-        openLotteryStatus: true,
-      },
-    })
+  const goToStatus = () => {
+    if (campaignId) {
+      navigate(`/customer/campaigns/${campaignId}/lottery-status`)
+      return
+    }
+    goBack()
   }
 
   const handleClaim = () => {
@@ -92,7 +86,7 @@ export function CustomerLotteryPage() {
     )
   }
 
-  const showClaimed = uiState === 'claimed' || (hasTicket && !canClaim)
+  const showClaimed = uiState === 'claimed' || Boolean(claimResult)
 
   return (
     <div
@@ -223,13 +217,13 @@ export function CustomerLotteryPage() {
 
               <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-center">
                 <p className="text-xs text-amber-200/70">
-                  Ticket saved to your wallet. We&apos;ll notify you when results are announced.
+                  Ticket saved. Check Status anytime — winners move to your wallet after the draw.
                 </p>
               </div>
 
               <motion.button
                 type="button"
-                onClick={goToWallet}
+                onClick={goToStatus}
                 whileTap={{ scale: 0.97 }}
                 className="w-full py-4 rounded-2xl font-bold text-base border-0 cursor-pointer"
                 style={{
@@ -238,7 +232,7 @@ export function CustomerLotteryPage() {
                   boxShadow: '0 8px 32px rgba(245,197,24,0.35)',
                 }}
               >
-                View in Wallet →
+                Check Status →
               </motion.button>
 
               <button type="button" onClick={goBack}
