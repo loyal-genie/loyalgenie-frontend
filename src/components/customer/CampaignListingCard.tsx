@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { CampaignCoverBadge, CampaignCoverHero } from '@/components/customer/CampaignCoverHero'
 import { CampaignPlayButton } from '@/components/customer/CampaignPlayButton'
@@ -26,6 +27,8 @@ interface CampaignListingCardProps {
   progressLine?: string
   className?: string
   comingSoon?: boolean
+  /** When set, replaces the default single play button. */
+  actions?: ReactNode
 }
 
 function formatEndDate(end: string): string {
@@ -82,6 +85,7 @@ export function CampaignListingCard({
   progressLine,
   className,
   comingSoon = false,
+  actions,
 }: CampaignListingCardProps) {
   const headerRight = getHeaderRightBadge(campaign, extraBadge, comingSoon)
   const theme = getCampaignTheme(campaign.mechanic)
@@ -114,7 +118,9 @@ export function CampaignListingCard({
           </p>
         )}
 
-        {blocked || comingSoon ? (
+        {actions ? (
+          actions
+        ) : blocked || comingSoon ? (
           <div
             className={cn(
               'w-full py-3 rounded-full text-xs font-bold text-center',
@@ -128,6 +134,47 @@ export function CampaignListingCard({
         )}
       </div>
     </div>
+  )
+}
+
+/** Community Offer: Check Status after reserve · Enter PIN & Reserve first time */
+export function GroupUnlockCardActions({
+  campaignId,
+  canClaim,
+  hasClaimed,
+  claimHref,
+}: {
+  campaignId: string
+  canClaim: boolean
+  hasClaimed: boolean
+  claimHref: string
+}) {
+  const statusHref = `/customer/campaigns/${campaignId}/groupunlock-status`
+  const statusBtn =
+    'flex flex-1 items-center justify-center py-3 rounded-full text-xs font-bold no-underline border border-indigo-300 bg-indigo-50 text-indigo-900'
+  const claimBtn =
+    'flex flex-1 items-center justify-center py-3 rounded-full text-xs font-bold no-underline bg-gradient-to-r from-[#c7d2fe] to-[#818cf8] text-indigo-950 shadow-[0_8px_20px_rgba(129,140,248,0.35)]'
+
+  if (!hasClaimed && !canClaim) {
+    return (
+      <div className="w-full py-3 rounded-full text-xs font-bold text-center bg-[#f3f4f6] text-[#6a7282]">
+        Spots gone
+      </div>
+    )
+  }
+
+  if (hasClaimed) {
+    return (
+      <Link to={statusHref} className={cn(statusBtn, 'w-full')}>
+        Check Status
+      </Link>
+    )
+  }
+
+  return (
+    <Link to={claimHref} className={cn(claimBtn, 'w-full')}>
+      Enter PIN & Reserve
+    </Link>
   )
 }
 

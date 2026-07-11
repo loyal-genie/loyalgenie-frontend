@@ -18,7 +18,7 @@ import {
 } from '@/lib/api'
 import { setPlaySession, markMotionGesture } from '@/lib/customer-game'
 import { primeMotionSensors } from '@/lib/shake-motion-sensors'
-import { getGameRouteForMechanic } from '@/lib/customer-ui'
+import { getGameRouteForMechanic, getCustomerBusinessPath } from '@/lib/customer-ui'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { isMechanicComingSoon } from '@/lib/live-mechanics'
 import { MechanicComingSoon } from '@/components/shared/MechanicComingSoon'
@@ -184,8 +184,11 @@ export function CustomerCampaignPage() {
   })
 
   const handleBack = useCallback(() => {
-    if (campaign?.businessId) navigate(`/customer/business/${campaign.businessId}`)
-    else navigate('/customer')
+    if (campaign?.businessId) {
+      navigate(getCustomerBusinessPath(campaign.businessId), { replace: true })
+    } else {
+      navigate('/customer', { replace: true })
+    }
   }, [campaign?.businessId, navigate])
 
   const handleStampCollectDone = useCallback((opts?: { error?: string }) => {

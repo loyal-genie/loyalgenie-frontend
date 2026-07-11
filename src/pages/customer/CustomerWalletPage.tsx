@@ -192,11 +192,13 @@ export function CustomerWalletPage() {
     (r.status === 'earned' || r.status === 'pending' || r.status === 'group_pending')
     && isWalletRewardPastRedeem(r.redeemBefore ?? cardContext.get(r.id)?.expiresAt)
 
-  // Active = redeemable only. Never keep client-fake or API-redeemed items here.
+  // Active = redeemable only. Reserved community spots live on Check Status until unlocked.
   const pendingRewards = rewards
     .filter(r => {
-      if (r.status === 'lottery_pending' || r.status === 'lottery_lost') return true
-      if (r.status === 'group_pending') return !isDateExpiredReward(r)
+      if (r.status === 'lottery_pending' || r.status === 'lottery_lost' || r.status === 'lottery_archived') {
+        return false
+      }
+      if (r.status === 'group_pending') return false
       if (r.status === 'earned' || r.status === 'pending') return !isDateExpiredReward(r)
       return false
     })

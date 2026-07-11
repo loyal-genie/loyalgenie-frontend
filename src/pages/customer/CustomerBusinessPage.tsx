@@ -13,6 +13,7 @@ import { CustomerRewardCard } from '@/components/customer/CustomerRewardCard'
 import { PullToRefresh } from '@/components/customer/PullToRefresh'
 import {
   CampaignListingCard,
+  GroupUnlockCardActions,
   LoyaltyCampaignSectionHeader,
 } from '@/components/customer/CampaignListingCard'
 import { useBusinessesWithCampaigns, useBusinessCampaignStatesRealtime } from '@/hooks/useCustomerData'
@@ -382,21 +383,42 @@ function GroupUnlockCampaignBlock({
     spotsRemaining?: number
     groupJoined?: number
     targetParticipants?: number
+    unlocked?: boolean
     active?: boolean
   }
 }) {
-  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+  const canClaim = Boolean(offerState?.canClaim)
+  const hasClaimed = Boolean(offerState?.hasClaimed)
+  const spotsGone = Boolean(offerState && !canClaim && !hasClaimed)
+  const joined = offerState?.groupJoined
+  const target = offerState?.targetParticipants
+
+  const statsLine = hasClaimed
+    ? offerState?.unlocked
+      ? `✓ Unlocked · ${offerState.rewardLabel ?? 'Community Offer'}`
+      : `✓ Reserved · ${joined ?? 0}/${target ?? '?'} joined · ${offerState?.spotsRemaining ?? 0} left`
+    : `${offerState?.rewardLabel ?? 'Community Offer'}${
+        offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''
+      }`
 
   return (
     <CampaignListingCard
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
-      blocked={blocked}
-      blockedLabel={offerState?.hasClaimed ? 'Already reserved' : 'Spots gone'}
-      statsLine={
-        offerState?.hasClaimed
-          ? `✓ Reserved · ${offerState.rewardLabel ?? 'Community Offer'}`
-          : `${offerState?.rewardLabel ?? 'Community Offer'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      blocked={spotsGone}
+      blockedLabel="Spots gone"
+      statsLine={statsLine}
+      actions={
+        spotsGone
+          ? undefined
+          : (
+            <GroupUnlockCardActions
+              campaignId={campaign.id}
+              canClaim={canClaim}
+              hasClaimed={hasClaimed}
+              claimHref={`/customer/campaigns/${campaign.id}`}
+            />
+          )
       }
     />
   )
@@ -643,6 +665,7 @@ export function CustomerBusinessPage() {
                       spotsRemaining?: number
                       groupJoined?: number
                       targetParticipants?: number
+                      unlocked?: boolean
                       active?: boolean
                     } | undefined}
                   />

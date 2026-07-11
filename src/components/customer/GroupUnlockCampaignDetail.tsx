@@ -1,4 +1,5 @@
 import { ArrowLeft, Gift, Handshake, Loader2, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { PinKeypad } from '@/components/customer/PinKeypad'
 import { getCustomerMechanicChipLabel } from '@/lib/customer-ui'
 import type { PublicCampaign } from '@/lib/api'
@@ -124,7 +125,13 @@ export function GroupUnlockCampaignDetail({
           {hasClaimed ? (
             <div className="rounded-2xl bg-white/95 p-5 text-center">
               <p className="text-sm font-semibold text-indigo-900">Already reserved</p>
-              <p className="text-xs text-v-text-3 mt-1">Check your wallet to redeem.</p>
+              <p className="text-xs text-v-text-3 mt-1">Track group progress on Check Status.</p>
+              <Link
+                to={`/customer/campaigns/${campaign.id}/groupunlock-status`}
+                className="mt-4 flex w-full items-center justify-center py-3 rounded-full bg-gradient-to-r from-[#c7d2fe] to-[#818cf8] text-indigo-950 text-xs font-bold no-underline"
+              >
+                Check Status
+              </Link>
             </div>
           ) : (
             <>

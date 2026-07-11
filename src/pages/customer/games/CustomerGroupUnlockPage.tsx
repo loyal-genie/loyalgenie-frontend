@@ -12,9 +12,8 @@ import {
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { getUser } from '@/lib/auth'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
-import { WinCelebration } from '@/components/customer/win-celebration'
 
-type Phase = 'ready' | 'claiming' | 'won'
+type Phase = 'ready' | 'claiming' | 'reserved'
 
 export function CustomerGroupUnlockPage() {
   const navigate = useNavigate()
@@ -25,11 +24,6 @@ export function CustomerGroupUnlockPage() {
   const customerId = getUser('customer')?.userId
 
   const [phase, setPhase] = useState<Phase>('ready')
-  const [claimed, setClaimed] = useState<{
-    reward: string
-    code: string
-    icon: string
-  } | null>(null)
   const [claimError, setClaimError] = useState('')
 
   const { data: campaign, isLoading: campaignLoading } = useQuery({
@@ -45,26 +39,31 @@ export function CustomerGroupUnlockPage() {
   })
 
   useEffect(() => {
-    if (claimed || phase !== 'ready') return
+    if (phase !== 'ready') return
     if (!campaignId) {
       navigate('/customer')
       return
     }
-    if (!playSession && !state?.hasClaimed) {
+    if (!playSession && state?.hasClaimed) {
+      navigate(`/customer/campaigns/${campaignId}/groupunlock-status`, { replace: true })
+      return
+    }
+    if (!playSession && !state?.hasClaimed && state) {
       navigate(`/customer/campaigns/${campaignId}`)
     }
-  }, [campaignId, playSession, navigate, claimed, state?.hasClaimed, phase])
+  }, [campaignId, playSession, navigate, state, phase])
 
   const claimMutation = useMutation({
     mutationFn: () => claimGroupUnlockReward(campaignId!, playSession!),
-    onSuccess: result => {
+    onSuccess: () => {
       setClaimError('')
       setPhase('claiming')
-      setClaimed({ reward: result.reward, code: result.code, icon: result.icon })
       void queryClient.invalidateQueries({ queryKey: ['groupunlock-state', campaignId] })
-      void queryClient.refetchQueries({ queryKey: ['customer-rewards'] })
       void queryClient.invalidateQueries({ queryKey: ['business-campaign-states'] })
-      window.setTimeout(() => setPhase('won'), 1400)
+      window.setTimeout(() => {
+        setPhase('reserved')
+        navigate(`/customer/campaigns/${campaignId}/groupunlock-status`, { replace: true })
+      }, 1100)
     },
     onError: err => {
       setPhase('ready')
@@ -86,18 +85,6 @@ export function CustomerGroupUnlockPage() {
     )
   }
 
-  if (phase === 'won' && claimed) {
-    return (
-      <WinCelebration
-        reward={claimed.reward}
-        emoji={claimed.icon || '🤝'}
-        code={claimed.code}
-        businessName={campaign?.businessName ?? state?.businessName}
-        onBackToCafe={goBack}
-      />
-    )
-  }
-
   const rewardLabel = state?.rewardLabel ?? campaign?.rewards[0]?.name ?? 'Community Offer'
   const offerSentence = state?.offerSentence ?? ''
   const target = state?.targetParticipants ?? campaign?.groupUnlockConfig?.targetParticipants ?? 0
@@ -116,10 +103,6 @@ export function CustomerGroupUnlockPage() {
           backgroundSize: '22px 22px',
         }}
       />
-      <div
-        className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[320px] h-[320px] rounded-full"
-        style={{ background: 'radial-gradient(circle, rgba(199,210,254,0.6) 0%, transparent 70%)' }}
-      />
 
       <button
         type="button"
@@ -130,12 +113,12 @@ export function CustomerGroupUnlockPage() {
       </button>
 
       <AnimatePresence mode="wait">
-        {phase === 'claiming' ? (
+        {phase === 'claiming' || phase === 'reserved' ? (
           <motion.div
             key="claiming"
             initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
+            exit={{ opacity: 0 }}
             className="flex-1 flex flex-col items-center justify-center relative z-10"
           >
             <motion.div
@@ -145,16 +128,8 @@ export function CustomerGroupUnlockPage() {
             >
               🤝
             </motion.div>
-            <motion.p
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-2xl font-black text-indigo-950 tracking-tight"
-            >
-              Reserving…
-            </motion.p>
-            <p className="text-sm text-indigo-800/80 mt-2">
-              {claimed?.reward ? 'Spot reserved — check wallet for unlock status' : 'Adding reward to your wallet'}
-            </p>
+            <p className="text-2xl font-black text-indigo-950 tracking-tight">Spot reserved!</p>
+            <p className="text-sm text-indigo-800/80 mt-2">Opening Check Status…</p>
           </motion.div>
         ) : (
           <motion.div
@@ -190,25 +165,10 @@ export function CustomerGroupUnlockPage() {
                 boxShadow: '0 18px 40px rgba(99,102,241,0.16)',
               }}
             >
-              <div
-                className="absolute inset-y-0 left-[18px] w-px opacity-40"
-                style={{
-                  backgroundImage: 'repeating-linear-gradient(to bottom, #6366f1 0 6px, transparent 6px 12px)',
-                }}
-              />
-              <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: '#c7d2fe' }} />
-              <div className="absolute -right-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: '#c7d2fe' }} />
-
-              <div className="relative px-6 pt-5 pb-4 pl-8">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-700/70">
-                    Community reward
-                  </p>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-400 text-white">
-                    GROUP
-                  </span>
-                </div>
-
+              <div className="relative px-6 pt-5 pb-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-700/70 mb-3">
+                  Community reward
+                </p>
                 <p className="text-[34px] leading-none font-black text-indigo-950 tracking-tight">
                   {rewardLabel}
                 </p>
@@ -238,43 +198,30 @@ export function CustomerGroupUnlockPage() {
 
             {claimError && <p className="text-center text-sm text-red-600">{claimError}</p>}
 
-            {state?.hasClaimed ? (
-              <div className="rounded-2xl bg-white/95 p-5 text-center">
-                <p className="text-sm font-semibold text-indigo-900">Already in your wallet</p>
-                <button
-                  type="button"
-                  onClick={() => navigate('/customer/wallet')}
-                  className="mt-3 text-sm font-bold text-v-purple border-0 bg-transparent cursor-pointer"
-                >
-                  View in Wallet →
-                </button>
-              </div>
-            ) : (
-              <motion.button
-                type="button"
-                onClick={() => {
-                  if (!playSession || claimMutation.isPending || !state?.canClaim) return
-                  setClaimError('')
-                  claimMutation.mutate()
-                }}
-                disabled={!state?.canClaim || claimMutation.isPending || !playSession}
-                whileTap={{ scale: 0.97 }}
-                className="w-full py-4 rounded-2xl font-extrabold text-base disabled:opacity-50 border-0 cursor-pointer"
-                style={{
-                  background: 'linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 45%, #818cf8 100%)',
-                  color: '#312e81',
-                  boxShadow: '0 10px 28px rgba(129,140,248,0.4)',
-                }}
-              >
-                {claimMutation.isPending ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" /> Reserving…
-                  </span>
-                ) : (
-                  'Claim Spot'
-                )}
-              </motion.button>
-            )}
+            <motion.button
+              type="button"
+              onClick={() => {
+                if (!playSession || claimMutation.isPending || !state?.canClaim) return
+                setClaimError('')
+                claimMutation.mutate()
+              }}
+              disabled={!state?.canClaim || claimMutation.isPending || !playSession}
+              whileTap={{ scale: 0.97 }}
+              className="w-full py-4 rounded-2xl font-extrabold text-base disabled:opacity-50 border-0 cursor-pointer"
+              style={{
+                background: 'linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 45%, #818cf8 100%)',
+                color: '#312e81',
+                boxShadow: '0 10px 28px rgba(129,140,248,0.4)',
+              }}
+            >
+              {claimMutation.isPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" /> Reserving…
+                </span>
+              ) : (
+                'Claim Spot'
+              )}
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>

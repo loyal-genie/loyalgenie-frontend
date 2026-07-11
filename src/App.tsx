@@ -52,6 +52,7 @@ const CustomerCouponPage = lazyWithRetry(() => import('@/pages/customer/games/Cu
 const CustomerFlashPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerFlashPage').then(m => ({ default: m.CustomerFlashPage })))
 const CustomerFriendPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerFriendPage').then(m => ({ default: m.CustomerFriendPage })))
 const CustomerGroupUnlockPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerGroupUnlockPage').then(m => ({ default: m.CustomerGroupUnlockPage })))
+const CustomerGroupUnlockStatusPage = lazyWithRetry(() => import('@/pages/customer/CustomerGroupUnlockStatusPage').then(m => ({ default: m.CustomerGroupUnlockStatusPage })))
 const CustomerStampPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerStampPage').then(m => ({ default: m.CustomerStampPage })))
 const CustomerMechanicComingSoonPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerMechanicComingSoonPage').then(m => ({ default: m.CustomerMechanicComingSoonPage })))
 
@@ -131,6 +132,7 @@ export function App() {
             <Route path="check-in" element={<CustomerCheckInPage />} />
             <Route path="business/:id" element={<CustomerBusinessPage />} />
             <Route path="campaigns/:id" element={<CustomerCampaignPage />} />
+            <Route path="campaigns/:id/groupunlock-status" element={<CustomerGroupUnlockStatusPage />} />
             <Route path="rewards/:rewardId/claim" element={<CustomerRewardClaimPageWithKey />} />
             <Route path="games/shake" element={<CustomerShakePage />} />
             <Route path="games/spin" element={<CustomerSpinPage />} />

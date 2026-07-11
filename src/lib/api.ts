@@ -1523,6 +1523,7 @@ export async function claimFriendReward(campaignId: string, playSessionToken: st
 export interface GroupUnlockState {
   campaignId: string
   campaignName: string
+  businessId: string
   businessName: string
   active: boolean
   canClaim: boolean
