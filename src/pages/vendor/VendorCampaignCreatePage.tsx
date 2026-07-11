@@ -144,7 +144,15 @@ export function VendorCampaignCreatePage() {
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
   // Check-in has no Game Config — points live on Basics; rewards come from the standalone Rewards catalog.
-  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp' || mechanic === 'spin' || mechanic === 'dice' || mechanic === 'lottery' || mechanic === 'buy-x-get-y'
+  // Coupon DOES have Game Config (pool size, value, T&Cs) via CouponOfferEditor — include it here.
+  const hasGameConfigStep =
+    mechanic === 'shake'
+    || mechanic === 'stamp'
+    || mechanic === 'spin'
+    || mechanic === 'dice'
+    || mechanic === 'lottery'
+    || mechanic === 'buy-x-get-y'
+    || mechanic === 'coupon'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
