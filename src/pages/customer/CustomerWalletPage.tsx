@@ -200,13 +200,9 @@ export function CustomerWalletPage() {
       if (r.status === 'earned' || r.status === 'pending') return !isDateExpiredReward(r)
       return false
     })
-    .sort((a, b) => {
-      const ctxA = cardContext.get(a.id)
-      const ctxB = cardContext.get(b.id)
-      const da = ctxA?.expiresAt ? walletDaysUntil(ctxA.expiresAt) : 999
-      const db = ctxB?.expiresAt ? walletDaysUntil(ctxB.expiresAt) : 999
-      return da - db
-    })
+    .sort(
+      (a, b) => new Date(b.earnedAt).getTime() - new Date(a.earnedAt).getTime(),
+    )
 
   const historyRewards = rewards
     .filter(r => {
