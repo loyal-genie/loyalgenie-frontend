@@ -180,6 +180,8 @@ export function VendorCampaignCreatePage() {
     || mechanic === 'lottery'
     || mechanic === 'buy-x-get-y'
     || mechanic === 'coupon'
+    || mechanic === 'flash'
+    || mechanic === 'friend'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
