@@ -555,6 +555,15 @@ export interface CampaignDto {
     redeemRelativeAmount?: number
     redeemRelativeUnit?: 'day' | 'week' | 'month'
   } | null
+  friendConfig?: {
+    minFriends: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
 }
 
 export interface CreateShakeCampaignPayload {
@@ -756,7 +765,26 @@ export interface CreateFlashCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload | CreateFlashCampaignPayload
+export interface CreateFriendCampaignPayload {
+  name: string
+  mechanic: 'friend'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  userCap: number
+  friendConfig: {
+    minFriends: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload | CreateFlashCampaignPayload | CreateFriendCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -896,6 +924,15 @@ export interface PublicCampaign {
     rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
     termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  friendConfig?: {
+    minFriends: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
     redeemExpiryMode?: 'fixed' | 'relative'
     redeemFixedDate?: string | null
     redeemRelativeAmount?: number
@@ -1089,6 +1126,7 @@ export interface UpdateCampaignPayload {
   buyXGetYConfig?: CreateBuyXGetYCampaignPayload['buyXGetYConfig']
   couponConfig?: CreateCouponCampaignPayload['couponConfig']
   flashConfig?: CreateFlashCampaignPayload['flashConfig']
+  friendConfig?: CreateFriendCampaignPayload['friendConfig']
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {
@@ -1420,6 +1458,53 @@ export async function claimFlashReward(campaignId: string, playSessionToken: str
       icon: string
     }
   }>(`/campaigns/${campaignId}/flash/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface FriendState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  userCap: number
+  spotsRemaining: number
+  minFriends: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  rewardKind: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchFriendState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: FriendState }>(
+    `/campaigns/${campaignId}/friend-state`,
+  )
+  return data.data
+}
+
+export async function claimFriendReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/friend/claim`, { playSessionToken })
   return data.data
 }
 
