@@ -13,6 +13,7 @@ import { CustomerRewardCard } from '@/components/customer/CustomerRewardCard'
 import { PullToRefresh } from '@/components/customer/PullToRefresh'
 import {
   CampaignListingCard,
+  LotteryCardActions,
   LoyaltyCampaignSectionHeader,
 } from '@/components/customer/CampaignListingCard'
 import { useBusinessesWithCampaigns, useBusinessCampaignStatesRealtime } from '@/hooks/useCustomerData'
@@ -193,6 +194,7 @@ function LotteryCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    playsPerDay?: number
   }
   lotteryState?: {
     drawDate?: string
@@ -200,21 +202,44 @@ function LotteryCampaignBlock({
     canClaimTicket?: boolean
     totalTickets?: number
     drawCompleted?: boolean
+    ticketCount?: number
+    playsUsedToday?: number
+    playsPerDay?: number
+    playsRemaining?: number
   }
 }) {
-  const blocked = Boolean(lotteryState && !lotteryState.canClaimTicket && !lotteryState.hasTicket)
+  const canClaim = Boolean(lotteryState?.canClaimTicket)
+  const hasTicket = Boolean(lotteryState?.hasTicket)
   const drawLabel = lotteryState?.drawDate ?? campaign.endDate
+  const ticketCount = lotteryState?.ticketCount ?? 0
+  const playsPerDay = lotteryState?.playsPerDay ?? campaign.playsPerDay ?? 1
+  const playsUsedToday = lotteryState?.playsUsedToday ?? 0
+  const entriesClosed = Boolean(lotteryState && !canClaim && !hasTicket)
+
+  const statsLine = lotteryState?.drawCompleted
+    ? `Draw complete · ${ticketCount} ticket${ticketCount === 1 ? '' : 's'}`
+    : hasTicket
+      ? `${ticketCount} ticket${ticketCount === 1 ? '' : 's'} · ${playsUsedToday}/${playsPerDay} today · Draw ${drawLabel}`
+      : `Draw on ${drawLabel}${lotteryState?.totalTickets ? ` · ${lotteryState.totalTickets} entered` : ''}`
 
   return (
     <CampaignListingCard
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
-      blocked={blocked}
+      blocked={entriesClosed}
       blockedLabel={lotteryState?.drawCompleted ? 'Draw complete' : 'Entries closed'}
-      statsLine={
-        lotteryState?.hasTicket
-          ? `✓ Ticket claimed · Draw ${drawLabel}`
-          : `Draw on ${drawLabel}${lotteryState?.totalTickets ? ` · ${lotteryState.totalTickets} entered` : ''}`
+      statsLine={statsLine}
+      actions={
+        entriesClosed && !hasTicket
+          ? undefined
+          : (
+            <LotteryCardActions
+              campaignId={campaign.id}
+              canClaim={canClaim}
+              hasTicket={hasTicket}
+              claimHref={`/customer/campaigns/${campaign.id}`}
+            />
+          )
       }
     />
   )
@@ -538,6 +563,10 @@ export function CustomerBusinessPage() {
                       canClaimTicket?: boolean
                       totalTickets?: number
                       drawCompleted?: boolean
+                      ticketCount?: number
+                      playsUsedToday?: number
+                      playsPerDay?: number
+                      playsRemaining?: number
                     } | undefined}
                   />
                 ))}

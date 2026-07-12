@@ -107,16 +107,16 @@ export function CustomerDicePage() {
     const final = pickDiceLandingValue(outcomes, playResult.won, playResult.reward)
     const target = faceOrientation(final)
     const cur = rotation.current
-    // Land on the exact face after several extra full spins for a satisfying tumble.
-    const nextX = target.x + 360 * (Math.floor((cur.x - target.x) / 360) + 4)
-    const nextY = target.y + 360 * (Math.floor((cur.y - target.y) / 360) + 5)
+    // Extra full spins over ~2.8s so the tumble feels exciting before landing.
+    const nextX = target.x + 360 * (Math.floor((cur.x - target.x) / 360) + 6)
+    const nextY = target.y + 360 * (Math.floor((cur.y - target.y) / 360) + 7)
     rotation.current = { x: nextX, y: nextY }
 
     controls
       .start({
         rotateX: nextX,
         rotateY: nextY,
-        transition: { duration: 2.1, ease: [0.16, 0.7, 0.2, 1] },
+        transition: { duration: 2.8, ease: [0.12, 0.65, 0.2, 1] },
       })
       .then(() => {
         setState('landed')

@@ -1237,6 +1237,19 @@ export async function requestRewardRedemption(rewardId: string) {
   await api.post(`/campaigns/customer/rewards/${rewardId}/request-redemption`)
 }
 
+export interface LotteryTicketDto {
+  id: string
+  ticketNumber: number
+  serialCode: string
+  status: string
+  claimedAt: string
+  prizeRewardId?: string | null
+  prizeName?: string | null
+  prizeIcon?: string | null
+  walletRewardId?: string | null
+  canClaimToWallet?: boolean
+}
+
 export interface LotteryState {
   campaignId: string
   campaignName: string
@@ -1247,13 +1260,13 @@ export interface LotteryState {
   active: boolean
   canClaimTicket: boolean
   hasTicket: boolean
-  ticket?: {
-    id: string
-    ticketNumber: number
-    serialCode: string
-    status: string
-    claimedAt: string
-  } | null
+  ticketCount?: number
+  playsPerDay?: number
+  playsUsedToday?: number
+  playsRemaining?: number
+  ticket?: LotteryTicketDto | null
+  tickets?: LotteryTicketDto[]
+  wonTicket?: LotteryTicketDto | null
   walletRewardStatus?: string | null
   walletRewardId?: string | null
   totalTickets: number
@@ -1273,10 +1286,28 @@ export async function claimLotteryTicket(campaignId: string, playSessionToken: s
       ticketNumber: number
       serialCode: string
       drawDate: string
-      walletRewardId: string
+      walletRewardId: string | null
+      playsRemaining?: number
+      playsUsedToday?: number
+      playsPerDay?: number
       prizes: { tier: string; name: string; reward: string; icon: string }[]
     }
   }>(`/campaigns/${campaignId}/lottery/claim-ticket`, { playSessionToken })
+  return data.data
+}
+
+export async function claimLotteryWinToWallet(ticketId: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      walletRewardId: string
+      alreadyClaimed: boolean
+      rewardName?: string
+      icon?: string
+      redemptionCode?: string
+      redeemExpiresAt?: string | null
+    }
+  }>(`/campaigns/lottery/tickets/${ticketId}/claim-win`)
   return data.data
 }
 

@@ -431,6 +431,10 @@ export function CustomerCampaignPage() {
         error={error}
         loading={verifyMutation.isPending}
         hasTicket={lotteryState?.hasTicket}
+        canClaimTicket={lotteryState?.canClaimTicket ?? true}
+        ticketCount={lotteryState?.ticketCount ?? 0}
+        playsRemaining={lotteryState?.playsRemaining}
+        playsPerDay={lotteryState?.playsPerDay}
         drawDate={lotteryState?.drawDate ?? campaign.drawDate ?? campaign.endDate}
         totalTickets={lotteryState?.totalTickets}
         onBack={handleBack}
