@@ -13,6 +13,7 @@ import { CustomerRewardCard } from '@/components/customer/CustomerRewardCard'
 import { PullToRefresh } from '@/components/customer/PullToRefresh'
 import {
   CampaignListingCard,
+  LotteryCardActions,
   LoyaltyCampaignSectionHeader,
 } from '@/components/customer/CampaignListingCard'
 import { useBusinessesWithCampaigns, useBusinessCampaignStatesRealtime } from '@/hooks/useCustomerData'
@@ -25,6 +26,7 @@ import {
   type PlayState,
   type StampState,
 } from '@/lib/api'
+import { formatCampaignDayMonth } from '@/lib/customer-ui'
 
 function StampCampaignBlock({
   campaign,
@@ -82,6 +84,8 @@ function ShakeCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     winRatePercent?: number
     playsPerDay?: number
   }
@@ -100,6 +104,7 @@ function ShakeCampaignBlock({
           ? `✓ All plays used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
           : playState?.message
       }
+      playingToday={playState?.playingToday}
       statsLine={
         playState
           ? `${playState.playsUsedToday}/${playState.playsPerDay} attempts today`
@@ -119,6 +124,8 @@ function SpinCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     winRatePercent?: number
     playsPerDay?: number
   }
@@ -137,6 +144,7 @@ function SpinCampaignBlock({
           ? `✓ All spins used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
           : playState?.message
       }
+      playingToday={playState?.playingToday}
       statsLine={
         playState
           ? `${playState.playsUsedToday}/${playState.playsPerDay} spins today`
@@ -156,6 +164,8 @@ function DiceCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     winRatePercent?: number
     playsPerDay?: number
   }
@@ -174,6 +184,7 @@ function DiceCampaignBlock({
           ? `✓ All rolls used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
           : playState?.message
       }
+      playingToday={playState?.playingToday}
       statsLine={
         playState
           ? `${playState.playsUsedToday}/${playState.playsPerDay} rolls today`
@@ -193,6 +204,9 @@ function LotteryCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
+    playsPerDay?: number
   }
   lotteryState?: {
     drawDate?: string
@@ -200,21 +214,46 @@ function LotteryCampaignBlock({
     canClaimTicket?: boolean
     totalTickets?: number
     drawCompleted?: boolean
+    ticketCount?: number
+    playsUsedToday?: number
+    playsPerDay?: number
+    playsRemaining?: number
+    playingToday?: number
   }
 }) {
-  const blocked = Boolean(lotteryState && !lotteryState.canClaimTicket && !lotteryState.hasTicket)
-  const drawLabel = lotteryState?.drawDate ?? campaign.endDate
+  const canClaim = Boolean(lotteryState?.canClaimTicket)
+  const hasTicket = Boolean(lotteryState?.hasTicket)
+  const drawLabel = formatCampaignDayMonth(lotteryState?.drawDate ?? campaign.endDate)
+  const ticketCount = lotteryState?.ticketCount ?? 0
+  const playsPerDay = lotteryState?.playsPerDay ?? campaign.playsPerDay ?? 1
+  const playsUsedToday = lotteryState?.playsUsedToday ?? 0
+  const entriesClosed = Boolean(lotteryState && !canClaim && !hasTicket)
+
+  const statsLine = lotteryState?.drawCompleted
+    ? `Draw complete · ${ticketCount} ticket${ticketCount === 1 ? '' : 's'}`
+    : hasTicket
+      ? `${ticketCount} ticket${ticketCount === 1 ? '' : 's'} · ${playsUsedToday}/${playsPerDay} today · Draw ${drawLabel}`
+      : `Draw on ${drawLabel}${lotteryState?.totalTickets ? ` · ${lotteryState.totalTickets} entered` : ''}`
 
   return (
     <CampaignListingCard
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
-      blocked={blocked}
+      blocked={entriesClosed}
       blockedLabel={lotteryState?.drawCompleted ? 'Draw complete' : 'Entries closed'}
-      statsLine={
-        lotteryState?.hasTicket
-          ? `✓ Ticket claimed · Draw ${drawLabel}`
-          : `Draw on ${drawLabel}${lotteryState?.totalTickets ? ` · ${lotteryState.totalTickets} entered` : ''}`
+      playingToday={lotteryState?.playingToday}
+      statsLine={statsLine}
+      actions={
+        entriesClosed && !hasTicket
+          ? undefined
+          : (
+            <LotteryCardActions
+              campaignId={campaign.id}
+              canClaim={canClaim}
+              hasTicket={hasTicket}
+              claimHref={`/customer/campaigns/${campaign.id}`}
+            />
+          )
       }
     />
   )
@@ -275,7 +314,8 @@ function CouponCampaignBlock({
     active?: boolean
   }
 }) {
-  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+  // Claimed or sold out → show status on card (no PIN / details navigation)
+  const blocked = Boolean(offerState && !offerState.canClaim)
 
   return (
     <CampaignListingCard
@@ -311,7 +351,7 @@ function FlashCampaignBlock({
     active?: boolean
   }
 }) {
-  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+  const blocked = Boolean(offerState && !offerState.canClaim)
 
   return (
     <CampaignListingCard
@@ -383,7 +423,7 @@ function FriendCampaignBlock({
     active?: boolean
   }
 }) {
-  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+  const blocked = Boolean(offerState && !offerState.canClaim)
 
   return (
     <CampaignListingCard
@@ -614,6 +654,11 @@ export function CustomerBusinessPage() {
                       canClaimTicket?: boolean
                       totalTickets?: number
                       drawCompleted?: boolean
+                      ticketCount?: number
+                      playsUsedToday?: number
+                      playsPerDay?: number
+                      playsRemaining?: number
+                      playingToday?: number
                     } | undefined}
                   />
                 ))}

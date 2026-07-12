@@ -107,16 +107,16 @@ export function CustomerDicePage() {
     const final = pickDiceLandingValue(outcomes, playResult.won, playResult.reward)
     const target = faceOrientation(final)
     const cur = rotation.current
-    // Land on the exact face after several extra full spins for a satisfying tumble.
-    const nextX = target.x + 360 * (Math.floor((cur.x - target.x) / 360) + 4)
-    const nextY = target.y + 360 * (Math.floor((cur.y - target.y) / 360) + 5)
+    // Extra full spins over ~2.8s so the tumble feels exciting before landing.
+    const nextX = target.x + 360 * (Math.floor((cur.x - target.x) / 360) + 6)
+    const nextY = target.y + 360 * (Math.floor((cur.y - target.y) / 360) + 7)
     rotation.current = { x: nextX, y: nextY }
 
     controls
       .start({
         rotateX: nextX,
         rotateY: nextY,
-        transition: { duration: 2.1, ease: [0.16, 0.7, 0.2, 1] },
+        transition: { duration: 2.8, ease: [0.12, 0.65, 0.2, 1] },
       })
       .then(() => {
         setState('landed')
@@ -166,8 +166,8 @@ export function CustomerDicePage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #ffe4e6 0%, #fecdd3 100%)' }}>
-        <Loader2 className="size-10 text-[#e11d48] animate-spin" />
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #fff5f5 100%)' }}>
+        <Loader2 className="size-10 text-[#fda4af] animate-spin" />
       </div>
     )
   }
@@ -175,24 +175,24 @@ export function CustomerDicePage() {
   return (
     <div
       className="min-h-dvh flex flex-col items-center justify-between px-5 pt-12 pb-10 relative overflow-hidden max-w-[440px] mx-auto"
-      style={{ background: 'linear-gradient(160deg, #ffe4e6 0%, #fecdd3 44%, #fda4af 100%)' }}
+      style={{ background: 'linear-gradient(180deg, #ffffff 0%, #fffafa 50%, #fff1f2 100%)' }}
     >
       {/* Soft ambient glow */}
       <div
         className="absolute w-72 h-72 rounded-full pointer-events-none"
-        style={{ top: '6%', left: '-25%', background: 'radial-gradient(circle, rgba(255,255,255,0.65) 0%, transparent 70%)', filter: 'blur(46px)' }}
+        style={{ top: '6%', left: '-25%', background: 'radial-gradient(circle, rgba(255,255,255,0.9) 0%, transparent 70%)', filter: 'blur(46px)' }}
       />
       <div
         className="absolute w-72 h-72 rounded-full pointer-events-none"
-        style={{ bottom: '2%', right: '-25%', background: 'radial-gradient(circle, rgba(244,63,94,0.28) 0%, transparent 70%)', filter: 'blur(52px)' }}
+        style={{ bottom: '2%', right: '-25%', background: 'radial-gradient(circle, rgba(254,202,202,0.45) 0%, transparent 70%)', filter: 'blur(52px)' }}
       />
 
       {SPARKLES.map((s, i) => (
         <motion.div
           key={i}
-          className="absolute size-1.5 rounded-full bg-white pointer-events-none"
+          className="absolute size-1.5 rounded-full bg-[#fecdd3] pointer-events-none"
           style={{ top: s.top, left: s.left }}
-          animate={{ opacity: [0.25, 0.85, 0.25], scale: [0.8, 1.2, 0.8] }}
+          animate={{ opacity: [0.2, 0.7, 0.2], scale: [0.8, 1.2, 0.8] }}
           transition={{ duration: s.d, repeat: Infinity }}
         />
       ))}
@@ -200,15 +200,15 @@ export function CustomerDicePage() {
       <button
         type="button"
         onClick={() => navigate(-1)}
-        className="self-start flex items-center gap-1.5 text-[#9f1239]/70 text-sm bg-transparent border-0 cursor-pointer z-10"
+        className="self-start flex items-center gap-1.5 text-[#9f1239]/45 text-sm bg-transparent border-0 cursor-pointer z-10"
       >
         <ArrowLeft size={16} />
         Back
       </button>
 
       <div className="text-center relative z-10">
-        <h1 className="text-2xl font-extrabold text-[#881337] mb-1">{campaign?.name ?? 'Roll a Dice'}</h1>
-        <p className="text-sm font-medium text-[#be123c]/80">
+        <h1 className="text-2xl font-extrabold text-[#9f1239]/80 mb-1">{campaign?.name ?? 'Roll a Dice'}</h1>
+        <p className="text-sm font-medium text-[#fb7185]">
           {playError || (state === 'rolling' ? 'Rolling the dice…' : state === 'landed' ? 'Revealing your result…' : canPlay ? 'Tap ROLL to try your luck!' : playState?.message ?? 'Cannot play')}
         </p>
       </div>
@@ -233,17 +233,17 @@ export function CustomerDicePage() {
                 transform: face.transform,
                 backfaceVisibility: 'hidden',
                 padding: 22,
-                boxShadow: 'inset 0 0 0 1px rgba(159,18,57,0.08), inset 0 6px 14px rgba(159,18,57,0.06)',
+                boxShadow: 'inset 0 0 0 1px rgba(251,113,133,0.12), inset 0 6px 14px rgba(251,113,133,0.06)',
               }}
             >
-              <DiceFace value={face.value} pipColor="#be123c" />
+              <DiceFace value={face.value} pipColor="#fb7185" />
             </div>
           ))}
         </motion.div>
 
         {/* Floor shadow */}
         <motion.div
-          className="mt-6 h-3 rounded-[50%] bg-[#9f1239]/25 blur-md"
+          className="mt-6 h-3 rounded-[50%] bg-[#fda4af]/35 blur-md"
           animate={{
             width: state === 'rolling' ? [96, 132, 96] : 116,
             opacity: state === 'rolling' ? [0.18, 0.32, 0.18] : 0.28,
@@ -254,22 +254,22 @@ export function CustomerDicePage() {
 
       {/* What each face wins */}
       {faceChart.length > 0 && (
-        <div className="w-full rounded-2xl p-4 z-10 bg-white/55 border border-white/70 backdrop-blur-sm shadow-[0_8px_24px_rgba(159,18,57,0.12)]">
-          <p className="text-[10px] text-[#9f1239]/70 font-bold mb-3 text-center uppercase tracking-wide">What each face wins</p>
+        <div className="w-full rounded-2xl p-4 z-10 bg-white/90 border border-[#fecdd3] shadow-[0_8px_24px_rgba(251,113,133,0.08)]">
+          <p className="text-[10px] text-[#fb7185] font-bold mb-3 text-center uppercase tracking-wide">What each face wins</p>
           <div className="grid grid-cols-3 gap-2">
             {faceChart.map(face => (
               <div
                 key={face.value}
                 className="rounded-xl px-2 py-2 flex flex-col items-center gap-1 text-center"
                 style={{
-                  background: face.win ? 'rgba(244,63,94,0.12)' : 'rgba(159,18,57,0.05)',
-                  border: face.win ? '1px solid rgba(244,63,94,0.4)' : '1px solid rgba(159,18,57,0.1)',
+                  background: face.win ? 'rgba(254,205,211,0.45)' : 'rgba(255,241,242,0.8)',
+                  border: face.win ? '1px solid rgba(251,113,133,0.35)' : '1px solid rgba(254,205,211,0.5)',
                 }}
               >
                 <span className="size-6">
-                  <DiceFace value={face.value} pipColor={face.win ? '#e11d48' : 'rgba(159,18,57,0.3)'} />
+                  <DiceFace value={face.value} pipColor={face.win ? '#fb7185' : 'rgba(251,113,133,0.35)'} />
                 </span>
-                <span className={`text-[10px] font-semibold leading-tight truncate w-full ${face.win ? 'text-[#9f1239]' : 'text-[#9f1239]/40'}`}>
+                <span className={`text-[10px] font-semibold leading-tight truncate w-full ${face.win ? 'text-[#9f1239]/75' : 'text-[#fb7185]/45'}`}>
                   {face.win ? face.reward : 'No win'}
                 </span>
               </div>
@@ -283,8 +283,12 @@ export function CustomerDicePage() {
         whileTap={{ scale: 0.94 }}
         onClick={roll}
         disabled={state !== 'idle' || !canPlay || isPlaying}
-        className="w-full py-5 rounded-2xl text-xl font-extrabold text-white border-0 cursor-pointer disabled:opacity-50 relative z-10 shadow-[0_12px_28px_rgba(225,29,72,0.4)]"
-        style={{ background: 'linear-gradient(135deg, #f43f5e, #be123c)' }}
+        className="w-full py-5 rounded-2xl text-xl font-extrabold border-0 cursor-pointer disabled:opacity-50 relative z-10"
+        style={{
+          background: 'linear-gradient(135deg, #fecdd3 0%, #fda4af 50%, #fb7185 100%)',
+          color: '#9f1239',
+          boxShadow: '0 12px 28px rgba(251,113,133,0.25)',
+        }}
       >
         {state === 'idle' ? '🎲 ROLL' : state === 'landed' ? '🎲 Revealing…' : '🎲 Rolling…'}
       </motion.button>

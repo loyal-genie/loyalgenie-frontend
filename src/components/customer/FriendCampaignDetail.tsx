@@ -1,6 +1,7 @@
-import { ArrowLeft, Gift, Loader2, Users } from 'lucide-react'
+import { Gift, Users } from 'lucide-react'
+import { CampaignPinDetailShell, CampaignDetailCoverChip } from '@/components/customer/CampaignPinDetailShell'
 import { PinKeypad } from '@/components/customer/PinKeypad'
-import { getCustomerMechanicChipLabel } from '@/lib/customer-ui'
+import { getCampaignTheme } from '@/lib/campaign-themes'
 import type { PublicCampaign } from '@/lib/api'
 import { formatFriendRewardLabel, formatFriendSentence } from '@/lib/friend-campaign-config'
 
@@ -31,6 +32,7 @@ export function FriendCampaignDetail({
   onDelete,
   onSubmit,
 }: FriendCampaignDetailProps) {
+  const theme = getCampaignTheme('friend')
   const config = campaign.friendConfig
   const rewardName = config
     ? formatFriendRewardLabel({
@@ -51,102 +53,53 @@ export function FriendCampaignDetail({
   const remaining = spotsRemaining
 
   return (
-    <div
-      className="min-h-dvh flex flex-col relative max-w-[440px] mx-auto overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #fce7f3 0%, #fbcfe8 48%, #f9a8d4 100%)' }}
-    >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.12]"
-        style={{
-          backgroundImage: 'radial-gradient(circle, white 1.2px, transparent 1.2px)',
-          backgroundSize: '20px 20px',
-        }}
-      />
-
-      <div className="relative shrink-0 px-4 pt-[max(3rem,env(safe-area-inset-top))] pb-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="absolute top-[max(3rem,env(safe-area-inset-top))] left-4 size-9 rounded-full bg-white/45 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="size-4 text-pink-900" />
-        </button>
-        <div className="absolute top-[max(3rem,env(safe-area-inset-top))] right-4 bg-white/95 px-2.5 py-0.5 rounded-full">
-          <span className="text-[10px] font-bold text-pink-800">
-            {getCustomerMechanicChipLabel('friend')}
-          </span>
-        </div>
-      </div>
-
-      <div className="relative flex flex-col items-center px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <div
-          className="relative flex size-[84px] items-center justify-center rounded-[22px]"
-          style={{
-            background: 'linear-gradient(145deg, #ffffff 0%, #fce7f3 100%)',
-            boxShadow: '0 10px 28px rgba(244,114,182,0.28)',
-          }}
-        >
-          <Users className="size-9 text-pink-500" strokeWidth={2.2} />
-        </div>
-
-        <h1 className="mt-5 text-center text-xl font-extrabold text-pink-950 tracking-tight">{campaign.name}</h1>
-        <p className="mt-1 text-center text-sm font-medium text-pink-800/80">Enter PIN to claim your reward</p>
-
-        <div
-          className="relative mt-5 w-full overflow-hidden rounded-[22px]"
-          style={{
-            background: 'linear-gradient(160deg, #ffffff 0%, #fdf2f8 60%, #fce7f3 100%)',
-            boxShadow: '0 14px 32px rgba(236,72,153,0.16)',
-          }}
-        >
-          <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full bg-pink-300" />
-          <div className="absolute -right-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full bg-pink-300" />
-
-          <div className="relative px-5 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-pink-700/70 mb-2 flex items-center gap-1.5">
-              <Gift className="size-3.5" /> Your reward
-            </p>
-            <p className="text-2xl font-black text-pink-950 tracking-tight">{rewardName}</p>
-            <p className="text-sm font-semibold text-pink-800/80 mt-1.5">{offerSentence}</p>
-
-            {minFriends != null && (
-              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-pink-100 px-3 py-1">
-                <Users className="size-3.5 text-pink-600" />
-                <span className="text-xs font-bold text-pink-800">
-                  Bring {minFriends} friend{minFriends !== 1 ? 's' : ''}
-                </span>
-              </div>
-            )}
-
-            {remaining != null && total != null && (
-              <p className="text-xs font-semibold text-pink-800/70 mt-3">
-                {remaining} of {total} claims left
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-8 w-full">
-          {hasClaimed ? (
-            <div className="rounded-2xl bg-white/95 p-5 text-center">
-              <p className="text-sm font-semibold text-pink-900">Already claimed</p>
-              <p className="text-xs text-v-text-3 mt-1">Check your wallet to redeem.</p>
-            </div>
-          ) : (
-            <>
-              {error && <p className="mb-3 text-center text-sm text-red-600">{error}</p>}
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="size-7 animate-spin text-pink-700" />
-                </div>
-              ) : (
-                <PinKeypad pin={pin} onKey={onKey} onDelete={onDelete} onSubmit={onSubmit} />
-              )}
-            </>
+    <CampaignPinDetailShell
+      mechanic="friend"
+      title={campaign.name}
+      subtitle="Bring friends along and unlock a reward together."
+      onBack={onBack}
+      loading={loading && !hasClaimed}
+      coverExtra={
+        <>
+          {minFriends != null && (
+            <CampaignDetailCoverChip>
+              <Users className="mr-1 size-3" />
+              Bring {minFriends} friend{minFriends !== 1 ? 's' : ''}
+            </CampaignDetailCoverChip>
           )}
-        </div>
+          {remaining != null && total != null && (
+            <CampaignDetailCoverChip>{remaining} of {total} claims left</CampaignDetailCoverChip>
+          )}
+        </>
+      }
+      footer={
+        hasClaimed ? (
+          <div className="rounded-2xl bg-white p-4 text-center">
+            <p className="text-sm font-semibold" style={{ color: theme.accent }}>Already claimed</p>
+            <p className="mt-1 text-xs text-[#6a7282]">Check your wallet to redeem.</p>
+          </div>
+        ) : (
+          <PinKeypad
+            pin={pin}
+            error={error}
+            loading={loading}
+            compact
+            onKey={onKey}
+            onDelete={onDelete}
+            onSubmit={onSubmit}
+            submitLabel="Claim reward"
+            submitColor={theme.accent}
+          />
+        )
+      }
+    >
+      <div className="rounded-2xl border border-pink-100 bg-pink-50/90 p-4">
+        <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-pink-700/70">
+          <Gift className="size-3.5" /> Your reward
+        </p>
+        <p className="text-2xl font-black tracking-tight text-pink-950">{rewardName}</p>
+        <p className="mt-1.5 text-sm font-semibold text-pink-800/80">{offerSentence}</p>
       </div>
-    </div>
+    </CampaignPinDetailShell>
   )
 }

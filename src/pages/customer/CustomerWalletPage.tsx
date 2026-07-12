@@ -192,21 +192,19 @@ export function CustomerWalletPage() {
     (r.status === 'earned' || r.status === 'pending' || r.status === 'group_pending')
     && isWalletRewardPastRedeem(r.redeemBefore ?? cardContext.get(r.id)?.expiresAt)
 
-  // Active = redeemable only. Never keep client-fake or API-redeemed items here.
+  // Active = redeemable only. Pending lottery tickets live in Check Status, not wallet.
   const pendingRewards = rewards
     .filter(r => {
-      if (r.status === 'lottery_pending' || r.status === 'lottery_lost') return true
+      if (r.status === 'lottery_pending' || r.status === 'lottery_lost' || r.status === 'lottery_archived') {
+        return false
+      }
       if (r.status === 'group_pending') return !isDateExpiredReward(r)
       if (r.status === 'earned' || r.status === 'pending') return !isDateExpiredReward(r)
       return false
     })
-    .sort((a, b) => {
-      const ctxA = cardContext.get(a.id)
-      const ctxB = cardContext.get(b.id)
-      const da = ctxA?.expiresAt ? walletDaysUntil(ctxA.expiresAt) : 999
-      const db = ctxB?.expiresAt ? walletDaysUntil(ctxB.expiresAt) : 999
-      return da - db
-    })
+    .sort(
+      (a, b) => new Date(b.earnedAt).getTime() - new Date(a.earnedAt).getTime(),
+    )
 
   const historyRewards = rewards
     .filter(r => {

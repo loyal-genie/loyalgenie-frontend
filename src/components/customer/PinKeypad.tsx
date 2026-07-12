@@ -13,6 +13,8 @@ interface PinKeypadProps {
   onDelete: () => void
   onSubmit: () => void
   submitLabel?: string
+  /** Overrides default purple submit button (match campaign cover/theme). */
+  submitColor?: string
 }
 
 export function PinKeypad({
@@ -27,13 +29,14 @@ export function PinKeypad({
   onDelete,
   onSubmit,
   submitLabel = 'Redeem code',
+  submitColor = '#5b0e81',
 }: PinKeypadProps) {
   const complete = pin.length >= pinLength
 
   return (
     <div className="w-full">
       {!hideHeader && (
-        <div className={compact ? 'mb-2.5 text-center' : 'text-center mb-5'}>
+        <div className={compact ? 'mb-2.5 text-center' : 'mb-5 text-center'}>
           <h2 className={compact ? 'text-sm font-semibold text-[#2b2827] mb-0.5' : 'text-xl font-semibold text-[#2b2827] mb-2'}>
             Enter the code shared by staff
           </h2>
@@ -55,9 +58,14 @@ export function PinKeypad({
             }
           >
             {pin[i] ? (
-              <span className={compact ? 'text-lg font-bold text-[#5b0e81]' : 'text-xl font-bold text-[#5b0e81]'}>{pin[i]}</span>
+              <span
+                className={compact ? 'text-lg font-bold' : 'text-xl font-bold'}
+                style={{ color: submitColor }}
+              >
+                {pin[i]}
+              </span>
             ) : (
-              <span className="text-lg text-[rgba(91,14,129,0.15)] font-normal">•</span>
+              <span className="text-lg font-normal" style={{ color: `${submitColor}26` }}>•</span>
             )}
           </motion.div>
         ))}
@@ -124,10 +132,11 @@ export function PinKeypad({
         whileTap={{ scale: 0.98 }}
         onClick={onSubmit}
         disabled={!complete || disabled || loading}
+        style={{ backgroundColor: submitColor }}
         className={
           compact
-            ? 'w-full h-10 rounded-full font-semibold text-sm text-white bg-[#5b0e81] disabled:opacity-40 border-0 cursor-pointer flex items-center justify-center gap-2'
-            : 'w-full h-12 rounded-full font-medium text-sm text-white bg-[#5b0e81] shadow-[0px_18px_40px_-18px_rgba(155,28,49,0.3)] disabled:opacity-40 border-0 cursor-pointer flex items-center justify-center gap-2'
+            ? 'w-full h-10 rounded-full font-semibold text-sm text-white disabled:opacity-40 border-0 cursor-pointer flex items-center justify-center gap-2'
+            : 'w-full h-12 rounded-full font-medium text-sm text-white shadow-[0px_18px_40px_-18px_rgba(0,0,0,0.35)] disabled:opacity-40 border-0 cursor-pointer flex items-center justify-center gap-2'
         }
       >
         {loading ? <Loader2 className="size-4 animate-spin" /> : submitLabel}
