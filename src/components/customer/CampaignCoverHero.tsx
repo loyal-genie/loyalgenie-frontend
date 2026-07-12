@@ -178,7 +178,7 @@ function DiceCoverArt() {
 function LotteryCoverArt() {
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div className="relative size-24 rotate-12 rounded-xl border-2 border-white/30 bg-white/10 shadow-lg flex items-center justify-center">
+      <div className="relative size-24 rotate-12 rounded-xl border-2 border-amber-800/15 bg-white/55 shadow-lg flex items-center justify-center">
         <span className="text-4xl">🎟️</span>
       </div>
     </div>
@@ -188,7 +188,7 @@ function LotteryCoverArt() {
 function BuyXGetYCoverArt() {
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div className="relative size-24 -rotate-6 rounded-xl border-2 border-white/30 bg-white/10 shadow-lg flex items-center justify-center">
+      <div className="relative size-24 -rotate-6 rounded-xl border-2 border-orange-800/15 bg-white/55 shadow-lg flex items-center justify-center">
         <span className="text-4xl">💰</span>
       </div>
     </div>

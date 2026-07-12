@@ -1,9 +1,9 @@
-import { type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { type KeyboardEvent, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { CampaignCoverBadge, CampaignCoverHero } from '@/components/customer/CampaignCoverHero'
 import { CampaignPlayButton } from '@/components/customer/CampaignPlayButton'
-import { formatCampaignDateRange, getCampaignSubtitle } from '@/lib/customer-ui'
+import { formatCampaignCardSchedule, getCampaignSubtitle } from '@/lib/customer-ui'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { getCampaignTheme } from '@/lib/campaign-themes'
 
@@ -14,6 +14,8 @@ interface CampaignListingCardProps {
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     winRatePercent?: number
     overallWinners?: number
     userCap?: number
@@ -25,14 +27,12 @@ interface CampaignListingCardProps {
   extraBadge?: string
   statsLine?: string
   progressLine?: string
+  /** Shown on the right of the name row (shake / spin / dice / lottery). */
+  playingToday?: number
   className?: string
   comingSoon?: boolean
   /** When set, replaces the default single play button (e.g. lottery dual CTAs). */
   actions?: ReactNode
-}
-
-function formatEndDate(end: string): string {
-  return new Date(end).toISOString().slice(0, 10)
 }
 
 function getHeaderRightBadge(
@@ -56,23 +56,26 @@ function getHeaderRightBadge(
 }
 
 function getMetaLine(campaign: CampaignListingCardProps['campaign'], statsLine?: string): string {
-  if (statsLine) return `${statsLine} · ends ${formatEndDate(campaign.endDate)}`
+  const schedule = formatCampaignCardSchedule(
+    campaign.startDate,
+    campaign.endDate,
+    campaign.startTime,
+    campaign.endTime,
+  )
+  if (statsLine) return `${statsLine} · ${schedule}`
   if (campaign.mechanic === 'stamp') {
-    return `1 stamp per day · ends ${formatEndDate(campaign.endDate)}`
+    return `1 stamp per day · ${schedule}`
   }
   if (campaign.mechanic === 'shake' && campaign.playsPerDay != null) {
-    return `${campaign.playsPerDay} play per day · ends ${formatEndDate(campaign.endDate)}`
+    return `${campaign.playsPerDay} play per day · ${schedule}`
   }
   if (campaign.mechanic === 'spin' && campaign.playsPerDay != null) {
-    return `${campaign.playsPerDay} spin per day · ends ${formatEndDate(campaign.endDate)}`
+    return `${campaign.playsPerDay} spin per day · ${schedule}`
   }
   if (campaign.mechanic === 'dice' && campaign.playsPerDay != null) {
-    return `${campaign.playsPerDay} roll per day · ends ${formatEndDate(campaign.endDate)}`
+    return `${campaign.playsPerDay} roll per day · ${schedule}`
   }
-  if (campaign.startDate && campaign.endDate) {
-    return formatCampaignDateRange(campaign.startDate, campaign.endDate)
-  }
-  return `ends ${formatEndDate(campaign.endDate)}`
+  return schedule
 }
 
 export function CampaignListingCard({
@@ -83,31 +86,67 @@ export function CampaignListingCard({
   extraBadge,
   statsLine,
   progressLine,
+  playingToday,
   className,
   comingSoon = false,
   actions,
 }: CampaignListingCardProps) {
+  const navigate = useNavigate()
   const headerRight = getHeaderRightBadge(campaign, extraBadge, comingSoon)
   const theme = getCampaignTheme(campaign.mechanic)
+  const navigable = !blocked && !comingSoon && Boolean(href) && href !== '#'
+
+  const openCard = () => {
+    if (navigable) navigate(href)
+  }
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!navigable) return
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      navigate(href)
+    }
+  }
 
   return (
     <div
+      role={navigable ? 'link' : undefined}
+      tabIndex={navigable ? 0 : undefined}
+      onClick={openCard}
+      onKeyDown={onKeyDown}
       className={cn(
         'bg-white border border-[#f3f4f6] rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.08)]',
+        navigable && 'cursor-pointer active:scale-[0.995] transition-transform',
         className,
       )}
     >
       <CampaignCoverHero mechanic={campaign.mechanic}>
         <CampaignCoverBadge mechanic={campaign.mechanic} />
         {headerRight && (
-          <span className="absolute top-3 right-3 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-black/25 backdrop-blur-sm text-white">
+          <span
+            className={cn(
+              'absolute top-3 right-3 text-[10px] font-bold px-2.5 py-0.5 rounded-full backdrop-blur-sm',
+              campaign.mechanic === 'lottery' || campaign.mechanic === 'buy-x-get-y'
+                ? 'bg-white/75 text-[#78350f]'
+                : 'bg-black/25 text-white',
+            )}
+          >
             {headerRight}
           </span>
         )}
       </CampaignCoverHero>
 
       <div className="p-4 flex flex-col gap-2">
-        <h3 className="text-base font-bold text-[#101828] leading-tight">{campaign.name}</h3>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <h3 className="text-base font-bold text-[#101828] leading-tight truncate flex-1 min-w-0">
+            {campaign.name}
+          </h3>
+          {playingToday != null && playingToday > 0 && (
+            <span className="shrink-0 text-[10px] font-semibold text-[#5b0e81] leading-none whitespace-nowrap">
+              {playingToday} playing today
+            </span>
+          )}
+        </div>
         <p className="text-xs text-[#6a7282] leading-5">
           {getCampaignSubtitle(campaign.mechanic, campaign.name)}
         </p>
@@ -119,7 +158,9 @@ export function CampaignListingCard({
         )}
 
         {actions ? (
-          actions
+          <div onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+            {actions}
+          </div>
         ) : blocked || comingSoon ? (
           <div
             className={cn(
@@ -130,7 +171,8 @@ export function CampaignListingCard({
             {comingSoon ? '✨ Live soon — not playable yet' : blockedLabel ?? '✓ Played today — come back tomorrow'}
           </div>
         ) : (
-          <CampaignPlayButton mechanic={campaign.mechanic} href={href} />
+          // Decorative CTA — whole card navigates (avoid nested links)
+          <CampaignPlayButton mechanic={campaign.mechanic} />
         )}
       </div>
     </div>
@@ -153,7 +195,7 @@ export function LotteryCardActions({
   const statusBtn =
     'flex flex-1 items-center justify-center py-3 rounded-full text-xs font-bold no-underline border border-amber-300 bg-amber-50 text-amber-900'
   const claimBtn =
-    'flex flex-1 items-center justify-center py-3 rounded-full text-xs font-bold no-underline bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white shadow-[0_8px_20px_rgba(245,158,11,0.35)]'
+    'flex flex-1 items-center justify-center py-3 rounded-full text-xs font-bold no-underline bg-gradient-to-r from-[#fef08a] to-[#fde047] text-amber-950 shadow-[0_8px_20px_rgba(250,204,21,0.28)]'
 
   if (!hasTicket && !canClaim) {
     return (

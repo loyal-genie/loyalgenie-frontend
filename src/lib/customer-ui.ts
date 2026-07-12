@@ -7,6 +7,7 @@ import {
   type CustomerCategory,
 } from './business-display'
 import { campaignDaysLeft, fmtCampaignDate, todayInCampaignTz } from '@/lib/campaign-dates'
+import { inferDurationMode } from '@/lib/campaign-duration'
 
 export { formatBusinessCategory, categoryMatches, CUSTOMER_CATEGORIES, type CustomerCategory }
 
@@ -86,8 +87,8 @@ export const CAMPAIGN_CARD_GRADIENTS: Record<string, { from: string; to: string;
   spin: { from: '#7C3AED', to: '#4C1D95', emoji: '🎡' },
   'check-in-loyalty': { from: '#34D399', to: '#047857', emoji: '📅' },
   dice: { from: '#FB7185', to: '#F43F5E', emoji: '🎲' },
-  lottery: { from: '#F59E0B', to: '#B45309', emoji: '🎟️' },
-  'buy-x-get-y': { from: '#F97316', to: '#C2410C', emoji: '💰' },
+  lottery: { from: '#FEF9C3', to: '#FDE68A', emoji: '🎟️' },
+  'buy-x-get-y': { from: '#FFEDD5', to: '#FED7AA', emoji: '💰' },
   coupon: { from: '#14B8A6', to: '#0F766E', emoji: '🎫' },
   flash: { from: '#7DD3FC', to: '#38BDF8', emoji: '⚡' },
   friend: { from: '#F9A8D4', to: '#F472B6', emoji: '👫' },
@@ -102,6 +103,68 @@ export function formatCampaignDateRange(start: string, end: string): string {
   const fmt = (d: string) =>
     new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
   return `${fmt(start)} – ${fmt(end)}`
+}
+
+/** Calendar day as "10 Jul" (no year) for campaign cards. */
+export function formatCampaignDayMonth(iso: string): string {
+  const day = iso.slice(0, 10)
+  const [y, mo, d] = day.split('-').map(Number)
+  if (!y || !mo || !d) return iso
+  return new Date(Date.UTC(y, mo - 1, d)).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  })
+}
+
+/** "10AM" / "10:30AM" from HH:mm. */
+export function formatCampaignTimeShort(hhmm: string): string {
+  const [hRaw, mRaw] = hhmm.split(':')
+  const h = Number(hRaw)
+  const m = Number(mRaw ?? 0)
+  if (!Number.isFinite(h)) return hhmm
+  const ap = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  if (!m) return `${hour}${ap}`
+  return `${hour}:${String(m).padStart(2, '0')}${ap}`
+}
+
+function isFullDayWindow(startTime?: string | null, endTime?: string | null): boolean {
+  const start = (startTime ?? '00:00').slice(0, 5)
+  const end = (endTime ?? '23:59').slice(0, 5)
+  return (start === '00:00' || start === '0:00') && (end === '23:59' || end === '24:00')
+}
+
+/**
+ * Customer card schedule line:
+ * - full day: "10 Jul - 15 Aug"
+ * - active hours (preset duration + daily window): "10 Jul - 15 Aug · 10AM - 12PM"
+ * - custom dated window: "10 Jul 10AM - 12 Jul 12PM"
+ */
+export function formatCampaignCardSchedule(
+  startDate: string,
+  endDate: string,
+  startTime?: string | null,
+  endTime?: string | null,
+): string {
+  const start = startDate.slice(0, 10)
+  const end = endDate.slice(0, 10)
+  const startD = formatCampaignDayMonth(start)
+  const endD = formatCampaignDayMonth(end)
+  const dateRange = start === end ? startD : `${startD} - ${endD}`
+
+  if (isFullDayWindow(startTime, endTime)) return dateRange
+
+  const startT = formatCampaignTimeShort((startTime ?? '00:00').slice(0, 5))
+  const endT = formatCampaignTimeShort((endTime ?? '23:59').slice(0, 5))
+
+  if (start === end) return `${startD} · ${startT} - ${endT}`
+
+  // Preset multi-day ranges with a time window → active-hours style.
+  // Non-preset ranges → custom bookend style.
+  const mode = inferDurationMode(start, end)
+  if (mode === 'custom') return `${startD} ${startT} - ${endD} ${endT}`
+  return `${dateRange} · ${startT} - ${endT}`
 }
 
 export function formatExpiry(end: string): string {

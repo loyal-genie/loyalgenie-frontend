@@ -108,8 +108,8 @@ export function CustomerSpinPage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-[#1c0038]">
-        <Loader2 className="size-10 text-[#d4a8ff] animate-spin" />
+      <div className="min-h-dvh flex items-center justify-center bg-[#f8fafc]">
+        <Loader2 className="size-10 text-[#93c5fd] animate-spin" />
       </div>
     )
   }
@@ -127,28 +127,28 @@ export function CustomerSpinPage() {
 
   return (
     <div
-      className="min-h-dvh flex flex-col items-center justify-between px-5 pt-12 pb-10"
-      style={{ background: 'linear-gradient(165deg, #43036d 0%, #2d110e 38%, #1c0038 100%)' }}
+      className="min-h-dvh flex flex-col items-center justify-between px-5 pt-12 pb-10 max-w-[440px] mx-auto"
+      style={{ background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 55%, #eff6ff 100%)' }}
     >
       <div className="w-full flex items-center justify-between mb-2">
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-white/50 hover:text-white/70 text-sm bg-transparent border-0 cursor-pointer"
+          className="flex items-center gap-1.5 text-[#64748b] hover:text-[#334155] text-sm bg-transparent border-0 cursor-pointer"
         >
           <ArrowLeft size={16} />
           Back
         </button>
         {playState && (
-          <span className="text-[10px] text-white/60 font-bold">
+          <span className="text-[10px] text-[#64748b] font-bold">
             {playState.playsUsedToday}/{playState.playsPerDay} today
           </span>
         )}
       </div>
 
       <div className="text-center">
-        <h1 className="text-2xl font-extrabold text-white mb-1">{campaign?.name ?? 'Spin the Wheel!'}</h1>
-        <p className="text-sm text-white/60">
+        <h1 className="text-2xl font-extrabold text-[#1e3a8a] mb-1">{campaign?.name ?? 'Spin the Wheel!'}</h1>
+        <p className="text-sm text-[#64748b]">
           {playError || (state === 'spinning' ? 'Spinning…' : canPlay ? 'Tap SPIN to try your luck!' : playState?.message ?? 'Cannot play')}
         </p>
       </div>
@@ -159,8 +159,8 @@ export function CustomerSpinPage() {
           style={{ width: 300, height: 300 }}
           animate={
             state === 'spinning'
-              ? { boxShadow: ['0 0 40px rgba(139,92,246,0.4)', '0 0 80px rgba(139,92,246,0.8)', '0 0 40px rgba(139,92,246,0.4)'] }
-              : { boxShadow: '0 0 30px rgba(139,92,246,0.2)' }
+              ? { boxShadow: ['0 0 28px rgba(147,197,253,0.35)', '0 0 48px rgba(147,197,253,0.55)', '0 0 28px rgba(147,197,253,0.35)'] }
+              : { boxShadow: '0 0 24px rgba(191,219,254,0.45)' }
           }
           transition={{ duration: 1.2, repeat: state === 'spinning' ? Infinity : 0, ease: 'easeInOut' }}
         />
@@ -171,7 +171,7 @@ export function CustomerSpinPage() {
             style={{
               borderLeft: '12px solid transparent',
               borderRight: '12px solid transparent',
-              borderTop: '28px solid #F5C518',
+              borderTop: '28px solid #93c5fd',
             }}
           />
         </div>
@@ -203,7 +203,7 @@ export function CustomerSpinPage() {
                   <path
                     d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
                     fill={segmentPathFill(seg.color, `seg-${i}`)}
-                    stroke="rgba(255,255,255,0.12)"
+                    stroke="rgba(255,255,255,0.55)"
                     strokeWidth="1.5"
                     opacity={landedIdx === i ? 1 : 0.92}
                   />
@@ -223,11 +223,11 @@ export function CustomerSpinPage() {
                 </g>
               )
             })}
-            <circle cx={cx} cy={cy} r={148} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={4} />
+            <circle cx={cx} cy={cy} r={148} fill="none" stroke="#dbeafe" strokeWidth={4} />
             {ticks.map((t, i) => (
-              <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="rgba(255,255,255,0.4)" strokeWidth="2" />
+              <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="#93c5fd" strokeWidth="2" />
             ))}
-            <circle cx={cx} cy={cy} r="30" fill="#08071A" stroke="#F5C518" strokeWidth="2" />
+            <circle cx={cx} cy={cy} r="30" fill="#eff6ff" stroke="#93c5fd" strokeWidth="2" />
             <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize="20">🎡</text>
           </svg>
         </motion.div>
@@ -240,16 +240,19 @@ export function CustomerSpinPage() {
         disabled={state === 'spinning' || !canPlay || isPlaying}
         className="w-full py-5 rounded-2xl text-xl font-extrabold disabled:opacity-50 border-0 cursor-pointer"
         style={{
-          background: state === 'spinning' ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #F5C518, #F59E0B)',
-          color: state === 'spinning' ? 'white' : '#08071A',
+          background: state === 'spinning'
+            ? '#e2e8f0'
+            : 'linear-gradient(135deg, #bfdbfe 0%, #93c5fd 55%, #60a5fa 100%)',
+          color: state === 'spinning' ? '#64748b' : '#1e3a8a',
+          boxShadow: state === 'spinning' ? 'none' : '0 12px 28px rgba(147,197,253,0.35)',
         }}
       >
         {state === 'spinning' ? '🎡 Spinning…' : '✨ SPIN'}
       </motion.button>
 
       {segments.some(s => s.isWin) && (
-        <div className="w-full mt-4 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5">
-          <p className="text-center text-[10px] font-bold uppercase tracking-[0.14em] text-white/55 mb-2">
+        <div className="w-full mt-4 rounded-2xl border border-[#dbeafe] bg-white/90 px-3 py-2.5 shadow-[0_4px_16px_rgba(147,197,253,0.12)]">
+          <p className="text-center text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748b] mb-2">
             Possible rewards
           </p>
           <div className="flex gap-2 justify-center flex-wrap">

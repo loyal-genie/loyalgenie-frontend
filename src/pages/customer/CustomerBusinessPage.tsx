@@ -26,6 +26,7 @@ import {
   type PlayState,
   type StampState,
 } from '@/lib/api'
+import { formatCampaignDayMonth } from '@/lib/customer-ui'
 
 function StampCampaignBlock({
   campaign,
@@ -83,6 +84,8 @@ function ShakeCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     winRatePercent?: number
     playsPerDay?: number
   }
@@ -101,6 +104,7 @@ function ShakeCampaignBlock({
           ? `✓ All plays used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
           : playState?.message
       }
+      playingToday={playState?.playingToday}
       statsLine={
         playState
           ? `${playState.playsUsedToday}/${playState.playsPerDay} attempts today`
@@ -120,6 +124,8 @@ function SpinCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     winRatePercent?: number
     playsPerDay?: number
   }
@@ -138,6 +144,7 @@ function SpinCampaignBlock({
           ? `✓ All spins used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
           : playState?.message
       }
+      playingToday={playState?.playingToday}
       statsLine={
         playState
           ? `${playState.playsUsedToday}/${playState.playsPerDay} spins today`
@@ -157,6 +164,8 @@ function DiceCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     winRatePercent?: number
     playsPerDay?: number
   }
@@ -175,6 +184,7 @@ function DiceCampaignBlock({
           ? `✓ All rolls used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
           : playState?.message
       }
+      playingToday={playState?.playingToday}
       statsLine={
         playState
           ? `${playState.playsUsedToday}/${playState.playsPerDay} rolls today`
@@ -194,6 +204,8 @@ function LotteryCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     playsPerDay?: number
   }
   lotteryState?: {
@@ -206,11 +218,12 @@ function LotteryCampaignBlock({
     playsUsedToday?: number
     playsPerDay?: number
     playsRemaining?: number
+    playingToday?: number
   }
 }) {
   const canClaim = Boolean(lotteryState?.canClaimTicket)
   const hasTicket = Boolean(lotteryState?.hasTicket)
-  const drawLabel = lotteryState?.drawDate ?? campaign.endDate
+  const drawLabel = formatCampaignDayMonth(lotteryState?.drawDate ?? campaign.endDate)
   const ticketCount = lotteryState?.ticketCount ?? 0
   const playsPerDay = lotteryState?.playsPerDay ?? campaign.playsPerDay ?? 1
   const playsUsedToday = lotteryState?.playsUsedToday ?? 0
@@ -228,6 +241,7 @@ function LotteryCampaignBlock({
       href={`/customer/campaigns/${campaign.id}`}
       blocked={entriesClosed}
       blockedLabel={lotteryState?.drawCompleted ? 'Draw complete' : 'Entries closed'}
+      playingToday={lotteryState?.playingToday}
       statsLine={statsLine}
       actions={
         entriesClosed && !hasTicket
@@ -568,6 +582,7 @@ export function CustomerBusinessPage() {
                       playsUsedToday?: number
                       playsPerDay?: number
                       playsRemaining?: number
+                      playingToday?: number
                     } | undefined}
                   />
                 ))}

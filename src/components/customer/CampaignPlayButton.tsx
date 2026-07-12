@@ -20,8 +20,8 @@ const PLAY_BUTTON_STYLES: Record<string, string> = {
   shake: 'bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-white shadow-[0_8px_20px_rgba(124,58,237,0.32)]',
   spin: 'bg-gradient-to-r from-[#3b82f6] to-[#1e40af] text-white shadow-[0_8px_20px_rgba(37,99,235,0.35)]',
   dice: 'bg-gradient-to-r from-[#fb7185] to-[#f43f5e] text-white shadow-[0_8px_20px_rgba(244,63,94,0.32)]',
-  lottery: 'bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white shadow-[0_8px_20px_rgba(245,158,11,0.35)]',
-  'buy-x-get-y': 'bg-gradient-to-r from-[#fb923c] to-[#ea580c] text-white shadow-[0_8px_20px_rgba(249,115,22,0.35)]',
+  lottery: 'bg-gradient-to-r from-[#fef08a] to-[#fde047] text-amber-950 shadow-[0_8px_20px_rgba(250,204,21,0.28)]',
+  'buy-x-get-y': 'bg-gradient-to-r from-[#fed7aa] to-[#fdba74] text-orange-950 shadow-[0_8px_20px_rgba(251,146,60,0.28)]',
   coupon: 'bg-gradient-to-r from-[#14b8a6] to-[#0d9488] text-white shadow-[0_8px_20px_rgba(13,148,136,0.35)]',
   flash: 'bg-gradient-to-r from-[#7dd3fc] to-[#38bdf8] text-sky-950 shadow-[0_8px_20px_rgba(56,189,248,0.35)]',
   friend: 'bg-gradient-to-r from-[#f9a8d4] to-[#f472b6] text-pink-950 shadow-[0_8px_20px_rgba(244,114,182,0.35)]',
@@ -76,6 +76,15 @@ export function CampaignPlayButton({
       <Link to={href} className={classes}>
         {label}
       </Link>
+    )
+  }
+
+  // Decorative CTA when the parent card handles navigation (no nested links)
+  if (!href && !onClick) {
+    return (
+      <div className={cn(classes, 'pointer-events-none')} aria-hidden>
+        {label}
+      </div>
     )
   }
 

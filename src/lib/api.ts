@@ -826,6 +826,8 @@ export interface BusinessWithCampaigns {
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     overallWinners?: number
     userCap?: number
     winRatePercent?: number
@@ -1006,6 +1008,8 @@ export interface PlayState {
   blockReason?: 'campaign_inactive' | 'user_cap' | 'daily_participant_limit' | 'no_plays_remaining' | null
   overallWinners?: number
   winRatePercent?: number
+  /** Users who played this campaign today (list cards). */
+  playingToday?: number
 }
 
 export interface ShakeResult {
