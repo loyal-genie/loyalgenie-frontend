@@ -7,6 +7,7 @@ const MECHANIC_LABELS: Record<string, string> = {
   lottery: 'Lottery',
   'buy-x-get-y': 'Buy X Get Y',
   coupon: 'Coupon Codes',
+  flash: 'Flash Deal',
   dice: 'Dice',
   scratch: 'Scratch Card',
   'check-in-loyalty': 'Check-in Loyalty',

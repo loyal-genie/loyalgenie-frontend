@@ -68,6 +68,7 @@ import {
   type BuyXGetYConfigUi,
 } from '@/lib/buy-x-get-y-campaign-config'
 import { CouponOfferEditor } from '@/components/vendor/CouponOfferEditor'
+import { FlashOfferEditor } from '@/components/vendor/FlashOfferEditor'
 import {
   buildCouponCampaignPayload,
   couponFromApi,
@@ -77,6 +78,15 @@ import {
   isCouponConfigValid,
   type CouponConfigUi,
 } from '@/lib/coupon-campaign-config'
+import {
+  buildFlashCampaignPayload,
+  flashFromApi,
+  defaultFlashConfig,
+  defaultFlashRedeem,
+  formatFlashSentence,
+  isFlashConfigValid,
+  type FlashConfigUi,
+} from '@/lib/flash-campaign-config'
 import { formatRedeemBeforeSummary, RedeemBeforeField, type RedeemBeforeValue } from '@/components/vendor/RedeemBeforeField'
 import { LoyaltyCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import {
@@ -218,6 +228,22 @@ function couponEqual(
     && redeemA.redeemRelativeUnit === redeemB.redeemRelativeUnit
 }
 
+function flashEqual(
+  a: FlashConfigUi,
+  b: FlashConfigUi,
+  redeemA: RedeemBeforeValue,
+  redeemB: RedeemBeforeValue,
+) {
+  return a.totalSlots === b.totalSlots
+    && a.rewardKind === b.rewardKind
+    && a.rewardValue === b.rewardValue
+    && a.termsAndConditions === b.termsAndConditions
+    && redeemA.redeemExpiryMode === redeemB.redeemExpiryMode
+    && redeemA.redeemFixedDate === redeemB.redeemFixedDate
+    && redeemA.redeemRelativeAmount === redeemB.redeemRelativeAmount
+    && redeemA.redeemRelativeUnit === redeemB.redeemRelativeUnit
+}
+
 export function VendorCampaignEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -258,6 +284,10 @@ export function VendorCampaignEditPage() {
   const [couponRedeem, setCouponRedeem] = useState(defaultCouponRedeem())
   const [originalCouponConfig, setOriginalCouponConfig] = useState<CouponConfigUi>(defaultCouponConfig())
   const [originalCouponRedeem, setOriginalCouponRedeem] = useState(defaultCouponRedeem())
+  const [flashConfig, setFlashConfig] = useState<FlashConfigUi>(defaultFlashConfig())
+  const [flashRedeem, setFlashRedeem] = useState(defaultFlashRedeem())
+  const [originalFlashConfig, setOriginalFlashConfig] = useState<FlashConfigUi>(defaultFlashConfig())
+  const [originalFlashRedeem, setOriginalFlashRedeem] = useState(defaultFlashRedeem())
   const [activeHoursEnabled, setActiveHoursEnabled] = useState(false)
   const [activeStartTime, setActiveStartTime] = useState('09:00')
   const [activeEndTime, setActiveEndTime] = useState('21:00')
@@ -383,6 +413,23 @@ export function VendorCampaignEditPage() {
       setOriginalActiveEndTime(end)
     }
 
+    if (campaign.mechanic === 'flash') {
+      const hydrated = flashFromApi(campaign.flashConfig)
+      setFlashConfig(hydrated.config)
+      setFlashRedeem(hydrated.redeem)
+      setOriginalFlashConfig(hydrated.config)
+      setOriginalFlashRedeem(hydrated.redeem)
+      const start = campaign.startTime ?? '00:00'
+      const end = campaign.endTime ?? '23:59'
+      const hoursEnabled = start !== '00:00' || end !== '23:59'
+      setActiveHoursEnabled(hoursEnabled)
+      setActiveStartTime(start)
+      setActiveEndTime(end)
+      setOriginalActiveHoursEnabled(hoursEnabled)
+      setOriginalActiveStartTime(start)
+      setOriginalActiveEndTime(end)
+    }
+
     if (campaign.mechanic === 'shake' && campaign.startDate !== campaign.endDate) {
       const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
       dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
@@ -434,6 +481,7 @@ export function VendorCampaignEditPage() {
   const isLottery = mechanic === 'lottery'
   const isBuyXGetY = mechanic === 'buy-x-get-y'
   const isCoupon = mechanic === 'coupon'
+  const isFlash = mechanic === 'flash'
   const isStamp = mechanic === 'stamp'
   const isLoyalty = mechanic === 'check-in-loyalty'
   const status = effectiveCampaignStatus(campaign.status as CampaignStatus, campaign.endDate, TODAY)
@@ -485,7 +533,8 @@ export function VendorCampaignEditPage() {
     lotteryConfig: isLottery && !lotteryPrizesEqual(lotteryPrizes, originalLotteryPrizes, lotteryRedeem, originalLotteryRedeem),
     buyXGetYConfig: isBuyXGetY && !buyXGetYEqual(buyXGetYConfig, originalBuyXGetYConfig, buyXGetYRedeem, originalBuyXGetYRedeem),
     couponConfig: isCoupon && !couponEqual(couponConfig, originalCouponConfig, couponRedeem, originalCouponRedeem),
-    activeHours: (isSpin || isDice || isBuyXGetY || isCoupon) && (
+    flashConfig: isFlash && !flashEqual(flashConfig, originalFlashConfig, flashRedeem, originalFlashRedeem),
+    activeHours: (isSpin || isDice || isBuyXGetY || isCoupon || isFlash) && (
       activeHoursEnabled !== originalActiveHoursEnabled
       || activeStartTime !== originalActiveStartTime
       || activeEndTime !== originalActiveEndTime
@@ -510,6 +559,7 @@ export function VendorCampaignEditPage() {
     if (isLottery) return isLotteryConfigValid(lotteryPrizes, lotteryRedeem)
     if (isBuyXGetY) return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
     if (isCoupon) return isCouponConfigValid(couponConfig, couponRedeem)
+    if (isFlash) return isFlashConfigValid(flashConfig, flashRedeem)
     if (isStamp) return stampFormValid()
     if (isLoyalty) return loyaltyFormValid()
     return true
@@ -590,6 +640,18 @@ export function VendorCampaignEditPage() {
         if (changedFields.endTime) payload.endTime = endTime
         if (changedFields.couponConfig) {
           payload.couponConfig = buildCouponCampaignPayload(couponConfig, couponRedeem).couponConfig
+        }
+        if (changedFields.activeHours) {
+          payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
+          payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
+        }
+      }
+
+      if (isFlash) {
+        if (changedFields.endDate) payload.endDate = endDate
+        if (changedFields.endTime) payload.endTime = endTime
+        if (changedFields.flashConfig) {
+          payload.flashConfig = buildFlashCampaignPayload(flashConfig, flashRedeem).flashConfig
         }
         if (changedFields.activeHours) {
           payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
@@ -695,6 +757,14 @@ export function VendorCampaignEditPage() {
       { label: 'Redeem before', value: formatRedeemBeforeSummary(couponRedeem), changed: changedFields.couponConfig, previous: formatRedeemBeforeSummary(originalCouponRedeem) },
       { label: 'Terms & Conditions', value: couponConfig.termsAndConditions.trim() || '—', changed: changedFields.couponConfig, previous: originalCouponConfig.termsAndConditions.trim() || '—' },
     ] : []),
+    ...(isFlash ? [
+      { label: 'Total spots', value: `${flashConfig.totalSlots} spots`, changed: changedFields.flashConfig, previous: `${originalFlashConfig.totalSlots} spots` },
+      ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
+      { label: 'Offer', value: formatFlashSentence(flashConfig), changed: changedFields.flashConfig, previous: formatFlashSentence(originalFlashConfig) },
+      { label: 'Reward value', value: flashConfig.rewardValue || '—', changed: changedFields.flashConfig, previous: originalFlashConfig.rewardValue || '—' },
+      { label: 'Redeem before', value: formatRedeemBeforeSummary(flashRedeem), changed: changedFields.flashConfig, previous: formatRedeemBeforeSummary(originalFlashRedeem) },
+      { label: 'Terms & Conditions', value: flashConfig.termsAndConditions.trim() || '—', changed: changedFields.flashConfig, previous: originalFlashConfig.termsAndConditions.trim() || '—' },
+    ] : []),
   ]
 
   const mechanicTitle = isShake ? 'Shake & Win — Reward Distribution'
@@ -703,6 +773,7 @@ export function VendorCampaignEditPage() {
     : isLottery ? 'Lottery — Prizes'
     : isBuyXGetY ? 'Buy X Get Y — Offer Terms'
     : isCoupon ? 'Coupon Codes — Offer Terms'
+    : isFlash ? 'Flash Deal — Offer Terms'
     : isStamp ? 'Stamp Card — Trigger Config & Rewards'
     : 'Campaign Configuration'
 
@@ -924,7 +995,7 @@ export function VendorCampaignEditPage() {
                       </>
                     ))}
 
-                    {(isSpin || isDice || isBuyXGetY || isCoupon) && !isEnded && (
+                    {(isSpin || isDice || isBuyXGetY || isCoupon || isFlash) && !isEnded && (
                       <div className="pt-2 border-t border-v-border mb-4">
                         <div className="flex items-center justify-between mb-2">
                             <div>
@@ -961,6 +1032,13 @@ export function VendorCampaignEditPage() {
                       <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
                         <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
                         <p>Coupon Codes has no separate user cap — the number of coupons in the offer editor is the cap ({couponConfig.totalCoupons} coupons).</p>
+                      </div>
+                    )}
+
+                    {isFlash && (
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Flash Deal has no separate user cap — the number of spots in the offer editor is the cap ({flashConfig.totalSlots} spots).</p>
                       </div>
                     )}
 
@@ -1012,7 +1090,7 @@ export function VendorCampaignEditPage() {
                 </div>
               </Card>
 
-              {(isShake || isSpin || isDice || isLottery || isBuyXGetY || isCoupon || isStamp) && (
+              {(isShake || isSpin || isDice || isLottery || isBuyXGetY || isCoupon || isFlash || isStamp) && (
               <Card className="p-6">
                 <h2 className="text-base font-bold text-v-text mb-1">{mechanicTitle}</h2>
 
@@ -1053,6 +1131,21 @@ export function VendorCampaignEditPage() {
                           Reward redeem before — same window for every claimed coupon.
                         </p>
                         <RedeemBeforeField value={couponRedeem} onChange={setCouponRedeem} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isFlash && (
+                  <div>
+                    <p className="text-xs text-v-text-3 mb-4">Configure the flash deal spots, reward, and terms. Customers claim fast before spots run out.</p>
+                    <FlashOfferEditor config={flashConfig} setConfig={setFlashConfig} readOnly={isEnded} />
+                    {!isEnded && (
+                      <div className="mt-5 border-t border-v-border pt-5">
+                        <p className="text-xs text-v-text-3 mb-3">
+                          Reward redeem before — same window for every claimed flash deal.
+                        </p>
+                        <RedeemBeforeField value={flashRedeem} onChange={setFlashRedeem} />
                       </div>
                     )}
                   </div>

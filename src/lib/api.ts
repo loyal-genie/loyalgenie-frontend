@@ -545,6 +545,16 @@ export interface CampaignDto {
     redeemRelativeAmount?: number
     redeemRelativeUnit?: 'day' | 'week' | 'month'
   } | null
+  flashConfig?: {
+    totalSlots: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
 }
 
 export interface CreateShakeCampaignPayload {
@@ -727,7 +737,26 @@ export interface CreateCouponCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload
+export interface CreateFlashCampaignPayload {
+  name: string
+  mechanic: 'flash'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  flashConfig: {
+    totalSlots: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload | CreateFlashCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -855,6 +884,16 @@ export interface PublicCampaign {
   couponConfig?: {
     totalCoupons: number
     rewardKind: 'flat' | 'percent'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  flashConfig?: {
+    totalSlots: number
+    rewardKind: 'flat' | 'percent' | 'item'
     rewardValue: string
     termsAndConditions?: string
     redeemExpiryMode?: 'fixed' | 'relative'
@@ -1049,6 +1088,7 @@ export interface UpdateCampaignPayload {
   lotteryConfig?: CreateLotteryCampaignPayload['lotteryConfig']
   buyXGetYConfig?: CreateBuyXGetYCampaignPayload['buyXGetYConfig']
   couponConfig?: CreateCouponCampaignPayload['couponConfig']
+  flashConfig?: CreateFlashCampaignPayload['flashConfig']
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {
@@ -1333,6 +1373,53 @@ export async function claimCouponReward(campaignId: string, playSessionToken: st
       icon: string
     }
   }>(`/campaigns/${campaignId}/coupon/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface FlashState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  totalSlots: number
+  spotsRemaining: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  termsAndConditions: string
+  rewardKind: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchFlashState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: FlashState }>(
+    `/campaigns/${campaignId}/flash-state`,
+  )
+  return data.data
+}
+
+export async function claimFlashReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/flash/claim`, { playSessionToken })
   return data.data
 }
 

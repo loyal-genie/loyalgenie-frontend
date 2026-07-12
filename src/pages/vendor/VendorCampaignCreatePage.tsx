@@ -31,12 +31,21 @@ import {
   isCouponConfigValid,
   type CouponConfigUi,
 } from '@/lib/coupon-campaign-config'
+import {
+  buildFlashCampaignPayload,
+  defaultFlashConfig,
+  defaultFlashRedeem,
+  formatFlashSentence,
+  isFlashConfigValid,
+  type FlashConfigUi,
+} from '@/lib/flash-campaign-config'
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
 import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
 import { LotteryPrizeEditor } from '@/components/vendor/LotteryPrizeEditor'
 import { BuyXGetYOfferEditor } from '@/components/vendor/BuyXGetYOfferEditor'
 import { CouponOfferEditor } from '@/components/vendor/CouponOfferEditor'
+import { FlashOfferEditor } from '@/components/vendor/FlashOfferEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -54,6 +63,7 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
   { type: 'lottery', desc: 'Customers claim a ticket; winners are drawn automatically on the end date.', tags: ['Jackpot', 'Tiered rewards'] },
   { type: 'buy-x-get-y', desc: 'Customers buy or spend to unlock a reward — purchases or spend thresholds.', tags: ['Perceived value', 'Loss aversion'] },
   { type: 'coupon', desc: 'Limited coupon pool — customers claim a code and redeem at the counter.', tags: ['Scarcity', 'Easy claim'] },
+  { type: 'flash', desc: 'Urgent limited-spot deal — customers claim fast before spots run out.', tags: ['Urgency', 'Scarcity'] },
 ]
 
 const STEPS = ['Mechanic', 'Basics', 'Game Config', 'Review']
@@ -129,6 +139,8 @@ export function VendorCampaignCreatePage() {
   const [buyXGetYRedeem, setBuyXGetYRedeem] = useState(defaultBuyXGetYRedeem())
   const [couponConfig, setCouponConfig] = useState<CouponConfigUi>(defaultCouponConfig())
   const [couponRedeem, setCouponRedeem] = useState(defaultCouponRedeem())
+  const [flashConfig, setFlashConfig] = useState<FlashConfigUi>(defaultFlashConfig())
+  const [flashRedeem, setFlashRedeem] = useState(defaultFlashRedeem())
 
   const [loyaltyConfig, setLoyaltyConfig] = useState({
     pointsPerCheckIn: 10,
@@ -141,6 +153,7 @@ export function VendorCampaignCreatePage() {
   const isLottery        = mechanic === 'lottery'
   const isBuyXGetY       = mechanic === 'buy-x-get-y'
   const isCoupon         = mechanic === 'coupon'
+  const isFlash          = mechanic === 'flash'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
   // Check-in has no Game Config — points live on Basics; rewards come from the standalone Rewards catalog.
@@ -222,6 +235,7 @@ export function VendorCampaignCreatePage() {
     if (mechanic === 'lottery') return isLotteryConfigValid(lotteryPrizes, lotteryRedeem)
     if (mechanic === 'buy-x-get-y') return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
     if (mechanic === 'coupon') return isCouponConfigValid(couponConfig, couponRedeem)
+    if (mechanic === 'flash') return isFlashConfigValid(flashConfig, flashRedeem)
     if (mechanic === 'stamp') {
       const dropsValid = [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
         d.to <= stampConfig.totalStamps && isStampDropValid(d),
@@ -239,7 +253,7 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y' && mechanic !== 'coupon') {
+    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y' && mechanic !== 'coupon' && mechanic !== 'flash') {
       setLaunchError('This campaign type is not available yet.')
       return
     }
@@ -355,6 +369,22 @@ export function VendorCampaignCreatePage() {
           startTime: dailyWindow.startTime,
           endTime: dailyWindow.endTime,
           ...buildCouponCampaignPayload(couponConfig, couponRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'flash') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'flash',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          ...buildFlashCampaignPayload(flashConfig, flashRedeem),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -548,7 +578,7 @@ export function VendorCampaignCreatePage() {
                   )}
 
                   {/* Active hours — daily window for instant-win + Buy X Get Y */}
-                  {(isShakeSpinOrDice || isBuyXGetY || isCoupon) && (
+                  {(isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash) && (
                     <div className="mt-4 pt-4 border-t border-v-border">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -611,6 +641,13 @@ export function VendorCampaignCreatePage() {
                     <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
                       <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
                       <p>Coupon Codes has no separate user cap — the number of coupons you generate (next step) is the cap.</p>
+                    </div>
+                  )}
+
+                  {isFlash && (
+                    <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                      <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                      <p>Flash Deal has no separate user cap — the number of spots you set (next step) is the cap.</p>
                     </div>
                   )}
 
@@ -932,6 +969,18 @@ export function VendorCampaignCreatePage() {
             </Card>
           )}
 
+          {step === 2 && mechanic === 'flash' && (
+            <Card className="p-6">
+              <FlashOfferEditor config={flashConfig} setConfig={setFlashConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed flash deal.
+                </p>
+                <RedeemBeforeField value={flashRedeem} onChange={setFlashRedeem} />
+              </div>
+            </Card>
+          )}
+
           {/* ── Step 3: Review & Launch ── */}
           {step === reviewStepIndex && (
             <div className="space-y-4">
@@ -953,12 +1002,12 @@ export function VendorCampaignCreatePage() {
                         return dur
                       })(),
                     },
-                    ...(!isLottery && !isLoyalty && !isCoupon ? [{ label: isShakeSpinOrDice ? 'Overall User Cap' : 'User Cap', value: `${basics.userCap} users` }] : []),
+                    ...(!isLottery && !isLoyalty && !isCoupon && !isFlash ? [{ label: isShakeSpinOrDice ? 'Overall User Cap' : 'User Cap', value: `${basics.userCap} users` }] : []),
                     ...(isLoyalty ? [{ label: 'User Cap', value: basics.userCapLimited ? `${basics.userCap} users` : 'All customers (no limit)' }] : []),
                     ...(isStamp ? [{ label: 'Claim Period', value: `${durationModeToDays(basics.claimDurationMode)} days after enrollment closes` }] : []),
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
-                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY || isCoupon) ? [{
+                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash) ? [{
                       label: 'Active Hours',
                       value: `${fmtTime(basics.activeStartTime)} – ${fmtTime(basics.activeEndTime)} daily`,
                     }] : []),
@@ -991,6 +1040,13 @@ export function VendorCampaignCreatePage() {
                       { label: 'Redeem before', value: formatRedeemBeforeSummary(couponRedeem) },
                       { label: 'Terms & Conditions', value: couponConfig.termsAndConditions.trim() || '—' },
                     ] : []),
+                    ...(mechanic === 'flash' ? [
+                      { label: 'Total spots', value: `${flashConfig.totalSlots} spots` },
+                      { label: 'Offer', value: formatFlashSentence(flashConfig) },
+                      { label: 'Reward value', value: flashConfig.rewardValue || '—' },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(flashRedeem) },
+                      { label: 'Terms & Conditions', value: flashConfig.termsAndConditions.trim() || '—' },
+                    ] : []),
                     {
                       label: 'Rewards',
                       value:
@@ -1001,7 +1057,8 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in` :
                         mechanic === 'lottery' ? `Jackpot + ${lotteryPrizes.filter(p => p.tier !== 'jackpot').length} prize${lotteryPrizes.filter(p => p.tier !== 'jackpot').length !== 1 ? 's' : ''} · Draw ${fmtDate(dates.end)}` :
                         mechanic === 'buy-x-get-y' ? formatBuyXGetYSentence(buyXGetYConfig) :
-                        mechanic === 'coupon' ? formatCouponSentence(couponConfig) : '—',
+                        mechanic === 'coupon' ? formatCouponSentence(couponConfig) :
+                        mechanic === 'flash' ? formatFlashSentence(flashConfig) : '—',
                     },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between py-3 border-b border-v-border last:border-0">
