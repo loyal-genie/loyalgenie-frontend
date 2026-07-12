@@ -84,7 +84,8 @@ export const CAMPAIGN_THEMES: Record<string, CampaignTheme> = {
     chipLabel: 'Flash Deal',
   },
   combo: {
-    gradient: 'linear-gradient(135deg, #f7fee7 0%, #d9f99d 50%, #a3e635 100%)',
+    gradient: 'linear-gradient(135deg, #f7fee7 0%, #ecfccb 50%, #d9f99d 100%)',
+    cover: '#65a30d',
     badgeBg: 'bg-[#f7fee7]',
     badgeText: 'text-[#3f6212]',
     accent: '#84cc16',
@@ -99,7 +100,8 @@ export const CAMPAIGN_THEMES: Record<string, CampaignTheme> = {
     chipLabel: 'Bring a Friend',
   },
   groupunlock: {
-    gradient: 'linear-gradient(135deg, #eef2ff 0%, #c7d2fe 45%, #818cf8 100%)',
+    gradient: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 45%, #c7d2fe 100%)',
+    cover: '#4f46e5',
     badgeBg: 'bg-[#eef2ff]',
     badgeText: 'text-[#3730a3]',
     accent: '#6366f1',

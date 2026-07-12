@@ -97,9 +97,9 @@ export const CAMPAIGN_CARD_GRADIENTS: Record<string, { from: string; to: string;
   'buy-x-get-y': { from: '#FFEDD5', to: '#FED7AA', emoji: '💰' },
   coupon: { from: '#14B8A6', to: '#0F766E', emoji: '🎫' },
   flash: { from: '#7DD3FC', to: '#38BDF8', emoji: '⚡' },
-  combo: { from: '#D9F99D', to: '#A3E635', emoji: '🎁' },
+  combo: { from: '#ECFCCB', to: '#D9F99D', emoji: '🎁' },
   friend: { from: '#F9A8D4', to: '#F472B6', emoji: '👫' },
-  groupunlock: { from: '#C7D2FE', to: '#818CF8', emoji: '🤝' },
+  groupunlock: { from: '#E0E7FF', to: '#C7D2FE', emoji: '🤝' },
   scratch: { from: '#3B82F6', to: '#1D4ED8', emoji: '🎴' },
 }
 

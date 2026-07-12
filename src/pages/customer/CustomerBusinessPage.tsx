@@ -387,7 +387,8 @@ function ComboCampaignBlock({
     active?: boolean
   }
 }) {
-  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+  // Claimed or sold out → show status on card (no PIN / details navigation)
+  const blocked = Boolean(offerState && !offerState.canClaim)
 
   return (
     <CampaignListingCard
@@ -461,7 +462,7 @@ function GroupUnlockCampaignBlock({
     active?: boolean
   }
 }) {
-  const blocked = Boolean(offerState && !offerState.canClaim && !offerState.hasClaimed)
+  const blocked = Boolean(offerState && !offerState.canClaim)
 
   return (
     <CampaignListingCard

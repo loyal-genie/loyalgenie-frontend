@@ -126,8 +126,8 @@ export function CampaignListingCard({
           <span
             className={cn(
               'absolute top-3 right-3 text-[10px] font-bold px-2.5 py-0.5 rounded-full backdrop-blur-sm',
-              campaign.mechanic === 'lottery' || campaign.mechanic === 'buy-x-get-y'
-                ? 'bg-white/75 text-[#78350f]'
+              ['lottery', 'buy-x-get-y', 'combo', 'groupunlock', 'flash', 'friend'].includes(campaign.mechanic)
+                ? 'bg-white/75 text-slate-800'
                 : 'bg-black/25 text-white',
             )}
           >
