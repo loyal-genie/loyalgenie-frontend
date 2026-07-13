@@ -93,7 +93,8 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
   { type: 'buy-x-get-y', desc: 'Customers buy or spend to unlock a reward — purchases or spend thresholds.', tags: ['Perceived value', 'Loss aversion'] },
   { type: 'coupon', desc: 'Limited coupon pool — customers claim a code and redeem at the counter.', tags: ['Scarcity', 'Easy claim'] },
   { type: 'flash', desc: 'Urgent limited-spot deal — customers claim fast before spots run out.', tags: ['Urgency', 'Scarcity'] },
-  { type: 'combo', desc: 'Bundle items or services — discounted price or take X get Y free.', tags: ['Value', 'Cross-sell'] },
+  // Package/Combo Deal temporarily hidden from vendor create UI
+  // { type: 'combo', desc: 'Bundle items or services — discounted price or take X get Y free.', tags: ['Value', 'Cross-sell'] },
   { type: 'friend', desc: 'Reward customers who bring friends along — unlock perks through referrals.', tags: ['Referral', 'Social'] },
   { type: 'groupunlock', desc: 'Locked reward until N people reserve a spot — everyone unlocks together.', tags: ['Community', 'Collective'] },
 ]
