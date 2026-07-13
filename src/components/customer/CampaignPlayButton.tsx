@@ -10,7 +10,9 @@ const PLAY_BUTTON_LABELS: Record<string, string> = {
   'buy-x-get-y': 'Enter PIN & Claim 💰',
   coupon: 'Enter PIN & Claim 🎫',
   flash: 'Enter PIN & Claim ⚡',
+  combo: 'Enter PIN & Claim 🎁',
   friend: 'Enter PIN & Claim 👫',
+  groupunlock: 'Enter PIN & Reserve 🤝',
   stamp: 'Enter PIN & Collect Stamp 🎯',
 }
 
@@ -24,7 +26,9 @@ const PLAY_BUTTON_STYLES: Record<string, string> = {
   'buy-x-get-y': 'bg-gradient-to-r from-[#fed7aa] to-[#fdba74] text-orange-950 shadow-[0_8px_20px_rgba(251,146,60,0.28)]',
   coupon: 'bg-gradient-to-r from-[#14b8a6] to-[#0d9488] text-white shadow-[0_8px_20px_rgba(13,148,136,0.35)]',
   flash: 'bg-gradient-to-r from-[#7dd3fc] to-[#38bdf8] text-sky-950 shadow-[0_8px_20px_rgba(56,189,248,0.35)]',
+  combo: 'bg-gradient-to-r from-[#ecfccb] to-[#d9f99d] text-lime-950 shadow-[0_8px_20px_rgba(163,230,53,0.28)]',
   friend: 'bg-gradient-to-r from-[#f9a8d4] to-[#f472b6] text-pink-950 shadow-[0_8px_20px_rgba(244,114,182,0.35)]',
+  groupunlock: 'bg-gradient-to-r from-[#e0e7ff] to-[#c7d2fe] text-indigo-950 shadow-[0_8px_20px_rgba(129,140,248,0.28)]',
   stamp: 'bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white shadow-[0_8px_20px_rgba(251,191,36,0.32)]',
 }
 

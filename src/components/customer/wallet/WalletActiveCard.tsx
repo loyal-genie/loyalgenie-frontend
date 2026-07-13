@@ -28,6 +28,7 @@ interface WalletActiveCardProps {
   redeeming?: boolean
   onRedeem: () => void
   onCheckLotteryStatus?: () => void
+  onCheckGroupStatus?: () => void
   onDismissLotteryLoss?: () => void
   onExpiredStatus?: () => void
 }
@@ -44,6 +45,7 @@ export function WalletActiveCard({
   redeeming,
   onRedeem,
   onCheckLotteryStatus,
+  onCheckGroupStatus,
   onDismissLotteryLoss,
   onExpiredStatus,
 }: WalletActiveCardProps) {
@@ -57,6 +59,7 @@ export function WalletActiveCard({
   const urgent = !isExpired && chip?.style.color === '#DC2626'
   const isLotteryPending = reward.status === 'lottery_pending'
   const isLotteryLost = reward.status === 'lottery_lost'
+  const isGroupPending = reward.status === 'group_pending'
   const canRedeem = !isExpired && (reward.status === 'earned' || reward.status === 'pending')
 
   return (
@@ -127,7 +130,7 @@ export function WalletActiveCard({
             </div>
           ) : (
             <div className="relative flex items-center justify-between gap-2">
-              {chip && !isLotteryPending && !isLotteryLost && (
+              {chip && !isLotteryPending && !isLotteryLost && !isGroupPending && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={chip.style}>
                   {chip.text}
                 </span>
@@ -137,6 +140,17 @@ export function WalletActiveCard({
                   whileTap={{ scale: 0.94 }}
                   type="button"
                   onClick={onCheckLotteryStatus}
+                  className="ml-auto px-4 py-1.5 rounded-xl text-[12px] font-extrabold border-0 cursor-pointer"
+                  style={{ background: 'rgba(255,255,255,0.95)', color: bgFrom }}
+                >
+                  Check status →
+                </motion.button>
+              )}
+              {isGroupPending && onCheckGroupStatus && (
+                <motion.button
+                  whileTap={{ scale: 0.94 }}
+                  type="button"
+                  onClick={onCheckGroupStatus}
                   className="ml-auto px-4 py-1.5 rounded-xl text-[12px] font-extrabold border-0 cursor-pointer"
                   style={{ background: 'rgba(255,255,255,0.95)', color: bgFrom }}
                 >
@@ -191,7 +205,11 @@ export function WalletActiveCard({
                   ? `Ticket · Draw ${reward.lottery?.drawDate ?? 'pending'}`
                   : isLotteryLost
                     ? 'Better luck next time'
-                    : `Won ${walletTimeAgo(reward.earnedAt)}`}
+                    : isGroupPending
+                      ? reward.groupUnlock
+                        ? `${reward.groupUnlock.groupJoined}/${reward.groupUnlock.targetParticipants} reserved · ${reward.groupUnlock.peopleLeft} more to unlock`
+                        : 'Waiting for the group to unlock'
+                      : `Won ${walletTimeAgo(reward.earnedAt)}`}
             </p>
           </div>
         )}

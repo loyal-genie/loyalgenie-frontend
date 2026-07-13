@@ -40,6 +40,14 @@ import {
   type FlashConfigUi,
 } from '@/lib/flash-campaign-config'
 import {
+  buildComboCampaignPayload,
+  defaultComboConfig,
+  defaultComboRedeem,
+  formatComboSentence,
+  isComboConfigValid,
+  type ComboConfigUi,
+} from '@/lib/combo-campaign-config'
+import {
   buildFriendCampaignPayload,
   defaultFriendConfig,
   defaultFriendRedeem,
@@ -48,6 +56,15 @@ import {
   isFriendConfigValid,
   type FriendConfigUi,
 } from '@/lib/friend-campaign-config'
+import {
+  buildGroupUnlockCampaignPayload,
+  defaultGroupUnlockConfig,
+  defaultGroupUnlockRedeem,
+  formatGroupUnlockRewardLabel,
+  formatGroupUnlockSentence,
+  isGroupUnlockConfigValid,
+  type GroupUnlockConfigUi,
+} from '@/lib/groupunlock-campaign-config'
 import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
 import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
 import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
@@ -55,7 +72,9 @@ import { LotteryPrizeEditor } from '@/components/vendor/LotteryPrizeEditor'
 import { BuyXGetYOfferEditor } from '@/components/vendor/BuyXGetYOfferEditor'
 import { CouponOfferEditor } from '@/components/vendor/CouponOfferEditor'
 import { FlashOfferEditor } from '@/components/vendor/FlashOfferEditor'
+import { ComboOfferEditor } from '@/components/vendor/ComboOfferEditor'
 import { FriendOfferEditor } from '@/components/vendor/FriendOfferEditor'
+import { GroupUnlockOfferEditor } from '@/components/vendor/GroupUnlockOfferEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -74,7 +93,9 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
   { type: 'buy-x-get-y', desc: 'Customers buy or spend to unlock a reward — purchases or spend thresholds.', tags: ['Perceived value', 'Loss aversion'] },
   { type: 'coupon', desc: 'Limited coupon pool — customers claim a code and redeem at the counter.', tags: ['Scarcity', 'Easy claim'] },
   { type: 'flash', desc: 'Urgent limited-spot deal — customers claim fast before spots run out.', tags: ['Urgency', 'Scarcity'] },
+  { type: 'combo', desc: 'Bundle items or services — discounted price or take X get Y free.', tags: ['Value', 'Cross-sell'] },
   { type: 'friend', desc: 'Reward customers who bring friends along — unlock perks through referrals.', tags: ['Referral', 'Social'] },
+  { type: 'groupunlock', desc: 'Locked reward until N people reserve a spot — everyone unlocks together.', tags: ['Community', 'Collective'] },
 ]
 
 const STEPS = ['Mechanic', 'Basics', 'Game Config', 'Review']
@@ -152,8 +173,12 @@ export function VendorCampaignCreatePage() {
   const [couponRedeem, setCouponRedeem] = useState(defaultCouponRedeem())
   const [flashConfig, setFlashConfig] = useState<FlashConfigUi>(defaultFlashConfig())
   const [flashRedeem, setFlashRedeem] = useState(defaultFlashRedeem())
+  const [comboConfig, setComboConfig] = useState<ComboConfigUi>(defaultComboConfig())
+  const [comboRedeem, setComboRedeem] = useState(defaultComboRedeem())
   const [friendConfig, setFriendConfig] = useState<FriendConfigUi>(defaultFriendConfig())
   const [friendRedeem, setFriendRedeem] = useState(defaultFriendRedeem())
+  const [groupUnlockConfig, setGroupUnlockConfig] = useState<GroupUnlockConfigUi>(defaultGroupUnlockConfig())
+  const [groupUnlockRedeem, setGroupUnlockRedeem] = useState(defaultGroupUnlockRedeem())
 
   const [loyaltyConfig, setLoyaltyConfig] = useState({
     pointsPerCheckIn: 10,
@@ -167,7 +192,9 @@ export function VendorCampaignCreatePage() {
   const isBuyXGetY       = mechanic === 'buy-x-get-y'
   const isCoupon         = mechanic === 'coupon'
   const isFlash          = mechanic === 'flash'
+  const isCombo          = mechanic === 'combo'
   const isFriend         = mechanic === 'friend'
+  const isGroupUnlock    = mechanic === 'groupunlock'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
   // Check-in has no Game Config — points live on Basics; rewards come from the standalone Rewards catalog.
@@ -181,7 +208,9 @@ export function VendorCampaignCreatePage() {
     || mechanic === 'buy-x-get-y'
     || mechanic === 'coupon'
     || mechanic === 'flash'
+    || mechanic === 'combo'
     || mechanic === 'friend'
+    || mechanic === 'groupunlock'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
@@ -255,7 +284,9 @@ export function VendorCampaignCreatePage() {
     if (mechanic === 'buy-x-get-y') return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
     if (mechanic === 'coupon') return isCouponConfigValid(couponConfig, couponRedeem)
     if (mechanic === 'flash') return isFlashConfigValid(flashConfig, flashRedeem)
+    if (mechanic === 'combo') return isComboConfigValid(comboConfig, comboRedeem)
     if (mechanic === 'friend') return isFriendConfigValid(friendConfig, friendRedeem)
+    if (mechanic === 'groupunlock') return isGroupUnlockConfigValid(groupUnlockConfig, groupUnlockRedeem)
     if (mechanic === 'stamp') {
       const dropsValid = [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
         d.to <= stampConfig.totalStamps && isStampDropValid(d),
@@ -273,7 +304,7 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y' && mechanic !== 'coupon' && mechanic !== 'flash' && mechanic !== 'friend') {
+    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y' && mechanic !== 'coupon' && mechanic !== 'flash' && mechanic !== 'combo' && mechanic !== 'friend' && mechanic !== 'groupunlock') {
       setLaunchError('This campaign type is not available yet.')
       return
     }
@@ -411,6 +442,22 @@ export function VendorCampaignCreatePage() {
         return
       }
 
+      if (mechanic === 'combo') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'combo',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          ...buildComboCampaignPayload(comboConfig, comboRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
       if (mechanic === 'friend') {
         const dailyWindow = getDailyWindowTimes(basics, dates)
         const campaign = await createMutation.mutateAsync({
@@ -422,6 +469,22 @@ export function VendorCampaignCreatePage() {
           endTime: dailyWindow.endTime,
           userCap: basics.userCap,
           ...buildFriendCampaignPayload(friendConfig, friendRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'groupunlock') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'groupunlock',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          ...buildGroupUnlockCampaignPayload(groupUnlockConfig, groupUnlockRedeem),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -615,7 +678,7 @@ export function VendorCampaignCreatePage() {
                   )}
 
                   {/* Active hours — daily window for instant-win + Buy X Get Y */}
-                  {(isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash || isFriend) && (
+                  {(isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) && (
                     <div className="mt-4 pt-4 border-t border-v-border">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -696,6 +759,32 @@ export function VendorCampaignCreatePage() {
                       <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
                       <p>Flash Deal has no separate user cap — the number of spots you set (next step) is the cap.</p>
                     </div>
+                  )}
+
+                  {isCombo && (
+                    <>
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Package/Combo Deal has no separate user cap — the number of spots you set (next step) is the cap.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Package/Combo Deal rewards trigger automatically on claim — no win probability to configure. Bundle items, pricing, spots, and expiry are set in the next step.</p>
+                      </div>
+                    </>
+                  )}
+
+                  {isGroupUnlock && (
+                    <>
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Community Offer has no separate user cap — the target number of participants you set (next step) is the cap.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Customers reserve a spot via staff PIN, but the reward stays locked for everyone until the target number of participants is reached — no win probability to configure.</p>
+                      </div>
+                    </>
                   )}
 
                   {/* Check-in Loyalty: all users by default, optional cap */}
@@ -1028,6 +1117,18 @@ export function VendorCampaignCreatePage() {
             </Card>
           )}
 
+          {step === 2 && mechanic === 'combo' && (
+            <Card className="p-6">
+              <ComboOfferEditor config={comboConfig} setConfig={setComboConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed combo.
+                </p>
+                <RedeemBeforeField value={comboRedeem} onChange={setComboRedeem} />
+              </div>
+            </Card>
+          )}
+
           {step === 2 && mechanic === 'friend' && (
             <Card className="p-6">
               <FriendOfferEditor config={friendConfig} setConfig={setFriendConfig} />
@@ -1036,6 +1137,18 @@ export function VendorCampaignCreatePage() {
                   Reward redeem before — same window for every claimed Bring a Friend reward.
                 </p>
                 <RedeemBeforeField value={friendRedeem} onChange={setFriendRedeem} />
+              </div>
+            </Card>
+          )}
+
+          {step === 2 && mechanic === 'groupunlock' && (
+            <Card className="p-6">
+              <GroupUnlockOfferEditor config={groupUnlockConfig} setConfig={setGroupUnlockConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed Community Offer reward.
+                </p>
+                <RedeemBeforeField value={groupUnlockRedeem} onChange={setGroupUnlockRedeem} />
               </div>
             </Card>
           )}
@@ -1061,12 +1174,12 @@ export function VendorCampaignCreatePage() {
                         return dur
                       })(),
                     },
-                    ...(!isLottery && !isLoyalty && !isCoupon && !isFlash ? [{ label: isShakeSpinOrDice ? 'Overall User Cap' : 'User Cap', value: `${basics.userCap} users` }] : []),
+                    ...(!isLottery && !isLoyalty && !isCoupon && !isFlash && !isCombo && !isGroupUnlock ? [{ label: isShakeSpinOrDice ? 'Overall User Cap' : 'User Cap', value: `${basics.userCap} users` }] : []),
                     ...(isLoyalty ? [{ label: 'User Cap', value: basics.userCapLimited ? `${basics.userCap} users` : 'All customers (no limit)' }] : []),
                     ...(isStamp ? [{ label: 'Claim Period', value: `${durationModeToDays(basics.claimDurationMode)} days after enrollment closes` }] : []),
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
-                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash || isFriend) ? [{
+                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) ? [{
                       label: 'Active Hours',
                       value: `${fmtTime(basics.activeStartTime)} – ${fmtTime(basics.activeEndTime)} daily`,
                     }] : []),
@@ -1106,11 +1219,24 @@ export function VendorCampaignCreatePage() {
                       { label: 'Redeem before', value: formatRedeemBeforeSummary(flashRedeem) },
                       { label: 'Terms & Conditions', value: flashConfig.termsAndConditions.trim() || '—' },
                     ] : []),
+                    ...(mechanic === 'combo' ? [
+                      { label: 'Combo type', value: comboConfig.variant === 'freeitem' ? 'Take X, Get Y Free' : 'Discounted Bundle' },
+                      { label: 'Total spots', value: `${comboConfig.totalSpots} spots` },
+                      { label: 'Offer', value: formatComboSentence(comboConfig) },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(comboRedeem) },
+                      { label: 'Terms & Conditions', value: comboConfig.termsAndConditions.trim() || '—' },
+                    ] : []),
                     ...(mechanic === 'friend' ? [
                       { label: 'Minimum friends', value: `${friendConfig.minFriends} friend${friendConfig.minFriends !== 1 ? 's' : ''}` },
                       { label: 'Offer', value: formatFriendSentence(friendConfig) },
                       { label: 'Reward value', value: formatFriendRewardLabel(friendConfig) },
                       { label: 'Redeem before', value: formatRedeemBeforeSummary(friendRedeem) },
+                    ] : []),
+                    ...(mechanic === 'groupunlock' ? [
+                      { label: 'Target participants', value: `${groupUnlockConfig.targetParticipants} people` },
+                      { label: 'Offer', value: formatGroupUnlockSentence(groupUnlockConfig) },
+                      { label: 'Reward', value: formatGroupUnlockRewardLabel(groupUnlockConfig) },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(groupUnlockRedeem) },
                     ] : []),
                     {
                       label: 'Rewards',
@@ -1124,7 +1250,9 @@ export function VendorCampaignCreatePage() {
                         mechanic === 'buy-x-get-y' ? formatBuyXGetYSentence(buyXGetYConfig) :
                         mechanic === 'coupon' ? formatCouponSentence(couponConfig) :
                         mechanic === 'flash' ? formatFlashSentence(flashConfig) :
-                        mechanic === 'friend' ? formatFriendSentence(friendConfig) : '—',
+                        mechanic === 'combo' ? formatComboSentence(comboConfig) :
+                        mechanic === 'friend' ? formatFriendSentence(friendConfig) :
+                        mechanic === 'groupunlock' ? formatGroupUnlockSentence(groupUnlockConfig) : '—',
                     },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between py-3 border-b border-v-border last:border-0">

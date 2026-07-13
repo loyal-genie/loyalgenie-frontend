@@ -369,6 +369,43 @@ function FlashCampaignBlock({
   )
 }
 
+function ComboCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    active?: boolean
+  }
+}) {
+  // Claimed or sold out → show status on card (no PIN / details navigation)
+  const blocked = Boolean(offerState && !offerState.canClaim)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Spots gone'}
+      statsLine={
+        offerState?.hasClaimed
+          ? `✓ Claimed · ${offerState.rewardLabel ?? 'Combo Deal'}`
+          : `${offerState?.rewardLabel ?? 'Combo Deal'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      }
+    />
+  )
+}
+
 function FriendCampaignBlock({
   campaign,
   offerState,
@@ -400,6 +437,44 @@ function FriendCampaignBlock({
         offerState?.hasClaimed
           ? `✓ Claimed · ${offerState.rewardLabel ?? 'Bring a Friend'}`
           : `${offerState?.rewardLabel ?? 'Bring a Friend'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      }
+    />
+  )
+}
+
+function GroupUnlockCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    groupJoined?: number
+    targetParticipants?: number
+    active?: boolean
+  }
+}) {
+  const blocked = Boolean(offerState && !offerState.canClaim)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      blockedLabel={offerState?.hasClaimed ? 'Already reserved' : 'Spots gone'}
+      statsLine={
+        offerState?.hasClaimed
+          ? `✓ Reserved · ${offerState.rewardLabel ?? 'Community Offer'}`
+          : `${offerState?.rewardLabel ?? 'Community Offer'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
       }
     />
   )
@@ -517,10 +592,12 @@ export function CustomerBusinessPage() {
   const buyXGetYCampaigns = biz.campaigns.filter(c => c.mechanic === 'buy-x-get-y')
   const couponCampaigns = biz.campaigns.filter(c => c.mechanic === 'coupon')
   const flashCampaigns = biz.campaigns.filter(c => c.mechanic === 'flash')
+  const comboCampaigns = biz.campaigns.filter(c => c.mechanic === 'combo')
   const friendCampaigns = biz.campaigns.filter(c => c.mechanic === 'friend')
+  const groupUnlockCampaigns = biz.campaigns.filter(c => c.mechanic === 'groupunlock')
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
   const otherCampaigns = biz.campaigns.filter(
-    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'coupon', 'flash', 'friend', 'check-in-loyalty'].includes(c.mechanic),
+    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'coupon', 'flash', 'combo', 'friend', 'groupunlock', 'check-in-loyalty'].includes(c.mechanic),
   )
 
   return (
@@ -626,6 +703,19 @@ export function CustomerBusinessPage() {
                     } | undefined}
                   />
                 ))}
+                {comboCampaigns.map(c => (
+                  <ComboCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
                 {friendCampaigns.map(c => (
                   <FriendCampaignBlock
                     key={c.id}
@@ -635,6 +725,21 @@ export function CustomerBusinessPage() {
                       canClaim?: boolean
                       hasClaimed?: boolean
                       spotsRemaining?: number
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {groupUnlockCampaigns.map(c => (
+                  <GroupUnlockCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      groupJoined?: number
+                      targetParticipants?: number
                       active?: boolean
                     } | undefined}
                   />

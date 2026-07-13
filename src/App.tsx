@@ -51,7 +51,9 @@ const CustomerLotteryStatusPage = lazyWithRetry(() => import('@/pages/customer/C
 const CustomerBuyXGetYPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerBuyXGetYPage').then(m => ({ default: m.CustomerBuyXGetYPage })))
 const CustomerCouponPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerCouponPage').then(m => ({ default: m.CustomerCouponPage })))
 const CustomerFlashPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerFlashPage').then(m => ({ default: m.CustomerFlashPage })))
+const CustomerComboPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerComboPage').then(m => ({ default: m.CustomerComboPage })))
 const CustomerFriendPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerFriendPage').then(m => ({ default: m.CustomerFriendPage })))
+const CustomerGroupUnlockPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerGroupUnlockPage').then(m => ({ default: m.CustomerGroupUnlockPage })))
 const CustomerStampPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerStampPage').then(m => ({ default: m.CustomerStampPage })))
 const CustomerMechanicComingSoonPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerMechanicComingSoonPage').then(m => ({ default: m.CustomerMechanicComingSoonPage })))
 
@@ -142,7 +144,9 @@ export function App() {
             <Route path="games/buy-x-get-y" element={<CustomerBuyXGetYPage />} />
             <Route path="games/coupon" element={<CustomerCouponPage />} />
             <Route path="games/flash" element={<CustomerFlashPage />} />
+            <Route path="games/combo" element={<CustomerComboPage />} />
             <Route path="games/friend" element={<CustomerFriendPage />} />
+            <Route path="games/groupunlock" element={<CustomerGroupUnlockPage />} />
           </Route>
 
           <Route path="/:slug" element={<SlugPage />} />

@@ -11,7 +11,9 @@ import {
   fetchBuyXGetYState,
   fetchCouponState,
   fetchFlashState,
+  fetchComboState,
   fetchFriendState,
+  fetchGroupUnlockState,
   fetchAuthSession,
   getApiErrorMessage,
 } from '@/lib/api'
@@ -35,7 +37,9 @@ import { LotteryCampaignDetail } from '@/components/customer/LotteryCampaignDeta
 import { BuyXGetYCampaignDetail } from '@/components/customer/BuyXGetYCampaignDetail'
 import { CouponCampaignDetail } from '@/components/customer/CouponCampaignDetail'
 import { FlashCampaignDetail } from '@/components/customer/FlashCampaignDetail'
+import { ComboCampaignDetail } from '@/components/customer/ComboCampaignDetail'
 import { FriendCampaignDetail } from '@/components/customer/FriendCampaignDetail'
+import { GroupUnlockCampaignDetail } from '@/components/customer/GroupUnlockCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
@@ -136,10 +140,24 @@ export function CustomerCampaignPage() {
     staleTime: 0,
   })
 
+  const { data: comboState, isLoading: comboStateLoading } = useQuery({
+    queryKey: ['combo-state', id, serverSession?.userId],
+    queryFn: () => fetchComboState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'combo',
+    staleTime: 0,
+  })
+
   const { data: friendState, isLoading: friendStateLoading } = useQuery({
     queryKey: ['friend-state', id, serverSession?.userId],
     queryFn: () => fetchFriendState(id!),
     enabled: Boolean(id) && authReady && campaign?.mechanic === 'friend',
+    staleTime: 0,
+  })
+
+  const { data: groupUnlockState, isLoading: groupUnlockStateLoading } = useQuery({
+    queryKey: ['groupunlock-state', id, serverSession?.userId],
+    queryFn: () => fetchGroupUnlockState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'groupunlock',
     staleTime: 0,
   })
 
@@ -224,7 +242,9 @@ export function CustomerCampaignPage() {
     || (campaign?.mechanic === 'buy-x-get-y' && buyXGetYStateLoading)
     || (campaign?.mechanic === 'coupon' && couponStateLoading)
     || (campaign?.mechanic === 'flash' && flashStateLoading)
+    || (campaign?.mechanic === 'combo' && comboStateLoading)
     || (campaign?.mechanic === 'friend' && friendStateLoading)
+    || (campaign?.mechanic === 'groupunlock' && groupUnlockStateLoading)
 
   const instantWinBlocked = (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playState && !playState.canPlay
   const shakeBlocked = instantWinBlocked
@@ -239,8 +259,10 @@ export function CustomerCampaignPage() {
   const buyXGetYBlocked = campaign?.mechanic === 'buy-x-get-y' && buyXGetYState && !buyXGetYState.canClaim && !buyXGetYState.hasClaimed
   const couponBlocked = campaign?.mechanic === 'coupon' && couponState && !couponState.canClaim && !couponState.hasClaimed
   const flashBlocked = campaign?.mechanic === 'flash' && flashState && !flashState.canClaim && !flashState.hasClaimed
+  const comboBlocked = campaign?.mechanic === 'combo' && comboState && !comboState.canClaim && !comboState.hasClaimed
   const friendBlocked = campaign?.mechanic === 'friend' && friendState && !friendState.canClaim && !friendState.hasClaimed
-  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked || buyXGetYBlocked || couponBlocked || flashBlocked || friendBlocked)
+  const groupUnlockBlocked = campaign?.mechanic === 'groupunlock' && groupUnlockState && !groupUnlockState.canClaim && !groupUnlockState.hasClaimed
+  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked || buyXGetYBlocked || couponBlocked || flashBlocked || comboBlocked || friendBlocked || groupUnlockBlocked)
 
   useEffect(() => {
     if (!blocked || stampCollect || loyaltySplash || !campaign || sessionLoading || isLoading || stateStillLoading) return
@@ -359,9 +381,13 @@ export function CustomerCampaignPage() {
                 ? 'Claim coupon'
                 : campaign.mechanic === 'flash'
                   ? 'Claim flash deal'
-                  : campaign.mechanic === 'friend'
+                  : campaign.mechanic === 'combo'
+                    ? 'Claim combo'
+                    : campaign.mechanic === 'friend'
                     ? 'Claim reward'
-                    : "Let's shake!"
+                    : campaign.mechanic === 'groupunlock'
+                      ? 'Reserve spot'
+                      : "Let's shake!"
 
   if (campaign.mechanic === 'shake') {
     return (
@@ -498,6 +524,24 @@ export function CustomerCampaignPage() {
     )
   }
 
+  if (campaign.mechanic === 'combo') {
+    return (
+      <ComboCampaignDetail
+        campaign={campaign}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={comboState?.hasClaimed}
+        spotsRemaining={comboState?.spotsRemaining}
+        totalSpots={comboState?.totalSpots}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
   if (campaign.mechanic === 'friend') {
     return (
       <FriendCampaignDetail
@@ -508,6 +552,24 @@ export function CustomerCampaignPage() {
         hasClaimed={friendState?.hasClaimed}
         spotsRemaining={friendState?.spotsRemaining}
         userCap={friendState?.userCap}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'groupunlock') {
+    return (
+      <GroupUnlockCampaignDetail
+        campaign={campaign}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={groupUnlockState?.hasClaimed}
+        groupJoined={groupUnlockState?.groupJoined}
+        targetParticipants={groupUnlockState?.targetParticipants}
         onBack={handleBack}
         onKey={handleKey}
         onDelete={handleDelete}

@@ -1,4 +1,4 @@
-export type LiveCampaignMechanic = 'stamp' | 'shake' | 'check-in-loyalty' | 'spin' | 'dice' | 'lottery' | 'buy-x-get-y' | 'coupon' | 'flash' | 'friend'
+export type LiveCampaignMechanic = 'stamp' | 'shake' | 'check-in-loyalty' | 'spin' | 'dice' | 'lottery' | 'buy-x-get-y' | 'coupon' | 'flash' | 'combo' | 'friend' | 'groupunlock'
 
 export interface CampaignTheme {
   gradient: string
@@ -83,6 +83,14 @@ export const CAMPAIGN_THEMES: Record<string, CampaignTheme> = {
     accent: '#0ea5e9',
     chipLabel: 'Flash Deal',
   },
+  combo: {
+    gradient: 'linear-gradient(135deg, #f7fee7 0%, #ecfccb 50%, #d9f99d 100%)',
+    cover: '#65a30d',
+    badgeBg: 'bg-[#f7fee7]',
+    badgeText: 'text-[#3f6212]',
+    accent: '#84cc16',
+    chipLabel: 'Package/Combo Deal',
+  },
   friend: {
     gradient: 'linear-gradient(135deg, #fce7f3 0%, #f9a8d4 50%, #f472b6 100%)',
     cover: '#db2777',
@@ -90,6 +98,14 @@ export const CAMPAIGN_THEMES: Record<string, CampaignTheme> = {
     badgeText: 'text-[#9d174d]',
     accent: '#ec4899',
     chipLabel: 'Bring a Friend',
+  },
+  groupunlock: {
+    gradient: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 45%, #c7d2fe 100%)',
+    cover: '#4f46e5',
+    badgeBg: 'bg-[#eef2ff]',
+    badgeText: 'text-[#3730a3]',
+    accent: '#6366f1',
+    chipLabel: 'Community Offer',
   },
 }
 
