@@ -6,6 +6,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
+
+export function hexMix(hexA: string, hexB: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(hexA)
+  const [r2, g2, b2] = hexToRgb(hexB)
+  const mix = (a: number, b: number) => Math.round(a + (b - a) * t)
+  return `#${[mix(r1, r2), mix(g1, g2), mix(b1, b2)].map(v => v.toString(16).padStart(2, '0')).join('')}`
+}
+
 export function generatePIN(): string {
   return String(Math.floor(100 + Math.random() * 900))
 }

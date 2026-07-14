@@ -1,9 +1,11 @@
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Handshake, Loader2, Users } from 'lucide-react'
 import { fetchGroupUnlockState, getApiErrorMessage } from '@/lib/api'
 import { getCampaignTheme, getPlayScreenBackground } from '@/lib/campaign-themes'
 import { getUser } from '@/lib/auth'
+import { CampaignLampClaim } from '@/components/customer/CampaignLampClaim'
 
 function statusBadge(unlocked: boolean, walletStatus: string | undefined): { label: string; tone: string } {
   if (!walletStatus) {
@@ -26,13 +28,21 @@ export function CustomerGroupUnlockStatusPage() {
   const navigate = useNavigate()
   const customerId = getUser('customer')?.userId
   const theme = getCampaignTheme('groupunlock')
+  const [showLampClaim, setShowLampClaim] = useState(false)
 
   const { data: state, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['groupunlock-state', id, customerId],
     queryFn: () => fetchGroupUnlockState(id!),
     enabled: Boolean(id) && Boolean(customerId),
-    refetchInterval: 5_000,
+    refetchInterval: showLampClaim ? false : 5_000,
   })
+
+  const target = state?.targetParticipants ?? 0
+  const joined = state?.groupJoined ?? 0
+  const progress = useMemo(
+    () => (target > 0 ? Math.min(100, Math.round((joined / target) * 100)) : 0),
+    [joined, target],
+  )
 
   if (isLoading) {
     return (
@@ -63,16 +73,35 @@ export function CustomerGroupUnlockStatusPage() {
     )
   }
 
-  const target = state.targetParticipants
-  const joined = state.groupJoined
-  const progress = target > 0 ? Math.min(100, Math.round((joined / target) * 100)) : 0
   const unlocked = state.unlocked
   const hasSpot = state.hasClaimed
   const walletStatus = state.walletReward?.status
   const badge = statusBadge(unlocked, walletStatus)
-  const canOpenWallet =
-    hasSpot && (unlocked || walletStatus === 'earned' || walletStatus === 'pending' || walletStatus === 'redeemed')
+  const canClaimReward =
+    hasSpot && unlocked && (walletStatus === 'earned' || walletStatus === 'group_pending' || walletStatus === 'pending')
   const waitingForCommunity = hasSpot && !unlocked && walletStatus === 'group_pending'
+
+  if (showLampClaim && canClaimReward) {
+    return (
+      <CampaignLampClaim
+        mechanic="groupunlock"
+        businessName={state.businessName}
+        claimedHeadline="Here's Your Community Reward ✨"
+        onBack={() => setShowLampClaim(false)}
+        preview={{
+          sectionLabel: 'Your reward',
+          rewardTitle: state.rewardLabel,
+          description: state.offerSentence || state.rewardDescription || undefined,
+          highlight: `${joined} / ${target} spots filled — unlocked`,
+        }}
+        onClaim={async () => ({
+          reward: state.rewardLabel,
+          code: state.walletReward?.code,
+          icon: '🤝',
+        })}
+      />
+    )
+  }
 
   return (
     <div
@@ -171,32 +200,33 @@ export function CustomerGroupUnlockStatusPage() {
               </p>
             )}
 
-            {canOpenWallet && (
-              <div className="mt-3 rounded-xl px-3 py-2" style={{ background: `${theme.accent}0D`, border: `1px solid ${theme.accent}22` }}>
-                <p className="text-sm font-semibold" style={{ color: theme.accentTo }}>
-                  🎉 {state.rewardLabel} is ready
-                </p>
-                {state.walletReward?.code && (walletStatus === 'earned' || walletStatus === 'pending') ? (
-                  <p className="mt-1 text-[11px] text-v-text-3">
-                    Code: <span className="font-bold tracking-wider text-v-text">{state.walletReward.code}</span>
-                  </p>
-                ) : null}
-                <Link
-                  to="/customer/wallet"
-                  className="mt-3 flex w-full items-center justify-center py-2.5 rounded-full text-white text-xs font-bold no-underline"
-                  style={{
-                    background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})`,
-                    boxShadow: `0 8px 20px ${theme.accent}4D`,
-                  }}
-                >
-                  {walletStatus === 'redeemed' ? 'Open Wallet' : 'Claim Reward in Wallet →'}
-                </Link>
-              </div>
+            {canClaimReward && walletStatus !== 'redeemed' && (
+              <button
+                type="button"
+                onClick={() => setShowLampClaim(true)}
+                className="mt-3 flex w-full items-center justify-center py-2.5 rounded-full text-white text-xs font-bold border-0 cursor-pointer"
+                style={{
+                  background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})`,
+                  boxShadow: `0 8px 20px ${theme.accent}4D`,
+                }}
+              >
+                Claim Reward →
+              </button>
+            )}
+
+            {walletStatus === 'redeemed' && (
+              <Link
+                to="/customer/wallet"
+                className="mt-3 flex w-full items-center justify-center py-2.5 rounded-full text-white text-xs font-bold no-underline"
+                style={{ background: theme.accentTo }}
+              >
+                Open Wallet
+              </Link>
             )}
           </div>
         )}
 
-        {hasSpot && state.canClaim === false && !unlocked && state.active && (
+        {hasSpot && !unlocked && state.active && (
           <p className="text-center text-[11px] text-v-text-3 px-2">
             Check back anytime — this page refreshes as more people reserve spots.
           </p>
