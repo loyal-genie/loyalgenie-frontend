@@ -12,6 +12,7 @@ import {
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { getUser } from '@/lib/auth'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
+import { getCampaignTheme, getPlayScreenBackground } from '@/lib/campaign-themes'
 import { WinCelebration } from '@/components/customer/win-celebration'
 
 type Phase = 'ready' | 'claiming' | 'won'
@@ -23,6 +24,7 @@ export function CustomerFriendPage() {
   const campaignId = getCampaignIdFromSearch(search)
   const playSession = campaignId ? getPlaySession(campaignId) : null
   const customerId = getUser('customer')?.userId
+  const theme = getCampaignTheme('friend')
 
   const [phase, setPhase] = useState<Phase>('ready')
   const [claimed, setClaimed] = useState<{
@@ -80,7 +82,7 @@ export function CustomerFriendPage() {
 
   if (campaignLoading || stateLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center" style={{ background: 'linear-gradient(145deg, #fce7f3, #f9a8d4)' }}>
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: getPlayScreenBackground('friend') }}>
         <Loader2 className="size-8 animate-spin text-pink-500" />
       </div>
     )
@@ -94,6 +96,7 @@ export function CustomerFriendPage() {
         code={claimed.code}
         businessName={campaign?.businessName ?? state?.businessName}
         onBackToCafe={goBack}
+        mechanic="friend"
       />
     )
   }
@@ -108,7 +111,7 @@ export function CustomerFriendPage() {
   return (
     <div
       className="min-h-dvh flex flex-col px-5 pt-12 pb-8 relative overflow-hidden max-w-[440px] mx-auto"
-      style={{ background: 'linear-gradient(160deg, #fdf2f8 0%, #fce7f3 42%, #f9a8d4 100%)' }}
+      style={{ background: getPlayScreenBackground('friend') }}
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.1]"
@@ -127,7 +130,7 @@ export function CustomerFriendPage() {
         onClick={goBack}
         className="absolute top-12 left-4 w-9 h-9 rounded-full bg-white/50 backdrop-blur-md flex items-center justify-center z-20 border-0 cursor-pointer"
       >
-        <ArrowLeft className="w-4 h-4 text-pink-900" />
+        <ArrowLeft className="w-4 h-4 text-gray-700" />
       </button>
 
       <AnimatePresence mode="wait">
@@ -149,11 +152,11 @@ export function CustomerFriendPage() {
             <motion.p
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-2xl font-black text-pink-950 tracking-tight"
+              className="text-2xl font-black text-gray-900 tracking-tight"
             >
               Claiming…
             </motion.p>
-            <p className="text-sm text-pink-800/80 mt-2">Adding reward to your wallet</p>
+            <p className="text-sm text-gray-500 mt-2">Adding reward to your wallet</p>
           </motion.div>
         ) : (
           <motion.div
@@ -168,16 +171,16 @@ export function CustomerFriendPage() {
                 transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
                 className="inline-flex items-center justify-center size-[72px] rounded-[20px] mb-4"
                 style={{
-                  background: 'linear-gradient(145deg, #ffffff 0%, #fce7f3 100%)',
-                  boxShadow: '0 12px 32px rgba(244,114,182,0.25)',
+                  background: `linear-gradient(145deg, #ffffff 0%, ${theme.accent}22 100%)`,
+                  boxShadow: `0 12px 32px ${theme.accent}40`,
                 }}
               >
-                <Users className="size-8 text-pink-500" strokeWidth={2.2} />
+                <Users className="size-8" style={{ color: theme.accent }} strokeWidth={2.2} />
               </motion.div>
-              <h1 className="text-xl font-extrabold text-pink-950 tracking-tight">
+              <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">
                 {campaign?.name ?? state?.campaignName}
               </h1>
-              <p className="text-sm text-pink-800/75 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 {campaign?.businessName ?? state?.businessName}
               </p>
             </div>
@@ -185,53 +188,59 @@ export function CustomerFriendPage() {
             <div
               className="relative overflow-hidden rounded-[22px]"
               style={{
-                background: 'linear-gradient(160deg, #ffffff 0%, #fdf2f8 55%, #fce7f3 100%)',
-                boxShadow: '0 18px 40px rgba(236,72,153,0.18)',
+                background: `linear-gradient(160deg, #ffffff 0%, ${theme.accent}12 55%, ${theme.accent}22 100%)`,
+                boxShadow: `0 18px 40px ${theme.accent}2e`,
               }}
             >
               <div
                 className="absolute inset-y-0 left-[18px] w-px opacity-40"
                 style={{
-                  backgroundImage: 'repeating-linear-gradient(to bottom, #ec4899 0 6px, transparent 6px 12px)',
+                  backgroundImage: `repeating-linear-gradient(to bottom, ${theme.accent} 0 6px, transparent 6px 12px)`,
                 }}
               />
-              <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: '#f9a8d4' }} />
-              <div className="absolute -right-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: '#f9a8d4' }} />
+              <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: theme.accent }} />
+              <div className="absolute -right-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: theme.accent }} />
 
               <div className="relative px-6 pt-5 pb-4 pl-8">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-pink-700/70">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">
                     Your reward
                   </p>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-pink-400 text-white">
+                  <span
+                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-full text-white"
+                    style={{ background: theme.accent }}
+                  >
                     FRIEND
                   </span>
                 </div>
 
-                <p className="text-[34px] leading-none font-black text-pink-950 tracking-tight">
+                <p className="text-[34px] leading-none font-black text-gray-900 tracking-tight">
                   {rewardLabel}
                 </p>
                 {offerSentence ? (
-                  <p className="text-sm font-semibold text-pink-800/80 mt-2">{offerSentence}</p>
+                  <p className="text-sm font-semibold text-gray-700 mt-2">{offerSentence}</p>
                 ) : null}
 
-                <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-pink-100 px-3 py-1.5">
-                  <Users className="size-3.5 text-pink-600" />
-                  <span className="text-xs font-bold text-pink-800">
+                <div
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5"
+                  style={{ background: `${theme.accent}18` }}
+                >
+                  <Users className="size-3.5" style={{ color: theme.accent }} />
+                  <span className="text-xs font-bold" style={{ color: theme.accentTo }}>
                     Bring {minFriends} friend{minFriends !== 1 ? 's' : ''} to unlock
                   </span>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-pink-700/50">Claims left</p>
-                    <p className="text-sm font-extrabold text-pink-900">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Claims left</p>
+                    <p className="text-sm font-extrabold text-gray-900">
                       {remaining} of {total}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-pink-700/50">Claimed</p>
-                    <p className="text-sm font-extrabold text-pink-900">{claimedCount}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Claimed</p>
+                    <p className="text-sm font-extrabold text-gray-900">{claimedCount}</p>
                   </div>
                 </div>
               </div>
@@ -241,11 +250,12 @@ export function CustomerFriendPage() {
 
             {state?.hasClaimed ? (
               <div className="rounded-2xl bg-white/95 p-5 text-center">
-                <p className="text-sm font-semibold text-pink-900">Already in your wallet</p>
+                <p className="text-sm font-semibold text-gray-900">Already in your wallet</p>
                 <button
                   type="button"
                   onClick={() => navigate('/customer/wallet')}
-                  className="mt-3 text-sm font-bold text-v-purple border-0 bg-transparent cursor-pointer"
+                  className="mt-3 text-sm font-bold border-0 bg-transparent cursor-pointer"
+                  style={{ color: theme.accent }}
                 >
                   View in Wallet →
                 </button>
@@ -260,11 +270,10 @@ export function CustomerFriendPage() {
                 }}
                 disabled={!state?.canClaim || claimMutation.isPending || !playSession}
                 whileTap={{ scale: 0.97 }}
-                className="w-full py-4 rounded-2xl font-extrabold text-base disabled:opacity-50 border-0 cursor-pointer"
+                className="w-full py-4 rounded-2xl font-extrabold text-base disabled:opacity-50 border-0 cursor-pointer text-white"
                 style={{
-                  background: 'linear-gradient(135deg, #f9a8d4 0%, #f472b6 45%, #ec4899 100%)',
-                  color: '#831843',
-                  boxShadow: '0 10px 28px rgba(244,114,182,0.4)',
+                  background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentTo} 100%)`,
+                  boxShadow: `0 10px 28px ${theme.accent}55`,
                 }}
               >
                 {claimMutation.isPending ? (

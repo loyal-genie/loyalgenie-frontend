@@ -1,11 +1,13 @@
+import { type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
+import { getCampaignTheme, getRewardScreenBackground } from '@/lib/campaign-themes'
 
-const CONFETTI_COLORS = ['#5b0e81', '#fad499', '#631cbb', '#e8b050', '#d4a8ff', '#9b59e8']
+const CONFETTI_COLORS = ['#7C3AED', '#F5C518', '#EC4899', '#06B6D4', '#22C55E', '#F59E0B', '#A78BFA', '#FDE68A']
 
 function Confetti() {
-  const pieces = Array.from({ length: 40 }, (_, i) => ({
+  const pieces = Array.from({ length: 48 }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
@@ -30,6 +32,71 @@ function Confetti() {
   )
 }
 
+/** Primary CTA — full campaign card gradient. */
+function ThemePrimaryButton({
+  children,
+  accent,
+  accentTo,
+  as: As = 'button',
+  to,
+  onClick,
+  type = 'button',
+}: {
+  children: ReactNode
+  accent: string
+  accentTo: string
+  as?: 'button' | 'link'
+  to?: string
+  onClick?: () => void
+  type?: 'button' | 'submit'
+}) {
+  const className =
+    'block w-full py-4 rounded-full font-bold text-base text-center text-white no-underline border-0 cursor-pointer'
+  const style = {
+    background: `linear-gradient(135deg, ${accent}, ${accentTo})`,
+    boxShadow: `0 8px 28px ${accent}50`,
+  }
+
+  if (As === 'link' && to) {
+    return (
+      <Link to={to} className={className} style={style}>
+        {children}
+      </Link>
+    )
+  }
+
+  return (
+    <button type={type} onClick={onClick} className={className} style={style}>
+      {children}
+    </button>
+  )
+}
+
+/** Secondary CTA — solid campaign accent (same family as card). */
+function ThemeSecondaryButton({
+  children,
+  accent,
+  onClick,
+}: {
+  children: ReactNode
+  accent: string
+  onClick?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="block w-full py-4 rounded-full font-bold text-base text-white border-0 cursor-pointer"
+      style={{
+        background: accent,
+        boxShadow: `0 6px 20px ${accent}40`,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
 interface WinCelebrationProps {
   reward: string
   emoji?: string
@@ -38,6 +105,7 @@ interface WinCelebrationProps {
   onBackToCafe?: () => void
   /** @deprecated use onBackToCafe */
   onClose?: () => void
+  mechanic?: string
 }
 
 export function WinCelebration({
@@ -47,23 +115,26 @@ export function WinCelebration({
   businessName,
   onBackToCafe,
   onClose,
+  mechanic = 'spin',
 }: WinCelebrationProps) {
   const handleBackToCafe = onBackToCafe ?? onClose
   const displayCode = code ?? '—'
+  const theme = getCampaignTheme(mechanic)
+  const accent = theme.accent
 
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center min-h-dvh px-5 overflow-y-auto"
-      style={{ background: 'linear-gradient(174deg, #43036d 2%, #2e1403 93%)' }}
+      style={{ background: getRewardScreenBackground(mechanic) }}
     >
       {handleBackToCafe && (
         <button
           type="button"
           onClick={handleBackToCafe}
-          className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 size-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
+          className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 size-9 rounded-full bg-white/80 border border-gray-200 flex items-center justify-center cursor-pointer shadow-sm"
           aria-label="Back to vendor"
         >
-          <ArrowLeft className="size-4 text-white" />
+          <ArrowLeft className="size-4 text-gray-800" />
         </button>
       )}
       <Confetti />
@@ -71,7 +142,8 @@ export function WinCelebration({
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-[#d4af35] text-base font-normal mb-6"
+          className="text-xs font-bold tracking-widest uppercase mb-5"
+          style={{ color: accent }}
         >
           🎉 YOU WON!
         </motion.p>
@@ -80,25 +152,28 @@ export function WinCelebration({
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200, delay: 0.15 }}
-          className="relative mx-auto size-[180px] mb-8"
+          className="relative mx-auto size-32 mb-5 rounded-full flex items-center justify-center"
+          style={{ background: `${accent}18`, border: `2.5px solid ${accent}45` }}
         >
-          <div className="absolute inset-0 rounded-full bg-[#5b0e81]/30" />
-          <div className="absolute inset-[15px] rounded-full bg-[#631cbb]/40 flex items-center justify-center">
-            <span className="text-[96px] leading-none">{emoji}</span>
-          </div>
+          <span className="text-6xl leading-none">{emoji}</span>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <h2 className="text-[32px] font-semibold text-white mb-2 leading-tight">{reward}</h2>
-          <p className="text-sm text-[rgba(184,184,184,0.64)] mb-8">
+          <h2 className="text-[28px] font-extrabold text-gray-900 mb-2 leading-tight">{reward}</h2>
+          <p className="text-sm font-medium text-gray-700 mb-8">
             {businessName ? `Added to your wallet · ${businessName}` : 'Added to your wallet'}
           </p>
 
-          <div className="bg-[rgba(217,217,217,0.1)] rounded-[10px] px-6 py-4 mb-3 mx-auto max-w-[220px]">
-            <p className="text-xs text-white/80 mb-1">Reward Code</p>
-            <p className="font-semibold text-xl text-white tracking-wide">{displayCode}</p>
+          <div
+            className="rounded-2xl px-6 py-4 mb-3 mx-auto max-w-[220px] bg-white"
+            style={{ border: `1.5px solid ${accent}40`, boxShadow: `0 4px 16px ${accent}18` }}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: accent }}>
+              Reward Code
+            </p>
+            <p className="font-bold text-xl tracking-wide text-gray-900">{displayCode}</p>
           </div>
-          <p className="text-sm text-[rgba(217,217,217,0.47)] mb-10">
+          <p className="text-sm font-medium text-gray-600 mb-10">
             Show this code to the staff at the counter to redeem
           </p>
         </motion.div>
@@ -109,20 +184,13 @@ export function WinCelebration({
           transition={{ delay: 0.45 }}
           className="space-y-3"
         >
-          <Link
-            to="/customer/wallet"
-            className="block w-full py-4 rounded-[14px] font-medium text-base text-center text-white no-underline bg-white/10"
-          >
+          <ThemePrimaryButton as="link" to="/customer/wallet" accent={accent} accentTo={theme.accentTo}>
             View Rewards
-          </Link>
+          </ThemePrimaryButton>
           {handleBackToCafe && (
-            <button
-              type="button"
-              className="block w-full py-4 rounded-[14px] font-bold text-base text-white bg-[#631cbb] border-0 cursor-pointer"
-              onClick={handleBackToCafe}
-            >
-              Back to Vendor
-            </button>
+            <ThemeSecondaryButton accent={theme.accentTo} onClick={handleBackToCafe}>
+              ← Back to Business
+            </ThemeSecondaryButton>
           )}
         </motion.div>
       </div>
@@ -137,6 +205,7 @@ interface NoWinProps {
   onClose?: () => void
   playsLeft?: number
   attempts?: { used: number; total: number }
+  mechanic?: string
 }
 
 export function NoWin({
@@ -145,71 +214,64 @@ export function NoWin({
   onClose,
   playsLeft,
   attempts,
+  mechanic = 'spin',
 }: NoWinProps) {
   const handleTryAgain = onTryAgain ?? onClose
   const canRetry = playsLeft !== undefined && playsLeft > 0 && Boolean(handleTryAgain)
+  const theme = getCampaignTheme(mechanic)
+  const accent = theme.accent
 
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center min-h-dvh px-5 overflow-y-auto"
-      style={{ background: 'linear-gradient(174deg, #43036d 2%, #2e1403 93%)' }}
+      style={{ background: getRewardScreenBackground(mechanic) }}
     >
       {onBackToCafe && (
         <button
           type="button"
           onClick={onBackToCafe}
-          className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 size-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border-0 cursor-pointer"
+          className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 size-9 rounded-full bg-white/80 border border-gray-200 flex items-center justify-center cursor-pointer shadow-sm"
           aria-label="Back to vendor"
         >
-          <ArrowLeft className="size-4 text-white" />
+          <ArrowLeft className="size-4 text-gray-800" />
         </button>
       )}
 
       <div className="relative z-10 flex flex-col items-center justify-center flex-1 w-full max-w-sm py-16 text-center">
-        <motion.div
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          className="text-6xl mb-5"
-        >
+        <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="text-6xl mb-5">
           😔
         </motion.div>
-        <h2 className="text-2xl font-semibold text-white mb-2">So close!</h2>
-        <p className="text-sm text-white/60 mb-2">Not this time — your next visit could be the one.</p>
+        <h2 className="text-2xl font-extrabold text-gray-900 mb-2">So close!</h2>
+        <p className="text-sm font-medium text-gray-700 mb-2">
+          Not this time — your next visit could be the one.
+        </p>
         {attempts && (
-          <p className="text-sm font-bold text-[#d4a8ff] mb-2">
+          <p className="text-sm font-bold mb-2" style={{ color: accent }}>
             {attempts.used}/{attempts.total} attempts used today
           </p>
         )}
-        <p className="text-xs text-white/30 mb-10">Every visit gives you a new chance to win 🍀</p>
+        <p className="text-sm font-medium text-gray-600 mb-10">
+          Every visit gives you a new chance to win 🍀
+        </p>
 
         <div className="w-full space-y-3">
           {canRetry && (
-            <button
-              type="button"
-              className="block w-full py-4 rounded-[14px] font-bold text-base text-white bg-[#631cbb] border-0 cursor-pointer"
-              onClick={handleTryAgain}
-            >
+            <ThemePrimaryButton accent={accent} accentTo={theme.accentTo} onClick={handleTryAgain}>
               Try Again ({playsLeft} left)
-            </button>
+            </ThemePrimaryButton>
           )}
-          <Link
+          <ThemePrimaryButton
+            as="link"
             to="/customer/wallet"
-            className="block w-full py-4 rounded-[14px] font-medium text-base text-center text-white no-underline bg-white/10"
+            accent={accent}
+            accentTo={theme.accentTo}
           >
             View Rewards
-          </Link>
+          </ThemePrimaryButton>
           {onBackToCafe && (
-            <button
-              type="button"
-              className={`block w-full py-4 rounded-[14px] font-bold text-base border-0 cursor-pointer ${
-                canRetry
-                  ? 'text-white bg-white/10'
-                  : 'text-white bg-[#631cbb]'
-              }`}
-              onClick={onBackToCafe}
-            >
-              Back to Vendor
-            </button>
+            <ThemeSecondaryButton accent={theme.accentTo} onClick={onBackToCafe}>
+              ← Back to Business
+            </ThemeSecondaryButton>
           )}
         </div>
       </div>

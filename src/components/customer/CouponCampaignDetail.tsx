@@ -13,6 +13,7 @@ interface CouponCampaignDetailProps {
   hasClaimed?: boolean
   spotsRemaining?: number
   totalCoupons?: number
+  businessName?: string
   onBack: () => void
   onKey: (digit: string) => void
   onDelete: () => void
@@ -27,6 +28,7 @@ export function CouponCampaignDetail({
   hasClaimed,
   spotsRemaining,
   totalCoupons,
+  businessName,
   onBack,
   onKey,
   onDelete,
@@ -51,6 +53,7 @@ export function CouponCampaignDetail({
       mechanic="coupon"
       title={campaign.name}
       subtitle="Claim a limited coupon and redeem at the counter."
+      businessName={businessName}
       onBack={onBack}
       loading={loading && !hasClaimed}
       coverExtra={
@@ -73,28 +76,43 @@ export function CouponCampaignDetail({
             onKey={onKey}
             onDelete={onDelete}
             onSubmit={onSubmit}
-            submitLabel="Claim coupon"
+            submitLabel="Claim Now"
             submitColor={theme.accent}
+            submitColorTo={theme.accentTo}
           />
         )
       }
     >
       <div
-        className="relative overflow-hidden rounded-2xl border border-teal-100 p-4"
-        style={{ background: 'linear-gradient(160deg, #fffbeb 0%, #fef3c7 60%, #fde68a 100%)' }}
+        className="relative overflow-hidden rounded-2xl p-4"
+        style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
       >
-        <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-amber-800/65">
+        <p
+          className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"
+          style={{ color: theme.accent }}
+        >
           <Gift className="size-3.5" /> Your coupon
         </p>
-        <p className="text-2xl font-black tracking-tight text-teal-950">{rewardName}</p>
+        <p className="text-2xl font-black tracking-tight text-gray-900">{rewardName}</p>
         {terms ? (
-          <div className="mt-3 rounded-xl border border-amber-700/10 bg-white/55 px-3 py-2.5">
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-amber-900/55">Terms</p>
-            <p className="whitespace-pre-wrap text-xs leading-relaxed text-teal-950/85">{terms}</p>
+          <div
+            className="mt-3 rounded-xl bg-white/80 px-3 py-2.5"
+            style={{ border: `1px solid ${theme.accent}22` }}
+          >
+            <p
+              className="mb-1 text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: theme.accent, opacity: 0.7 }}
+            >
+              Terms
+            </p>
+            <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-800">{terms}</p>
           </div>
         ) : null}
         {remaining != null && total != null && (
-          <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-teal-900/70">
+          <p
+            className="mt-3 flex items-center gap-1.5 text-xs font-semibold"
+            style={{ color: theme.accent, opacity: 0.85 }}
+          >
             <Ticket className="size-3.5" /> {remaining} of {total} left
           </p>
         )}

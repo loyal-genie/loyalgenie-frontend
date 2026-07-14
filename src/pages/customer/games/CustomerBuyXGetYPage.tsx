@@ -11,6 +11,7 @@ import {
 } from '@/lib/api'
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { getUser } from '@/lib/auth'
+import { getCampaignTheme, getPlayScreenBackground } from '@/lib/campaign-themes'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
 import { WinCelebration } from '@/components/customer/win-celebration'
 
@@ -21,6 +22,7 @@ export function CustomerBuyXGetYPage() {
   const campaignId = getCampaignIdFromSearch(search)
   const playSession = campaignId ? getPlaySession(campaignId) : null
   const customerId = getUser('customer')?.userId
+  const theme = getCampaignTheme('buy-x-get-y')
 
   const [claimed, setClaimed] = useState<{
     reward: string
@@ -57,9 +59,6 @@ export function CustomerBuyXGetYPage() {
     onSuccess: result => {
       setClaimed({ reward: result.reward, code: result.code, icon: result.icon })
       setClaimError('')
-      void queryClient.invalidateQueries({ queryKey: ['buy-x-get-y-state', campaignId] })
-      void queryClient.refetchQueries({ queryKey: ['customer-rewards'] })
-      void queryClient.invalidateQueries({ queryKey: ['business-campaign-states'] })
     },
     onError: err => {
       setClaimError(getApiErrorMessage(err, 'Could not claim reward. Try again.'))
@@ -74,8 +73,8 @@ export function CustomerBuyXGetYPage() {
 
   if (campaignLoading || stateLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center" style={{ background: 'linear-gradient(145deg, #7c2d12, #431407)' }}>
-        <Loader2 className="size-8 animate-spin text-orange-200" />
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: getPlayScreenBackground('buy-x-get-y') }}>
+        <Loader2 className="size-8 animate-spin" style={{ color: theme.accent }} />
       </div>
     )
   }
@@ -88,6 +87,7 @@ export function CustomerBuyXGetYPage() {
         code={claimed.code}
         businessName={campaign?.businessName ?? state?.businessName}
         onBackToCafe={goBack}
+        mechanic="buy-x-get-y"
       />
     )
   }
@@ -98,14 +98,14 @@ export function CustomerBuyXGetYPage() {
   return (
     <div
       className="min-h-dvh flex flex-col px-5 pt-12 pb-8 relative overflow-hidden max-w-[440px] mx-auto"
-      style={{ background: 'linear-gradient(145deg, #7c2d12 0%, #c2410c 45%, #431407 100%)' }}
+      style={{ background: getPlayScreenBackground('buy-x-get-y') }}
     >
       <button
         type="button"
         onClick={goBack}
-        className="absolute top-12 left-4 w-9 h-9 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center z-20 border-0 cursor-pointer"
+        className="absolute top-12 left-4 w-9 h-9 rounded-full bg-black/5 backdrop-blur-md flex items-center justify-center z-20 border-0 cursor-pointer"
       >
-        <ArrowLeft className="w-4 h-4 text-white" />
+        <ArrowLeft className="w-4 h-4 text-gray-700" />
       </button>
 
       <div className="flex-1 flex flex-col justify-center relative z-10 gap-6 mt-8">
@@ -117,28 +117,29 @@ export function CustomerBuyXGetYPage() {
           >
             💰
           </motion.div>
-          <h1 className="text-xl font-bold text-orange-50">{campaign?.name ?? state?.campaignName}</h1>
-          <p className="text-sm text-orange-200/80 mt-1">{campaign?.businessName ?? state?.businessName}</p>
+          <h1 className="text-xl font-bold text-gray-900">{campaign?.name ?? state?.campaignName}</h1>
+          <p className="text-sm text-gray-500 mt-1">{campaign?.businessName ?? state?.businessName}</p>
         </div>
 
-        <div className="rounded-2xl border border-orange-300/30 bg-white/10 p-5 backdrop-blur-sm">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-orange-200/70 mb-2">Your reward</p>
-          <p className="text-2xl font-black text-white">{rewardLabel}</p>
-          {description && <p className="text-sm text-orange-100/80 mt-2 leading-relaxed">{description}</p>}
+        <div className="rounded-2xl border border-green-200 bg-white/80 p-5 backdrop-blur-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Your reward</p>
+          <p className="text-2xl font-black text-gray-900">{rewardLabel}</p>
+          {description && <p className="text-sm text-gray-500 mt-2 leading-relaxed">{description}</p>}
           {state?.offerSentence && (
-            <p className="text-xs font-semibold text-orange-200 mt-3">{state.offerSentence}</p>
+            <p className="text-xs font-semibold mt-3" style={{ color: theme.accent }}>{state.offerSentence}</p>
           )}
         </div>
 
-        {claimError && <p className="text-center text-sm text-red-200">{claimError}</p>}
+        {claimError && <p className="text-center text-sm text-red-500">{claimError}</p>}
 
         {state?.hasClaimed ? (
-          <div className="rounded-2xl bg-white/95 p-5 text-center">
-            <p className="text-sm font-semibold text-orange-900">Already in your wallet</p>
+          <div className="rounded-2xl bg-white/95 p-5 text-center border border-gray-100">
+            <p className="text-sm font-semibold text-gray-900">Already in your wallet</p>
             <button
               type="button"
               onClick={() => navigate('/customer/wallet')}
-              className="mt-3 text-sm font-bold text-v-purple border-0 bg-transparent cursor-pointer"
+              className="mt-3 text-sm font-bold border-0 bg-transparent cursor-pointer"
+              style={{ color: theme.accent }}
             >
               View in Wallet →
             </button>
@@ -153,11 +154,10 @@ export function CustomerBuyXGetYPage() {
             }}
             disabled={!state?.canClaim || claimMutation.isPending || !playSession}
             whileTap={{ scale: 0.97 }}
-            className="w-full py-4 rounded-2xl font-bold text-base disabled:opacity-50 border-0 cursor-pointer"
+            className="w-full py-4 rounded-2xl font-bold text-base disabled:opacity-50 border-0 cursor-pointer text-white"
             style={{
-              background: 'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)',
-              color: '#431407',
-              boxShadow: '0 8px 32px rgba(249,115,22,0.35)',
+              background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentTo} 100%)`,
+              boxShadow: `0 8px 32px ${theme.accent}55`,
             }}
           >
             {claimMutation.isPending ? (

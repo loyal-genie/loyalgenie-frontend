@@ -1714,6 +1714,7 @@ export interface LoyaltyState {
   nextMilestone: { name: string; pointsThreshold: number; pointsNeeded: number } | null
   userCap: number
   currentUsers: number
+  playingToday?: number
   campaignName: string
   businessId: string
   businessName: string

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useLotteryPlay } from '@/hooks/useLotteryPlay'
+import { getCampaignTheme, getPlayScreenBackground } from '@/lib/campaign-themes'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
 import { fmtCampaignDate } from '@/lib/campaign-dates'
 
@@ -44,6 +45,7 @@ export function CustomerLotteryPage() {
   } = useLotteryPlay()
 
   const [uiState, setUiState] = useState<State>('idle')
+  const theme = getCampaignTheme('lottery')
 
   useEffect(() => {
     if (claimResult) setUiState('claimed')
@@ -80,37 +82,37 @@ export function CustomerLotteryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center" style={{ background: 'linear-gradient(145deg, #1A0A00, #2C1600, #0D0B1E)' }}>
-        <Loader2 className="size-8 animate-spin text-amber-300" />
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: getPlayScreenBackground('lottery') }}>
+        <Loader2 className="size-8 animate-spin" style={{ color: theme.accent }} />
       </div>
     )
   }
 
   const showClaimed = uiState === 'claimed' || Boolean(claimResult)
+  const ctaStyle = {
+    background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentTo} 100%)`,
+    color: '#ffffff',
+    boxShadow: `0 8px 32px ${theme.accent}55`,
+  }
 
   return (
     <div
       className="min-h-dvh flex flex-col px-5 pt-12 pb-8 relative overflow-hidden max-w-[440px] mx-auto"
-      style={{ background: 'linear-gradient(145deg, #1A0A00 0%, #2C1600 40%, #0D0B1E 100%)' }}
+      style={{ background: getPlayScreenBackground('lottery') }}
     >
-      <div className="absolute top-20 -left-20 w-72 h-72 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(245,197,24,0.2) 0%, transparent 70%)', filter: 'blur(60px)' }} />
-      <div className="absolute bottom-32 -right-20 w-64 h-64 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(217,119,6,0.18) 0%, transparent 70%)', filter: 'blur(48px)' }} />
-
       {!showClaimed && SPARKLE_POS.map((pos, i) => (
-        <motion.div key={i} className="absolute text-yellow-300/20 pointer-events-none select-none" style={pos}
-          animate={{ opacity: [0.15, 0.6, 0.15], scale: [0.8, 1.2, 0.8], rotate: [0, 12, 0] }}
+        <motion.div key={i} className="absolute text-violet-300/40 pointer-events-none select-none" style={pos}
+          animate={{ opacity: [0.15, 0.55, 0.15], scale: [0.8, 1.2, 0.8], rotate: [0, 12, 0] }}
           transition={{ duration: 2.5 + i * 0.35, repeat: Infinity, ease: 'easeInOut', delay: i * 0.4 }}>
           ✦
         </motion.div>
       ))}
 
       <button type="button" onClick={goBack}
-        className="absolute top-12 left-4 w-9 h-9 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center z-20 border-0 cursor-pointer">
-        <ArrowLeft className="w-4 h-4 text-white" />
+        className="absolute top-12 left-4 w-9 h-9 rounded-full bg-black/5 backdrop-blur-md flex items-center justify-center z-20 border-0 cursor-pointer">
+        <ArrowLeft className="w-4 h-4 text-gray-700" />
       </button>
-      <p className="absolute top-14 right-4 text-[10px] text-white/30 z-20">Lucky Draw</p>
+      <p className="absolute top-14 right-4 text-[10px] text-gray-400 z-20">Lucky Draw</p>
 
       <div className="flex-1 flex flex-col justify-center relative z-10 gap-6 mt-8">
         <AnimatePresence mode="wait">
@@ -124,37 +126,37 @@ export function CustomerLotteryPage() {
                 >
                   🎟️
                 </motion.div>
-                <h1 className="text-xl font-bold text-amber-100">{campaignName}</h1>
-                <p className="text-sm text-amber-200/70 mt-1">{businessName}</p>
+                <h1 className="text-xl font-bold text-gray-900">{campaignName}</h1>
+                <p className="text-sm text-gray-500 mt-1">{businessName}</p>
                 {jackpot && (
-                  <p className="text-sm font-semibold text-amber-300 mt-2">
+                  <p className="text-sm font-semibold mt-2" style={{ color: theme.accent }}>
                     👑 {jackpot.reward}
                   </p>
                 )}
               </div>
 
               {drawDate && (
-                <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 px-5 py-4 text-center backdrop-blur-sm">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-200/60">Draw in</p>
-                  <p className="text-2xl font-black text-amber-300 mt-1">{daysLeft} day{daysLeft !== 1 ? 's' : ''}</p>
-                  <p className="text-xs text-amber-200/50 mt-1">{fmtCampaignDate(drawDate)}</p>
+                <div className="rounded-2xl border border-violet-200 bg-white/70 px-5 py-4 text-center backdrop-blur-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Draw in</p>
+                  <p className="text-2xl font-black text-gray-900 mt-1">{daysLeft} day{daysLeft !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-gray-500 mt-1">{fmtCampaignDate(drawDate)}</p>
                 </div>
               )}
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-2">Prizes</p>
+              <div className="rounded-2xl border border-gray-200 bg-white/80 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Prizes</p>
                 <div className="space-y-1.5">
                   {displayPrizes.map((p, i) => (
                     <div key={`${p.name}-${i}`} className="flex justify-between text-xs">
-                      <span className="text-white/80">{p.icon ?? '🎁'} {p.name}</span>
-                      <span className="text-amber-200/80 font-medium">{p.reward}</span>
+                      <span className="text-gray-800">{p.icon ?? '🎁'} {p.name}</span>
+                      <span className="font-medium" style={{ color: theme.accent }}>{p.reward}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {claimError && (
-                <p className="text-center text-sm text-red-300">{claimError}</p>
+                <p className="text-center text-sm text-red-500">{claimError}</p>
               )}
 
               <motion.button
@@ -163,11 +165,7 @@ export function CustomerLotteryPage() {
                 disabled={!canClaim || isClaiming || uiState === 'claiming'}
                 whileTap={{ scale: 0.97 }}
                 className="w-full py-4 rounded-2xl font-bold text-base disabled:opacity-50 border-0 cursor-pointer"
-                style={{
-                  background: 'linear-gradient(135deg, #F5C518 0%, #D97706 100%)',
-                  color: '#1A0A00',
-                  boxShadow: '0 8px 32px rgba(245,197,24,0.35)',
-                }}
+                style={ctaStyle}
               >
                 {isClaiming || uiState === 'claiming' ? (
                   <span className="inline-flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> Claiming…</span>
@@ -183,11 +181,11 @@ export function CustomerLotteryPage() {
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                  className="text-2xl font-black text-amber-300"
+                  className="text-2xl font-black text-gray-900"
                 >
                   You&apos;re in! 🎉
                 </motion.p>
-                <p className="text-sm text-amber-200/70 mt-1">
+                <p className="text-sm text-gray-500 mt-1">
                   Good luck on {drawDate ? fmtCampaignDate(drawDate) : 'draw day'}
                 </p>
               </div>
@@ -196,27 +194,27 @@ export function CustomerLotteryPage() {
                 initial={{ rotateX: 90, opacity: 0 }}
                 animate={{ rotateX: 0, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 18, delay: 0.1 }}
-                className="rounded-2xl overflow-hidden shadow-2xl"
+                className="rounded-2xl overflow-hidden shadow-xl border border-violet-100"
                 style={{ perspective: 800 }}
               >
-                <div className="px-4 py-3 text-center" style={{ background: 'linear-gradient(135deg, #F5C518, #D97706)' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-950/70">Lucky Draw Ticket</p>
-                  <p className="text-sm font-bold text-amber-950">{campaignName}</p>
-                  <p className="text-[10px] text-amber-950/60">{businessName}</p>
+                <div className="px-4 py-3 text-center" style={{ background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})` }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">Lucky Draw Ticket</p>
+                  <p className="text-sm font-bold text-white">{campaignName}</p>
+                  <p className="text-[10px] text-white/70">{businessName}</p>
                 </div>
-                <div className="px-6 py-8 text-center relative" style={{ background: 'linear-gradient(180deg, #1E0A00, #120800)' }}>
-                  <p className="text-[10px] text-amber-400/50 uppercase tracking-widest">Ticket Number</p>
-                  <p className="text-5xl font-black mt-2" style={{ color: '#F5C518', textShadow: '0 0 24px rgba(245,197,24,0.4)' }}>
+                <div className="px-6 py-8 text-center relative bg-white">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest">Ticket Number</p>
+                  <p className="text-5xl font-black mt-2" style={{ color: theme.accent }}>
                     #{ticketNumber != null ? padTicketNo(ticketNumber) : '----'}
                   </p>
-                  <div className="my-4 border-t border-dashed border-amber-400/20" />
-                  <p className="text-[10px] text-amber-400/40">Serial {serialCode ?? '—'}</p>
-                  {drawDate && <p className="text-xs text-amber-300/60 mt-2">Draw: {fmtCampaignDate(drawDate)}</p>}
+                  <div className="my-4 border-t border-dashed border-violet-200" />
+                  <p className="text-[10px] text-gray-400">Serial {serialCode ?? '—'}</p>
+                  {drawDate && <p className="text-xs text-gray-500 mt-2">Draw: {fmtCampaignDate(drawDate)}</p>}
                 </div>
               </motion.div>
 
-              <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-center">
-                <p className="text-xs text-amber-200/70">
+              <div className="rounded-xl border border-violet-200 bg-white p-3 text-center">
+                <p className="text-sm font-medium text-gray-700">
                   Ticket saved. Check Status anytime — winners move to your wallet after the draw.
                 </p>
               </div>
@@ -225,19 +223,22 @@ export function CustomerLotteryPage() {
                 type="button"
                 onClick={goToStatus}
                 whileTap={{ scale: 0.97 }}
-                className="w-full py-4 rounded-2xl font-bold text-base border-0 cursor-pointer"
-                style={{
-                  background: 'linear-gradient(135deg, #F5C518 0%, #D97706 100%)',
-                  color: '#1A0A00',
-                  boxShadow: '0 8px 32px rgba(245,197,24,0.35)',
-                }}
+                className="w-full py-4 rounded-full font-bold text-base text-white border-0 cursor-pointer"
+                style={ctaStyle}
               >
                 Check Status →
               </motion.button>
 
-              <button type="button" onClick={goBack}
-                className="text-sm text-amber-300/80 hover:text-amber-200 transition-colors bg-transparent border-0 cursor-pointer">
-                ← Back to {businessName}
+              <button
+                type="button"
+                onClick={goBack}
+                className="w-full py-4 rounded-full font-bold text-base text-white border-0 cursor-pointer"
+                style={{
+                  background: theme.accentTo,
+                  boxShadow: `0 6px 20px ${theme.accentTo}40`,
+                }}
+              >
+                ← Back to Business
               </button>
             </motion.div>
           )}

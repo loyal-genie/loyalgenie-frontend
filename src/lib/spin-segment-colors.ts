@@ -137,3 +137,35 @@ export function spinRewardChipStyle(color: string): SpinRewardChipStyle {
     dotBackground: color,
   }
 }
+
+/** Chip styles for light surfaces (PIN entry, white cards). */
+export function spinRewardChipStyleLight(color: string): SpinRewardChipStyle {
+  if (isGradientColor(color)) {
+    const stops = gradientStopsForColor(color)
+    const a = stops?.[0] ?? '#7C3AED'
+    const b = stops?.[1] ?? '#4C1D95'
+    return {
+      background: rgbaFromHex(a, 0.14),
+      borderColor: rgbaFromHex(a, 0.35),
+      textColor: b,
+      dotBackground: `linear-gradient(135deg, ${a}, ${b})`,
+    }
+  }
+
+  const light = isLightHex(color)
+  return {
+    background: rgbaFromHex(color, light ? 0.55 : 0.12),
+    borderColor: rgbaFromHex(color, light ? 0.85 : 0.28),
+    textColor: light ? '#312e81' : color,
+    dotBackground: color,
+  }
+}
+
+/** Solid accent hex for a segment color (gradients → first stop). */
+export function spinSegmentAccentHex(color: string): string {
+  if (isGradientColor(color)) {
+    const stops = gradientStopsForColor(color)
+    return stops?.[0] ?? '#7C3AED'
+  }
+  return color.startsWith('#') ? color : '#7C3AED'
+}

@@ -393,6 +393,7 @@ export function CustomerCampaignPage() {
     return (
       <ShakeCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -413,6 +414,7 @@ export function CustomerCampaignPage() {
     return (
       <SpinCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -433,6 +435,7 @@ export function CustomerCampaignPage() {
     return (
       <DiceCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -453,6 +456,7 @@ export function CustomerCampaignPage() {
     return (
       <LotteryCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -475,6 +479,7 @@ export function CustomerCampaignPage() {
     return (
       <BuyXGetYCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -492,6 +497,7 @@ export function CustomerCampaignPage() {
     return (
       <CouponCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -510,6 +516,7 @@ export function CustomerCampaignPage() {
     return (
       <FlashCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -528,6 +535,7 @@ export function CustomerCampaignPage() {
     return (
       <ComboCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -546,6 +554,7 @@ export function CustomerCampaignPage() {
     return (
       <FriendCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -564,10 +573,13 @@ export function CustomerCampaignPage() {
     return (
       <GroupUnlockCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
         hasClaimed={groupUnlockState?.hasClaimed}
+        unlocked={groupUnlockState?.unlocked}
+        canClaim={groupUnlockState?.canClaim ?? true}
         groupJoined={groupUnlockState?.groupJoined}
         targetParticipants={groupUnlockState?.targetParticipants}
         onBack={handleBack}

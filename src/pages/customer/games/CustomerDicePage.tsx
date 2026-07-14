@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { WinCelebration, NoWin } from '@/components/customer/win-celebration'
 import { DiceFace } from '@/components/shared/DiceFace'
 import { useInstantWinPlay } from '@/hooks/useInstantWinPlay'
+import { getCampaignTheme, getPlayScreenBackground } from '@/lib/campaign-themes'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
 import { pickDiceLandingValue, type DicePlayOutcome } from '@/lib/instant-win-ui'
 
@@ -43,6 +44,10 @@ const SPARKLES = [
   { top: '68%', left: '12%', d: 2.4 }, { top: '74%', left: '84%', d: 2.9 },
 ]
 
+/** Brighter body + pips so the cube doesn't wash into the play background. */
+const DICE_FACE_BG = '#FFF7F9'
+const DICE_PIP = '#E11D48'
+
 export function CustomerDicePage() {
   const navigate = useNavigate()
   const {
@@ -58,6 +63,7 @@ export function CustomerDicePage() {
     startPlay,
     resetPlay,
   } = useInstantWinPlay()
+  const theme = getCampaignTheme('dice')
 
   const [state, setState] = useState<State>('idle')
   const controls = useAnimation()
@@ -149,6 +155,7 @@ export function CustomerDicePage() {
         code={playResult.code ?? undefined}
         businessName={businessName}
         onBackToCafe={goToCafe}
+        mechanic="dice"
       />
     )
   }
@@ -160,13 +167,14 @@ export function CustomerDicePage() {
         onBackToCafe={goToCafe}
         playsLeft={playResult.playsRemaining}
         attempts={{ used: playResult.playsUsedToday, total: playResult.playsPerDay }}
+        mechanic="dice"
       />
     )
   }
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #fff5f5 100%)' }}>
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: getPlayScreenBackground('dice') }}>
         <Loader2 className="size-10 text-[#fda4af] animate-spin" />
       </div>
     )
@@ -175,7 +183,7 @@ export function CustomerDicePage() {
   return (
     <div
       className="min-h-dvh flex flex-col items-center justify-between px-5 pt-12 pb-10 relative overflow-hidden max-w-[440px] mx-auto"
-      style={{ background: 'linear-gradient(180deg, #ffffff 0%, #fffafa 50%, #fff1f2 100%)' }}
+      style={{ background: getPlayScreenBackground('dice') }}
     >
       {/* Soft ambient glow */}
       <div
@@ -228,15 +236,16 @@ export function CustomerDicePage() {
           {CUBE_FACES.map(face => (
             <div
               key={face.value}
-              className="absolute inset-0 flex items-center justify-center rounded-[22px] bg-white"
+              className="absolute inset-0 flex items-center justify-center rounded-[22px]"
               style={{
                 transform: face.transform,
                 backfaceVisibility: 'hidden',
                 padding: 22,
-                boxShadow: 'inset 0 0 0 1px rgba(251,113,133,0.12), inset 0 6px 14px rgba(251,113,133,0.06)',
+                background: DICE_FACE_BG,
+                boxShadow: 'inset 0 0 0 1.5px rgba(225,29,72,0.35), inset 0 6px 14px rgba(225,29,72,0.08)',
               }}
             >
-              <DiceFace value={face.value} pipColor="#fb7185" />
+              <DiceFace value={face.value} pipColor={DICE_PIP} />
             </div>
           ))}
         </motion.div>
@@ -267,7 +276,7 @@ export function CustomerDicePage() {
                 }}
               >
                 <span className="size-6">
-                  <DiceFace value={face.value} pipColor={face.win ? '#fb7185' : 'rgba(251,113,133,0.35)'} />
+                  <DiceFace value={face.value} pipColor={face.win ? DICE_PIP : 'rgba(225,29,72,0.35)'} />
                 </span>
                 <span className={`text-[10px] font-semibold leading-tight truncate w-full ${face.win ? 'text-[#9f1239]/75' : 'text-[#fb7185]/45'}`}>
                   {face.win ? face.reward : 'No win'}
@@ -283,11 +292,10 @@ export function CustomerDicePage() {
         whileTap={{ scale: 0.94 }}
         onClick={roll}
         disabled={state !== 'idle' || !canPlay || isPlaying}
-        className="w-full py-5 rounded-2xl text-xl font-extrabold border-0 cursor-pointer disabled:opacity-50 relative z-10"
+        className="w-full py-5 rounded-2xl text-xl font-extrabold border-0 cursor-pointer disabled:opacity-50 relative z-10 text-white"
         style={{
-          background: 'linear-gradient(135deg, #fecdd3 0%, #fda4af 50%, #fb7185 100%)',
-          color: '#9f1239',
-          boxShadow: '0 12px 28px rgba(251,113,133,0.25)',
+          background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})`,
+          boxShadow: `0 12px 28px ${theme.accent}40`,
         }}
       >
         {state === 'idle' ? '🎲 ROLL' : state === 'landed' ? '🎲 Revealing…' : '🎲 Rolling…'}

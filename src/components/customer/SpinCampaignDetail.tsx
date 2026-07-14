@@ -1,8 +1,12 @@
-import { CampaignPinDetailShell, CampaignDetailCoverChip } from '@/components/customer/CampaignPinDetailShell'
+import { CampaignPinDetailShell } from '@/components/customer/CampaignPinDetailShell'
 import { PinKeypad } from '@/components/customer/PinKeypad'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { getCampaignTheme } from '@/lib/campaign-themes'
-import { SPIN_SOLID_COLORS, spinRewardChipStyle } from '@/lib/spin-segment-colors'
+import {
+  SPIN_SOLID_COLORS,
+  spinRewardChipStyleLight,
+  spinSegmentAccentHex,
+} from '@/lib/spin-segment-colors'
 import type { PublicCampaign } from '@/lib/api'
 
 interface SpinCampaignDetailProps {
@@ -15,10 +19,22 @@ interface SpinCampaignDetailProps {
   userCap?: number
   playsUsedToday?: number
   playsPerDay?: number
+  businessName?: string
   onBack: () => void
   onKey: (digit: string) => void
   onDelete: () => void
   onSubmit: () => void
+}
+
+function prizeLabel(seg: { label?: string; reward?: string | null; icon?: string }): string {
+  const raw = (seg.reward ?? seg.label ?? '').trim()
+  return raw || 'Prize'
+}
+
+function prizeIcon(seg: { icon?: string; reward?: string | null; label?: string }, index: number): string {
+  if (seg.icon?.trim()) return seg.icon.trim()
+  const FALLBACKS = ['☕', '🏷️', '🧁', '⭐', '🎁', '🍪']
+  return FALLBACKS[index % FALLBACKS.length]!
 }
 
 export function SpinCampaignDetail({
@@ -31,44 +47,57 @@ export function SpinCampaignDetail({
   userCap,
   playsUsedToday,
   playsPerDay,
+  businessName,
   onBack,
   onKey,
   onDelete,
   onSubmit,
 }: SpinCampaignDetailProps) {
   const theme = getCampaignTheme('spin')
-  const winSegments = campaign.spinConfig?.segments.filter(s => s.isWin && (s.reward || s.label)) ?? []
-  const prizeChips = winSegments.length > 0
-    ? winSegments.map(s => ({
-        label: s.label,
-        reward: s.reward ?? s.label,
-        color: s.color,
-      }))
-    : campaign.rewards.map((r, i) => ({
-        label: r.name,
-        reward: r.name,
-        color: SPIN_SOLID_COLORS[i % SPIN_SOLID_COLORS.length]!.value,
-      }))
+
+  const winSegments =
+    campaign.spinConfig?.segments.filter(s => s.isWin && ((s.reward ?? '').trim() || (s.label ?? '').trim())) ??
+    []
+
+  const prizeChips =
+    winSegments.length > 0
+      ? winSegments.map((s, i) => ({
+          label: prizeLabel(s),
+          icon: prizeIcon(s, i),
+          color: s.color || SPIN_SOLID_COLORS[i % SPIN_SOLID_COLORS.length]!.value,
+        }))
+      : (campaign.rewards ?? [])
+          .filter(r => (r.name ?? '').trim())
+          .map((r, i) => ({
+            label: r.name.trim(),
+            icon: r.icon?.trim() || prizeIcon({}, i),
+            color: SPIN_SOLID_COLORS[i % SPIN_SOLID_COLORS.length]!.value,
+          }))
 
   return (
     <CampaignPinDetailShell
       mechanic="spin"
       title={campaign.name}
-      subtitle="A flick of fortune at every checkout."
+      subtitle="Spin at checkout for a shot at instant happiness."
+      businessName={businessName}
       onBack={onBack}
       loading={loading}
+      headerRight={
+        overallWinners != null && userCap != null
+          ? formatShakeWinLabel(overallWinners, userCap)
+          : winRatePercent != null
+            ? `${winRatePercent}% win rate`
+            : undefined
+      }
       coverExtra={
-        <>
-          {overallWinners != null && userCap != null && (
-            <CampaignDetailCoverChip>✨ {formatShakeWinLabel(overallWinners, userCap)}</CampaignDetailCoverChip>
-          )}
-          {overallWinners == null && winRatePercent != null && (
-            <CampaignDetailCoverChip>✨ {winRatePercent}% of spins win</CampaignDetailCoverChip>
-          )}
-          {playsUsedToday != null && playsPerDay != null && (
-            <CampaignDetailCoverChip>{playsUsedToday}/{playsPerDay} spins today</CampaignDetailCoverChip>
-          )}
-        </>
+        playsUsedToday != null && playsPerDay != null ? (
+          <span
+            className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold"
+            style={{ background: `${theme.accent}18`, color: theme.accent }}
+          >
+            {playsUsedToday}/{playsPerDay} tries
+          </span>
+        ) : undefined
       }
       footer={
         <PinKeypad
@@ -79,40 +108,50 @@ export function SpinCampaignDetail({
           onKey={onKey}
           onDelete={onDelete}
           onSubmit={onSubmit}
-          submitLabel="Spin the wheel"
+          submitLabel="Play Now"
           submitColor={theme.accent}
+          submitColorTo={theme.accentTo}
         />
       }
     >
-      {prizeChips.length > 0 && (
-        <div className="rounded-2xl border border-[#e8eef9] bg-[#f8fafc] px-3.5 py-3">
-          <p className="mb-2.5 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748b]">
-            Possible rewards
+      {prizeChips.length > 0 ? (
+        <div>
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+            What you could win
           </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {prizeChips.map((seg, i) => {
-              const chip = spinRewardChipStyle(seg.color)
-              const label = seg.reward ?? seg.label
+          <div className="grid grid-cols-2 gap-2">
+            {prizeChips.slice(0, 4).map((seg, i) => {
+              const chip = spinRewardChipStyleLight(seg.color)
+              const accent = spinSegmentAccentHex(seg.color)
               return (
-                <span
-                  key={`${label}-${i}`}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold leading-tight"
-                  style={{
-                    background: chip.background,
-                    border: `1px solid ${chip.borderColor}`,
-                    color: chip.textColor,
-                  }}
+                <div
+                  key={`${seg.label}-${i}`}
+                  className="rounded-2xl p-3 flex items-center gap-2.5 min-w-0"
+                  style={{ background: `${accent}0F` }}
                 >
+                  <div
+                    className="size-8 rounded-full flex items-center justify-center text-sm shrink-0"
+                    style={{ background: `${accent}1F` }}
+                  >
+                    {seg.icon}
+                  </div>
                   <span
-                    className="size-2 shrink-0 rounded-full ring-1 ring-white/30"
-                    style={{ background: chip.dotBackground }}
-                    aria-hidden
-                  />
-                  {label}
-                </span>
+                    className="text-xs font-bold leading-tight truncate"
+                    style={{ color: chip.textColor }}
+                  >
+                    {seg.label}
+                  </span>
+                </div>
               )
             })}
           </div>
+        </div>
+      ) : (
+        <div
+          className="rounded-xl p-3 text-center text-xs text-gray-500"
+          style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
+        >
+          Rewards will appear here once the wheel is configured.
         </div>
       )}
     </CampaignPinDetailShell>

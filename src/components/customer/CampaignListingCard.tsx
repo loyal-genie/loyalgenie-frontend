@@ -1,7 +1,7 @@
 import { type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { CampaignCoverBadge, CampaignCoverHero } from '@/components/customer/CampaignCoverHero'
+import { CampaignCoverHero } from '@/components/customer/CampaignCoverHero'
 import { CampaignPlayButton } from '@/components/customer/CampaignPlayButton'
 import { formatCampaignCardSchedule, getCampaignSubtitle } from '@/lib/customer-ui'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
@@ -27,7 +27,7 @@ interface CampaignListingCardProps {
   extraBadge?: string
   statsLine?: string
   progressLine?: string
-  /** Shown on the right of the name row (shake / spin / dice / lottery). */
+  /** Shown inside the themed info box footer. */
   playingToday?: number
   className?: string
   comingSoon?: boolean
@@ -50,32 +50,18 @@ function getHeaderRightBadge(
   if ((campaign.mechanic === 'spin' || campaign.mechanic === 'dice') && campaign.winRatePercent != null) {
     return `${campaign.winRatePercent}% win rate`
   }
-  if (campaign.mechanic === 'stamp') return 'Surprise + big rewards'
+  if (campaign.mechanic === 'stamp') return undefined // hero.badgeRight handles it
   if (extraBadge) return extraBadge
-  return 'Active'
+  return undefined // default Active from hero
 }
 
-function getMetaLine(campaign: CampaignListingCardProps['campaign'], statsLine?: string): string {
-  const schedule = formatCampaignCardSchedule(
+function getScheduleLine(campaign: CampaignListingCardProps['campaign']): string {
+  return formatCampaignCardSchedule(
     campaign.startDate,
     campaign.endDate,
     campaign.startTime,
     campaign.endTime,
   )
-  if (statsLine) return `${statsLine} · ${schedule}`
-  if (campaign.mechanic === 'stamp') {
-    return `1 stamp per day · ${schedule}`
-  }
-  if (campaign.mechanic === 'shake' && campaign.playsPerDay != null) {
-    return `${campaign.playsPerDay} play per day · ${schedule}`
-  }
-  if (campaign.mechanic === 'spin' && campaign.playsPerDay != null) {
-    return `${campaign.playsPerDay} spin per day · ${schedule}`
-  }
-  if (campaign.mechanic === 'dice' && campaign.playsPerDay != null) {
-    return `${campaign.playsPerDay} roll per day · ${schedule}`
-  }
-  return schedule
 }
 
 export function CampaignListingCard({
@@ -95,6 +81,8 @@ export function CampaignListingCard({
   const headerRight = getHeaderRightBadge(campaign, extraBadge, comingSoon)
   const theme = getCampaignTheme(campaign.mechanic)
   const navigable = !blocked && !comingSoon && Boolean(href) && href !== '#'
+  const schedule = getScheduleLine(campaign)
+  const subtitle = getCampaignSubtitle(campaign.mechanic, campaign.name)
 
   const openCard = () => {
     if (navigable) navigate(href)
@@ -115,47 +103,70 @@ export function CampaignListingCard({
       onClick={openCard}
       onKeyDown={onKeyDown}
       className={cn(
-        'bg-white border border-[#f3f4f6] rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.08)]',
+        'bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm',
         navigable && 'cursor-pointer active:scale-[0.995] transition-transform',
         className,
       )}
     >
-      <CampaignCoverHero mechanic={campaign.mechanic}>
-        <CampaignCoverBadge mechanic={campaign.mechanic} />
-        {headerRight && (
-          <span
-            className={cn(
-              'absolute top-3 right-3 text-[10px] font-bold px-2.5 py-0.5 rounded-full backdrop-blur-sm',
-              ['lottery', 'buy-x-get-y', 'combo', 'groupunlock', 'flash', 'friend'].includes(campaign.mechanic)
-                ? 'bg-white/75 text-slate-800'
-                : 'bg-black/25 text-white',
-            )}
-          >
-            {headerRight}
-          </span>
-        )}
-      </CampaignCoverHero>
+      <CampaignCoverHero
+        mechanic={campaign.mechanic}
+        variant="list"
+        headerRight={headerRight}
+        showStatusBadge
+      />
 
-      <div className="p-4 flex flex-col gap-2">
+      <div className="p-4 flex flex-col gap-2 min-h-[148px]">
         <div className="flex items-baseline gap-2 min-w-0">
-          <h3 className="text-base font-bold text-[#101828] leading-tight truncate flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-gray-900 leading-tight truncate flex-1 min-w-0">
             {campaign.name}
           </h3>
-          {playingToday != null && playingToday > 0 && (
-            <span className="shrink-0 text-[10px] font-semibold text-[#5b0e81] leading-none whitespace-nowrap">
-              {playingToday} playing today
-            </span>
-          )}
         </div>
-        <p className="text-xs text-[#6a7282] leading-5">
-          {getCampaignSubtitle(campaign.mechanic, campaign.name)}
-        </p>
-        <p className="text-[11px] text-[#99a1af] leading-5">{getMetaLine(campaign, statsLine)}</p>
-        {progressLine && (
-          <p className="text-[11px] font-semibold" style={{ color: theme.accent }}>
-            {progressLine}
-          </p>
-        )}
+        <p className="text-xs text-gray-500 leading-relaxed">{subtitle}</p>
+
+        {/* Themed info box — consistent across mechanics */}
+        <div
+          className="rounded-xl p-3"
+          style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
+        >
+          {progressLine ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold text-gray-700">
+                {campaign.mechanic === 'stamp' ? 'Stamps Collected' : 'Progress'}
+              </span>
+              <span
+                className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white shrink-0"
+                style={{ color: theme.accent }}
+              >
+                {progressLine}
+              </span>
+            </div>
+          ) : null}
+          <div
+            className={cn(
+              'flex items-center gap-1.5 text-[10px] text-gray-500 flex-wrap',
+              progressLine && 'mt-2 pt-2 border-t',
+            )}
+            style={progressLine ? { borderColor: `${theme.accent}22` } : undefined}
+          >
+            {playingToday != null && playingToday > 0 && (
+              <>
+                <span className="font-semibold" style={{ color: theme.accent }}>
+                  {playingToday} playing today
+                </span>
+                <span className="text-gray-300">·</span>
+              </>
+            )}
+            {statsLine && (
+              <>
+                <span className="font-semibold" style={{ color: theme.accent }}>
+                  {statsLine}
+                </span>
+                <span className="text-gray-300">·</span>
+              </>
+            )}
+            <span>{schedule}</span>
+          </div>
+        </div>
 
         {actions ? (
           <div onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
@@ -164,14 +175,15 @@ export function CampaignListingCard({
         ) : blocked || comingSoon ? (
           <div
             className={cn(
-              'w-full py-3 rounded-full text-xs font-bold text-center',
-              comingSoon ? 'bg-[#faf5ff] text-[#5b0e81] border border-[#e9d5ff]' : 'bg-[#f3f4f6] text-[#6a7282]',
+              'w-full py-2.5 rounded-xl text-xs font-bold text-center',
+              comingSoon
+                ? 'bg-[#faf5ff] text-[#5b0e81] border border-[#e9d5ff]'
+                : 'bg-[#f3f4f6] text-[#6a7282]',
             )}
           >
             {comingSoon ? '✨ Live soon — not playable yet' : blockedLabel ?? '✓ Played today — come back tomorrow'}
           </div>
         ) : (
-          // Decorative CTA — whole card navigates (avoid nested links)
           <CampaignPlayButton mechanic={campaign.mechanic} />
         )}
       </div>
@@ -179,7 +191,7 @@ export function CampaignListingCard({
   )
 }
 
-/** Shared dual-CTA row for lottery: Check Status | Enter PIN & Claim */
+/** Shared dual-CTA row for lottery: Check Status | Claim Now */
 export function LotteryCardActions({
   campaignId,
   canClaim,
@@ -191,15 +203,15 @@ export function LotteryCardActions({
   hasTicket: boolean
   claimHref: string
 }) {
-  const statusHref = `/customer/campaigns/${campaignId}/lottery-status`
+  const theme = getCampaignTheme('lottery')
   const statusBtn =
-    'flex flex-1 items-center justify-center py-3 rounded-full text-xs font-bold no-underline border border-amber-300 bg-amber-50 text-amber-900'
+    'flex flex-1 items-center justify-center py-2.5 rounded-xl text-xs font-bold no-underline border border-[#c4b5fd] bg-[#EDE9FE] text-[#4C3FA8]'
   const claimBtn =
-    'flex flex-1 items-center justify-center py-3 rounded-full text-xs font-bold no-underline bg-gradient-to-r from-[#fef08a] to-[#fde047] text-amber-950 shadow-[0_8px_20px_rgba(250,204,21,0.28)]'
+    'flex flex-1 items-center justify-center py-2.5 rounded-xl text-xs font-bold no-underline text-white'
 
   if (!hasTicket && !canClaim) {
     return (
-      <div className="w-full py-3 rounded-full text-xs font-bold text-center bg-[#f3f4f6] text-[#6a7282]">
+      <div className="w-full py-2.5 rounded-xl text-xs font-bold text-center bg-[#f3f4f6] text-[#6a7282]">
         Entries closed
       </div>
     )
@@ -207,7 +219,7 @@ export function LotteryCardActions({
 
   if (hasTicket && !canClaim) {
     return (
-      <Link to={statusHref} className={cn(statusBtn, 'w-full')}>
+      <Link to={`/customer/campaigns/${campaignId}/lottery-status`} className={cn(statusBtn, 'w-full')}>
         Check Status
       </Link>
     )
@@ -215,21 +227,83 @@ export function LotteryCardActions({
 
   if (!hasTicket && canClaim) {
     return (
-      <Link to={claimHref} className={cn(claimBtn, 'w-full')}>
-        Enter PIN & Claim
+      <Link
+        to={claimHref}
+        className={cn(claimBtn, 'w-full')}
+        style={{
+          background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})`,
+          boxShadow: `0 8px 20px ${theme.accent}40`,
+        }}
+      >
+        Claim Now
       </Link>
     )
   }
 
   return (
     <div className="flex gap-2 w-full">
-      <Link to={statusHref} className={statusBtn}>
+      <Link to={`/customer/campaigns/${campaignId}/lottery-status`} className={statusBtn}>
         Check Status
       </Link>
-      <Link to={claimHref} className={claimBtn}>
-        Enter PIN & Claim
+      <Link
+        to={claimHref}
+        className={claimBtn}
+        style={{
+          background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})`,
+          boxShadow: `0 8px 20px ${theme.accent}40`,
+        }}
+      >
+        Claim Now
       </Link>
     </div>
+  )
+}
+
+/** Dual-CTA row for community offer: Check Status | Reserve Spot */
+export function GroupUnlockCardActions({
+  campaignId,
+  canClaim,
+  hasClaimed,
+  claimHref,
+}: {
+  campaignId: string
+  canClaim: boolean
+  hasClaimed: boolean
+  claimHref: string
+}) {
+  const theme = getCampaignTheme('groupunlock')
+  const statusBtn =
+    'flex flex-1 items-center justify-center py-2.5 rounded-xl text-xs font-bold no-underline border border-[#99F6E4] bg-[#CCFBF1] text-[#115E59]'
+  const claimBtn =
+    'flex flex-1 items-center justify-center py-2.5 rounded-xl text-xs font-bold no-underline text-white'
+
+  if (hasClaimed) {
+    return (
+      <Link to={`/customer/campaigns/${campaignId}/groupunlock-status`} className={cn(statusBtn, 'w-full')}>
+        Check Status
+      </Link>
+    )
+  }
+
+  if (!canClaim) {
+    return (
+      <div className="w-full py-2.5 rounded-xl text-xs font-bold text-center bg-[#f3f4f6] text-[#6a7282]">
+        Spots full
+      </div>
+    )
+  }
+
+  return (
+    <Link
+      to={claimHref}
+      className={cn(claimBtn, 'w-full')}
+      style={{
+        background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})`,
+        boxShadow: `0 8px 20px ${theme.accent}40`,
+      }}
+    >
+      Reserve Spot
+    </Link>
   )
 }
 

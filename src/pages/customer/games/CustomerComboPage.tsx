@@ -12,6 +12,7 @@ import {
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { getUser } from '@/lib/auth'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
+import { getCampaignTheme, getPlayScreenBackground } from '@/lib/campaign-themes'
 import { WinCelebration } from '@/components/customer/win-celebration'
 
 type Phase = 'ready' | 'claiming' | 'won'
@@ -23,6 +24,7 @@ export function CustomerComboPage() {
   const campaignId = getCampaignIdFromSearch(search)
   const playSession = campaignId ? getPlaySession(campaignId) : null
   const customerId = getUser('customer')?.userId
+  const theme = getCampaignTheme('combo')
 
   const [phase, setPhase] = useState<Phase>('ready')
   const [claimed, setClaimed] = useState<{
@@ -80,7 +82,7 @@ export function CustomerComboPage() {
 
   if (campaignLoading || stateLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center" style={{ background: 'linear-gradient(145deg, #f7fee7, #d9f99d)' }}>
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: getPlayScreenBackground('combo') }}>
         <Loader2 className="size-8 animate-spin text-lime-600" />
       </div>
     )
@@ -94,6 +96,7 @@ export function CustomerComboPage() {
         code={claimed.code}
         businessName={campaign?.businessName ?? state?.businessName}
         onBackToCafe={goBack}
+        mechanic="combo"
       />
     )
   }
@@ -108,7 +111,7 @@ export function CustomerComboPage() {
   return (
     <div
       className="min-h-dvh flex flex-col px-5 pt-12 pb-8 relative overflow-hidden max-w-[440px] mx-auto"
-      style={{ background: 'linear-gradient(160deg, #f7fee7 0%, #ecfccb 42%, #d9f99d 100%)' }}
+      style={{ background: getPlayScreenBackground('combo') }}
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.1]"
@@ -123,7 +126,7 @@ export function CustomerComboPage() {
         onClick={goBack}
         className="absolute top-12 left-4 w-9 h-9 rounded-full bg-white/50 backdrop-blur-md flex items-center justify-center z-20 border-0 cursor-pointer"
       >
-        <ArrowLeft className="w-4 h-4 text-lime-900" />
+        <ArrowLeft className="w-4 h-4 text-gray-700" />
       </button>
 
       <AnimatePresence mode="wait">
@@ -145,11 +148,11 @@ export function CustomerComboPage() {
             <motion.p
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-2xl font-black text-lime-950 tracking-tight"
+              className="text-2xl font-black text-gray-900 tracking-tight"
             >
               Claiming…
             </motion.p>
-            <p className="text-sm text-lime-800/80 mt-2">Adding combo to your wallet</p>
+            <p className="text-sm text-gray-500 mt-2">Adding combo to your wallet</p>
           </motion.div>
         ) : (
           <motion.div
@@ -164,16 +167,16 @@ export function CustomerComboPage() {
                 transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
                 className="inline-flex items-center justify-center size-[72px] rounded-[20px] mb-4"
                 style={{
-                  background: 'linear-gradient(145deg, #ffffff 0%, #ecfccb 100%)',
-                  boxShadow: '0 12px 32px rgba(163,230,53,0.25)',
+                  background: `linear-gradient(145deg, #ffffff 0%, ${theme.accent}22 100%)`,
+                  boxShadow: `0 12px 32px ${theme.accent}40`,
                 }}
               >
-                <Package className="size-8 text-lime-600" strokeWidth={2.2} />
+                <Package className="size-8" style={{ color: theme.accent }} strokeWidth={2.2} />
               </motion.div>
-              <h1 className="text-xl font-extrabold text-lime-950 tracking-tight">
+              <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">
                 {campaign?.name ?? state?.campaignName}
               </h1>
-              <p className="text-sm text-lime-800/75 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 {campaign?.businessName ?? state?.businessName}
               </p>
             </div>
@@ -181,49 +184,52 @@ export function CustomerComboPage() {
             <div
               className="relative overflow-hidden rounded-[22px]"
               style={{
-                background: 'linear-gradient(160deg, #ffffff 0%, #f7fee7 55%, #ecfccb 100%)',
-                boxShadow: '0 18px 40px rgba(132,204,22,0.18)',
+                background: `linear-gradient(160deg, #ffffff 0%, ${theme.accent}12 55%, ${theme.accent}22 100%)`,
+                boxShadow: `0 18px 40px ${theme.accent}2e`,
               }}
             >
-              <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: '#d9f99d' }} />
-              <div className="absolute -right-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: '#d9f99d' }} />
+              <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: theme.accent }} />
+              <div className="absolute -right-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full" style={{ background: theme.accent }} />
 
               <div className="relative px-6 pt-5 pb-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-lime-700/70">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">
                     Your combo
                   </p>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-lime-500 text-white">
+                  <span
+                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-full text-white"
+                    style={{ background: theme.accent }}
+                  >
                     COMBO
                   </span>
                 </div>
 
-                <p className="text-[28px] leading-none font-black text-lime-950 tracking-tight">
+                <p className="text-[28px] leading-none font-black text-gray-900 tracking-tight">
                   {rewardLabel}
                 </p>
                 {offerSentence ? (
-                  <p className="text-sm font-semibold text-lime-800/80 mt-2">{offerSentence}</p>
+                  <p className="text-sm font-semibold text-gray-700 mt-2">{offerSentence}</p>
                 ) : null}
 
                 {terms ? (
-                  <div className="mt-4 rounded-xl bg-lime-50/90 border border-lime-200/60 px-3.5 py-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-lime-700/55 mb-1">
+                  <div className="mt-4 rounded-xl bg-white/80 border border-indigo-100 px-3.5 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
                       Terms & conditions
                     </p>
-                    <p className="text-sm text-lime-950/85 leading-relaxed whitespace-pre-wrap">{terms}</p>
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{terms}</p>
                   </div>
                 ) : null}
 
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-lime-700/50">Spots left</p>
-                    <p className="text-sm font-extrabold text-lime-900">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Spots left</p>
+                    <p className="text-sm font-extrabold text-gray-900">
                       {remaining} of {total}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-lime-700/50">Claimed</p>
-                    <p className="text-sm font-extrabold text-lime-900">{claimedCount}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Claimed</p>
+                    <p className="text-sm font-extrabold text-gray-900">{claimedCount}</p>
                   </div>
                 </div>
               </div>
@@ -233,11 +239,12 @@ export function CustomerComboPage() {
 
             {state?.hasClaimed ? (
               <div className="rounded-2xl bg-white/95 p-5 text-center">
-                <p className="text-sm font-semibold text-lime-900">Already in your wallet</p>
+                <p className="text-sm font-semibold text-gray-900">Already in your wallet</p>
                 <button
                   type="button"
                   onClick={() => navigate('/customer/wallet')}
-                  className="mt-3 text-sm font-bold text-v-purple border-0 bg-transparent cursor-pointer"
+                  className="mt-3 text-sm font-bold border-0 bg-transparent cursor-pointer"
+                  style={{ color: theme.accent }}
                 >
                   View in Wallet →
                 </button>
@@ -252,11 +259,10 @@ export function CustomerComboPage() {
                 }}
                 disabled={!state?.canClaim || claimMutation.isPending || !playSession}
                 whileTap={{ scale: 0.97 }}
-                className="w-full py-4 rounded-2xl font-extrabold text-base disabled:opacity-50 border-0 cursor-pointer"
+                className="w-full py-4 rounded-2xl font-extrabold text-base disabled:opacity-50 border-0 cursor-pointer text-white"
                 style={{
-                  background: 'linear-gradient(135deg, #d9f99d 0%, #bef264 45%, #a3e635 100%)',
-                  color: '#365314',
-                  boxShadow: '0 10px 28px rgba(163,230,53,0.4)',
+                  background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentTo} 100%)`,
+                  boxShadow: `0 10px 28px ${theme.accent}55`,
                 }}
               >
                 {claimMutation.isPending ? (

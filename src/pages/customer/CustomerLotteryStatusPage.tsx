@@ -9,6 +9,7 @@ import {
   type LotteryTicketDto,
 } from '@/lib/api'
 import { fmtCampaignDate } from '@/lib/campaign-dates'
+import { getCampaignTheme, getPlayScreenBackground } from '@/lib/campaign-themes'
 import { getUser } from '@/lib/auth'
 
 function padTicketNo(n: number) {
@@ -29,9 +30,9 @@ function ticketStatusLabel(ticket: LotteryTicketDto, drawCompleted: boolean): {
     return { label: 'No win', tone: 'bg-gray-100 text-gray-600' }
   }
   if (drawCompleted) {
-    return { label: 'Results pending', tone: 'bg-amber-50 text-amber-800' }
+    return { label: 'Results pending', tone: 'bg-[#EDE9FE] text-[#4C3FA8]' }
   }
-  return { label: 'Awaiting draw', tone: 'bg-amber-50 text-amber-800' }
+  return { label: 'Awaiting draw', tone: 'bg-[#EDE9FE] text-[#4C3FA8]' }
 }
 
 export function CustomerLotteryStatusPage() {
@@ -39,6 +40,7 @@ export function CustomerLotteryStatusPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const customerId = getUser('customer')?.userId
+  const theme = getCampaignTheme('lottery')
 
   const { data: state, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['lottery-state', id, customerId],
@@ -61,22 +63,23 @@ export function CustomerLotteryStatusPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-amber-50">
-        <Loader2 className="size-8 animate-spin text-amber-600" />
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: getPlayScreenBackground('lottery') }}>
+        <Loader2 className="size-8 animate-spin" style={{ color: theme.accent }} />
       </div>
     )
   }
 
   if (isError || !state) {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center gap-3 px-6 bg-amber-50">
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-3 px-6" style={{ background: getPlayScreenBackground('lottery') }}>
         <p className="text-sm text-v-text-2 text-center">
           {getApiErrorMessage(error, 'Could not load lottery status.')}
         </p>
         <button
           type="button"
           onClick={() => void refetch()}
-          className="px-4 py-2 rounded-full bg-amber-600 text-white text-sm font-bold border-0 cursor-pointer"
+          className="px-4 py-2 rounded-full text-white text-sm font-bold border-0 cursor-pointer"
+          style={{ background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})` }}
         >
           Retry
         </button>
@@ -85,10 +88,13 @@ export function CustomerLotteryStatusPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#fffbeb] max-w-[440px] mx-auto flex flex-col">
+    <div
+      className="min-h-dvh max-w-[440px] mx-auto flex flex-col"
+      style={{ background: getPlayScreenBackground('lottery') }}
+    >
       <div
         className="relative px-4 pt-[max(3rem,env(safe-area-inset-top))] pb-5"
-        style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)' }}
+        style={{ background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentTo} 100%)` }}
       >
         <button
           type="button"
@@ -99,10 +105,10 @@ export function CustomerLotteryStatusPage() {
           <ArrowLeft className="size-4 text-white" />
         </button>
         <div className="pt-10 text-center text-white">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-100">Check Status</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-white/75">Check Status</p>
           <h1 className="text-xl font-bold mt-1">{state.campaignName}</h1>
-          <p className="text-sm text-amber-100 mt-1">{state.businessName}</p>
-          <p className="text-xs text-amber-100/80 mt-2">
+          <p className="text-sm text-white/80 mt-1">{state.businessName}</p>
+          <p className="text-xs text-white/70 mt-2">
             Draw {fmtCampaignDate(state.drawDate)}
             {state.drawCompleted ? ' · Complete' : ''}
           </p>
@@ -111,14 +117,18 @@ export function CustomerLotteryStatusPage() {
 
       <div className="flex-1 px-4 py-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {tickets.length === 0 ? (
-          <div className="rounded-2xl bg-white border border-amber-100 p-6 text-center shadow-sm">
-            <Ticket className="size-8 text-amber-400 mx-auto" />
+          <div
+            className="rounded-2xl bg-white p-6 text-center shadow-sm"
+            style={{ border: `1px solid ${theme.accent}22` }}
+          >
+            <Ticket className="size-8 mx-auto" style={{ color: theme.accent }} />
             <p className="mt-3 text-sm font-semibold text-v-text">No tickets yet</p>
             <p className="mt-1 text-xs text-v-text-3">Claim a ticket with staff PIN to enter the draw.</p>
             {state.canClaimTicket && (
               <Link
                 to={`/customer/campaigns/${state.campaignId}`}
-                className="mt-4 inline-flex px-4 py-2.5 rounded-full bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white text-xs font-bold no-underline"
+                className="mt-4 inline-flex px-4 py-2.5 rounded-full text-white text-xs font-bold no-underline"
+                style={{ background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})` }}
               >
                 Enter PIN & Claim
               </Link>
@@ -126,7 +136,7 @@ export function CustomerLotteryStatusPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-amber-900/70 px-1">
+            <p className="text-xs font-semibold px-1" style={{ color: `${theme.accentTo}B3` }}>
               Your tickets ({tickets.length})
             </p>
             {tickets.map(ticket => {
@@ -135,11 +145,12 @@ export function CustomerLotteryStatusPage() {
               return (
                 <div
                   key={ticket.id}
-                  className="rounded-2xl bg-white border border-amber-100 p-4 shadow-sm"
+                  className="rounded-2xl bg-white p-4 shadow-sm"
+                  style={{ border: `1px solid ${theme.accent}22` }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-lg font-black text-amber-950">
+                      <p className="text-lg font-black" style={{ color: theme.accentTo }}>
                         #{padTicketNo(ticket.ticketNumber)}
                       </p>
                       <p className="text-[11px] text-v-text-3 mt-0.5">Serial {ticket.serialCode}</p>
@@ -187,7 +198,7 @@ export function CustomerLotteryStatusPage() {
                   )}
 
                   {ticket.status === 'pending_draw' && !state.drawCompleted && (
-                    <p className="mt-3 text-xs text-amber-800/80">
+                    <p className="mt-3 text-xs" style={{ color: `${theme.accentTo}CC` }}>
                       Waiting for draw on {fmtCampaignDate(state.drawDate)}.
                     </p>
                   )}
@@ -204,7 +215,11 @@ export function CustomerLotteryStatusPage() {
             {state.canClaimTicket && (
               <Link
                 to={`/customer/campaigns/${state.campaignId}`}
-                className="flex w-full items-center justify-center py-3 rounded-full bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white text-xs font-bold no-underline shadow-[0_8px_20px_rgba(245,158,11,0.3)]"
+                className="flex w-full items-center justify-center py-3 rounded-full text-white text-xs font-bold no-underline"
+                style={{
+                  background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})`,
+                  boxShadow: `0 8px 20px ${theme.accent}4D`,
+                }}
               >
                 Enter PIN & Claim another
               </Link>
