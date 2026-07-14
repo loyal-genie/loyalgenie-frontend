@@ -17,6 +17,7 @@ import {
   LotteryCardActions,
   LoyaltyCampaignSectionHeader,
 } from '@/components/customer/CampaignListingCard'
+import { CountdownTimer } from '@/components/customer/CountdownTimer'
 import { useBusinessesWithCampaigns, useBusinessCampaignStatesRealtime } from '@/hooks/useCustomerData'
 import { useCustomerBusinessRewards } from '@/hooks/useRewards'
 import { getClaimableTheme, getLockedTheme } from '@/lib/customer-reward-themes'
@@ -27,7 +28,9 @@ import {
   type PlayState,
   type StampState,
 } from '@/lib/api'
-import { formatCampaignDayMonth } from '@/lib/customer-ui'
+import { formatCampaignDayMonth, formatCampaignTimeShort } from '@/lib/customer-ui'
+import { nextDailyDeadline } from '@/lib/campaign-dates'
+import { getCampaignTheme } from '@/lib/campaign-themes'
 
 function StampCampaignBlock({
   campaign,
@@ -89,6 +92,8 @@ function ShakeCampaignBlock({
     endTime?: string
     winRatePercent?: number
     playsPerDay?: number
+    overallWinners?: number
+    userCap?: number
   }
   playState?: PlayState
 }) {
@@ -106,11 +111,7 @@ function ShakeCampaignBlock({
           : playState?.message
       }
       playingToday={playState?.playingToday}
-      statsLine={
-        playState
-          ? `${playState.playsUsedToday}/${playState.playsPerDay} attempts today`
-          : `${campaign.playsPerDay ?? 1} play per day`
-      }
+      possibleRewards={playState?.possibleRewards}
     />
   )
 }
@@ -146,11 +147,7 @@ function SpinCampaignBlock({
           : playState?.message
       }
       playingToday={playState?.playingToday}
-      statsLine={
-        playState
-          ? `${playState.playsUsedToday}/${playState.playsPerDay} spins today`
-          : `${campaign.playsPerDay ?? 1} spin per day`
-      }
+      possibleRewards={playState?.possibleRewards}
     />
   )
 }
@@ -186,11 +183,7 @@ function DiceCampaignBlock({
           : playState?.message
       }
       playingToday={playState?.playingToday}
-      statsLine={
-        playState
-          ? `${playState.playsUsedToday}/${playState.playsPerDay} rolls today`
-          : `${campaign.playsPerDay ?? 1} roll per day`
-      }
+      possibleRewards={playState?.possibleRewards}
     />
   )
 }
@@ -276,10 +269,12 @@ function BuyXGetYCampaignBlock({
     canClaim?: boolean
     hasClaimed?: boolean
     spotsRemaining?: number
+    claimedCount?: number
+    userCap?: number
+    redeemBefore?: string | null
     active?: boolean
   }
 }) {
-  // Claimed or sold out → show status on card (no PIN / details navigation)
   const blocked = Boolean(offerState && !offerState.canClaim)
 
   return (
@@ -288,11 +283,14 @@ function BuyXGetYCampaignBlock({
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
       blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Offer closed'}
-      statsLine={
-        offerState?.hasClaimed
-          ? `✓ Claimed · ${offerState.rewardLabel ?? 'Reward'}`
-          : `${offerState?.rewardLabel ?? 'Reward'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={
+        offerState?.claimedCount != null && offerState?.userCap != null
+          ? { current: offerState.claimedCount, total: offerState.userCap, label: 'claimed' }
+          : undefined
       }
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
     />
   )
 }
@@ -313,10 +311,12 @@ function CouponCampaignBlock({
     canClaim?: boolean
     hasClaimed?: boolean
     spotsRemaining?: number
+    claimedCount?: number
+    totalCoupons?: number
+    redeemBefore?: string | null
     active?: boolean
   }
 }) {
-  // Claimed or sold out → show status on card (no PIN / details navigation)
   const blocked = Boolean(offerState && !offerState.canClaim)
 
   return (
@@ -325,11 +325,14 @@ function CouponCampaignBlock({
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
       blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Coupons gone'}
-      statsLine={
-        offerState?.hasClaimed
-          ? `✓ Claimed · ${offerState.rewardLabel ?? 'Coupon'}`
-          : `${offerState?.rewardLabel ?? 'Coupon'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={
+        offerState?.claimedCount != null && offerState?.totalCoupons != null
+          ? { current: offerState.claimedCount, total: offerState.totalCoupons, label: 'claimed' }
+          : undefined
       }
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
     />
   )
 }
@@ -344,16 +347,24 @@ function FlashCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
   }
   offerState?: {
     rewardLabel?: string
     canClaim?: boolean
     hasClaimed?: boolean
     spotsRemaining?: number
+    claimedCount?: number
+    totalSlots?: number
+    redeemBefore?: string | null
     active?: boolean
   }
 }) {
   const blocked = Boolean(offerState && !offerState.canClaim)
+  const theme = getCampaignTheme('flash')
+  const endTime = (campaign.endTime ?? '23:59').slice(0, 5)
+  const showCountdown = !isFullDayEnd(endTime)
 
   return (
     <CampaignListingCard
@@ -361,13 +372,37 @@ function FlashCampaignBlock({
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
       blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Spots gone'}
-      statsLine={
-        offerState?.hasClaimed
-          ? `✓ Claimed · ${offerState.rewardLabel ?? 'Flash Deal'}`
-          : `${offerState?.rewardLabel ?? 'Flash Deal'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={
+        offerState?.claimedCount != null && offerState?.totalSlots != null
+          ? { current: offerState.claimedCount, total: offerState.totalSlots, label: 'claimed' }
+          : undefined
+      }
+      claimBefore={campaign.endDate}
+      claimTime={showCountdown ? formatFlashClaimTime(endTime) : undefined}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
+      titleAccessory={
+        showCountdown ? (
+          <CountdownTimer target={nextDailyDeadline(endTime)} color={theme.accent} />
+        ) : undefined
       }
     />
   )
+}
+
+function isFullDayEnd(endTime: string) {
+  return endTime === '23:59' || endTime === '24:00'
+}
+
+function formatFlashClaimTime(hhmm: string) {
+  // Prefer "6:00 PM" style for claim-by row
+  const [hRaw, mRaw] = hhmm.split(':')
+  const h = Number(hRaw)
+  const m = Number(mRaw ?? 0)
+  if (!Number.isFinite(h)) return formatCampaignTimeShort(hhmm)
+  const ap = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${String(m).padStart(2, '0')} ${ap}`
 }
 
 function ComboCampaignBlock({
@@ -386,10 +421,12 @@ function ComboCampaignBlock({
     canClaim?: boolean
     hasClaimed?: boolean
     spotsRemaining?: number
+    claimedCount?: number
+    totalSpots?: number
+    redeemBefore?: string | null
     active?: boolean
   }
 }) {
-  // Claimed or sold out → show status on card (no PIN / details navigation)
   const blocked = Boolean(offerState && !offerState.canClaim)
 
   return (
@@ -398,11 +435,14 @@ function ComboCampaignBlock({
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
       blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'No bundles left'}
-      statsLine={
-        offerState?.hasClaimed
-          ? `✓ Claimed · ${offerState.rewardLabel ?? 'Combo Deal'}`
-          : `${offerState?.rewardLabel ?? 'Combo Deal'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} bundles left` : ''}`
+      rewardLabel={offerState?.rewardLabel ?? campaign.name}
+      claimProgress={
+        offerState?.claimedCount != null && offerState?.totalSpots != null
+          ? { current: offerState.claimedCount, total: offerState.totalSpots, label: 'claimed' }
+          : undefined
       }
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
     />
   )
 }
@@ -423,10 +463,25 @@ function FriendCampaignBlock({
     canClaim?: boolean
     hasClaimed?: boolean
     spotsRemaining?: number
+    claimedCount?: number
+    userCap?: number
+    minFriends?: number
+    redeemBefore?: string | null
     active?: boolean
   }
 }) {
   const blocked = Boolean(offerState && !offerState.canClaim)
+  const minFriends = offerState?.minFriends
+  const friendsProgress =
+    minFriends != null
+      ? {
+          current: offerState?.hasClaimed ? minFriends : 0,
+          total: minFriends,
+          label: 'friends',
+        }
+      : offerState?.claimedCount != null && offerState?.userCap != null
+        ? { current: offerState.claimedCount, total: offerState.userCap, label: 'claimed' }
+        : undefined
 
   return (
     <CampaignListingCard
@@ -434,11 +489,10 @@ function FriendCampaignBlock({
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
       blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Claims full'}
-      statsLine={
-        offerState?.hasClaimed
-          ? `✓ Claimed · ${offerState.rewardLabel ?? 'Bring a Friend'}`
-          : `${offerState?.rewardLabel ?? 'Bring a Friend'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
-      }
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={friendsProgress}
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
     />
   )
 }
@@ -462,6 +516,7 @@ function GroupUnlockCampaignBlock({
     spotsRemaining?: number
     groupJoined?: number
     targetParticipants?: number
+    redeemBefore?: string | null
     active?: boolean
   }
 }) {
@@ -473,18 +528,14 @@ function GroupUnlockCampaignBlock({
     <CampaignListingCard
       campaign={campaign}
       href={hasClaimed ? `/customer/campaigns/${campaign.id}/groupunlock-status` : claimHref}
-      progressLine={
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={
         offerState?.groupJoined != null && offerState?.targetParticipants != null
-          ? `${offerState.groupJoined}/${offerState.targetParticipants}`
+          ? { current: offerState.groupJoined, total: offerState.targetParticipants, label: 'joined' }
           : undefined
       }
-      statsLine={
-        hasClaimed
-          ? offerState?.unlocked
-            ? `✓ Unlocked · ${offerState.rewardLabel ?? 'Community Offer'}`
-            : `✓ Spot reserved · ${offerState?.rewardLabel ?? 'Community Offer'}`
-          : `${offerState?.rewardLabel ?? 'Community Offer'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
-      }
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
       actions={
         <GroupUnlockCardActions
           campaignId={campaign.id}
@@ -691,6 +742,9 @@ export function CustomerBusinessPage() {
                       canClaim?: boolean
                       hasClaimed?: boolean
                       spotsRemaining?: number
+                      claimedCount?: number
+                      userCap?: number
+                      redeemBefore?: string | null
                       active?: boolean
                     } | undefined}
                   />
@@ -704,6 +758,9 @@ export function CustomerBusinessPage() {
                       canClaim?: boolean
                       hasClaimed?: boolean
                       spotsRemaining?: number
+                      claimedCount?: number
+                      totalCoupons?: number
+                      redeemBefore?: string | null
                       active?: boolean
                     } | undefined}
                   />
@@ -717,6 +774,9 @@ export function CustomerBusinessPage() {
                       canClaim?: boolean
                       hasClaimed?: boolean
                       spotsRemaining?: number
+                      claimedCount?: number
+                      totalSlots?: number
+                      redeemBefore?: string | null
                       active?: boolean
                     } | undefined}
                   />
@@ -730,6 +790,9 @@ export function CustomerBusinessPage() {
                       canClaim?: boolean
                       hasClaimed?: boolean
                       spotsRemaining?: number
+                      claimedCount?: number
+                      totalSpots?: number
+                      redeemBefore?: string | null
                       active?: boolean
                     } | undefined}
                   />
@@ -743,6 +806,10 @@ export function CustomerBusinessPage() {
                       canClaim?: boolean
                       hasClaimed?: boolean
                       spotsRemaining?: number
+                      claimedCount?: number
+                      userCap?: number
+                      minFriends?: number
+                      redeemBefore?: string | null
                       active?: boolean
                     } | undefined}
                   />
@@ -759,6 +826,7 @@ export function CustomerBusinessPage() {
                       spotsRemaining?: number
                       groupJoined?: number
                       targetParticipants?: number
+                      redeemBefore?: string | null
                       active?: boolean
                     } | undefined}
                   />

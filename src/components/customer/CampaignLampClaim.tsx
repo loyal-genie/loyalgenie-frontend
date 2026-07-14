@@ -6,6 +6,8 @@ import { getCampaignTheme, getPlayScreenBackground } from '@/lib/campaign-themes
 import { fmtCampaignDate } from '@/lib/campaign-dates'
 import { getMechanicEmoji, hexToRgb, hexMix } from '@/lib/utils'
 
+/** Preview props kept optional for callers; pre-claim reward details are intentionally hidden. */
+
 /** Larger circle so lamp/genie fill the CTA (prototype fit). */
 const CONTAINER = 280
 const R = 102
@@ -211,8 +213,6 @@ export function CampaignLampClaim({
     }
   }
 
-  const previewClaimDate = formatMaybeDate(preview.claimBefore)
-  const previewRedeemDate = formatMaybeDate(preview.redeemBefore)
   const successRedeemDate = formatMaybeDate(result?.redeemBefore ?? preview.redeemBefore)
   const successClaimDate = formatMaybeDate(preview.claimBefore)
 
@@ -475,82 +475,7 @@ export function CampaignLampClaim({
 
         {claimError && <p className="text-center text-sm text-red-600 mb-3">{claimError}</p>}
 
-        {/* Preview reward card — prototype-style */}
-        <AnimatePresence>
-          {!claimed && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              className="w-full max-w-sm rounded-2xl p-4"
-              style={{
-                background: `${accent}0D`,
-                border: `1px solid ${accent}33`,
-                boxShadow: `0 10px 32px rgba(${accentRgb},0.14)`,
-              }}
-            >
-              <div className="flex items-center justify-between mb-3 gap-2">
-                <span
-                  className="text-xs font-bold px-2.5 py-1 rounded-full"
-                  style={{ background: `${accent}22`, color: accentTo }}
-                >
-                  {preview.badgeLabel ?? preview.rewardTitle}
-                </span>
-                {preview.availableLabel ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-gray-500 font-medium">
-                    <Gift className="size-3" />
-                    {preview.availableLabel}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="size-14 rounded-full bg-white flex items-center justify-center text-3xl shrink-0 shadow-sm"
-                  style={{ border: `1px solid ${accent}22` }}
-                >
-                  {emoji}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-gray-900 font-bold text-[16px] leading-tight">
-                    {preview.rewardTitle}
-                    {businessName ? ` at ${businessName}` : ''}
-                  </p>
-                  {preview.description || preview.highlight ? (
-                    <p className="text-[12px] mt-1 text-gray-500 leading-snug">
-                      {preview.highlight || preview.description}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              {(previewClaimDate || previewRedeemDate) && (
-                <div className="flex items-start gap-3 text-[10px] text-gray-400 border-t pt-3" style={{ borderColor: `${accent}22` }}>
-                  {previewClaimDate && (
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <CalendarDays className="size-3" />
-                        <span>Claim Before</span>
-                      </div>
-                      <p className="font-semibold text-gray-800 text-[11px]">{previewClaimDate}</p>
-                    </div>
-                  )}
-                  {previewRedeemDate && (
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <Gift className="size-3" />
-                        <span>Redeem Before</span>
-                      </div>
-                      <p className="font-semibold text-gray-800 text-[11px]">{previewRedeemDate}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Success reward card */}
+        {/* Success reward card — revealed only after claim */}
         <AnimatePresence>
           {showReward && result && (
             <motion.div

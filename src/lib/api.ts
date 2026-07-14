@@ -1097,6 +1097,8 @@ export interface PlayState {
   winRatePercent?: number
   /** Users who played this campaign today (list cards). */
   playingToday?: number
+  /** Win prize chips for spin / shake / dice listing cards. */
+  possibleRewards?: string[]
 }
 
 export interface ShakeResult {

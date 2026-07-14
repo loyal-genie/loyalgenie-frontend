@@ -1,11 +1,18 @@
 import { type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CampaignCoverHero } from '@/components/customer/CampaignCoverHero'
 import { CampaignPlayButton } from '@/components/customer/CampaignPlayButton'
-import { formatCampaignCardSchedule, getCampaignSubtitle } from '@/lib/customer-ui'
+import { formatCampaignCardSchedule, formatCampaignDayMonth, getCampaignSubtitle } from '@/lib/customer-ui'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { getCampaignTheme } from '@/lib/campaign-themes'
+
+export interface ClaimCardProgress {
+  current: number
+  total: number
+  label: string
+}
 
 interface CampaignListingCardProps {
   campaign: {
@@ -27,6 +34,19 @@ interface CampaignListingCardProps {
   extraBadge?: string
   statsLine?: string
   progressLine?: string
+  /** Claim-style reward label shown above the progress bar. */
+  rewardLabel?: string
+  /** Claim-style progress (claimed/joined/friends) with bar. */
+  claimProgress?: ClaimCardProgress
+  /** Shown as Claim by · Redeem by for claim-style cards. */
+  claimBefore?: string
+  redeemBefore?: string
+  /** Optional claim-by time, e.g. "6:00 PM". */
+  claimTime?: string
+  /** Prize chips for spin / shake / dice. */
+  possibleRewards?: string[]
+  /** Shown next to the campaign title (e.g. flash countdown). */
+  titleAccessory?: ReactNode
   /** Shown inside the themed info box footer. */
   playingToday?: number
   className?: string
@@ -64,6 +84,15 @@ function getScheduleLine(campaign: CampaignListingCardProps['campaign']): string
   )
 }
 
+function fmtShortDate(iso?: string) {
+  if (!iso) return null
+  try {
+    return formatCampaignDayMonth(iso)
+  } catch {
+    return iso
+  }
+}
+
 export function CampaignListingCard({
   campaign,
   href,
@@ -72,6 +101,13 @@ export function CampaignListingCard({
   extraBadge,
   statsLine,
   progressLine,
+  rewardLabel,
+  claimProgress,
+  claimBefore,
+  redeemBefore,
+  claimTime,
+  possibleRewards,
+  titleAccessory,
   playingToday,
   className,
   comingSoon = false,
@@ -83,6 +119,14 @@ export function CampaignListingCard({
   const navigable = !blocked && !comingSoon && Boolean(href) && href !== '#'
   const schedule = getScheduleLine(campaign)
   const subtitle = getCampaignSubtitle(campaign.mechanic, campaign.name)
+
+  const claimMode = Boolean(rewardLabel || claimProgress || claimBefore || redeemBefore)
+  const hasPossibleRewards = Boolean(possibleRewards && possibleRewards.length > 0)
+  const pct = claimProgress && claimProgress.total > 0
+    ? Math.min(100, Math.round((claimProgress.current / claimProgress.total) * 100))
+    : 0
+  const claimDateLabel = fmtShortDate(claimBefore)
+  const redeemDateLabel = fmtShortDate(redeemBefore)
 
   const openCard = () => {
     if (navigable) navigate(href)
@@ -116,10 +160,11 @@ export function CampaignListingCard({
       />
 
       <div className="p-4 flex flex-col gap-2 min-h-[148px]">
-        <div className="flex items-baseline gap-2 min-w-0">
-          <h3 className="text-sm font-bold text-gray-900 leading-tight truncate flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <h3 className="text-sm font-bold text-gray-900 leading-tight truncate min-w-0">
             {campaign.name}
           </h3>
+          {titleAccessory}
         </div>
         <p className="text-xs text-gray-500 leading-relaxed">{subtitle}</p>
 
@@ -128,44 +173,141 @@ export function CampaignListingCard({
           className="rounded-xl p-3"
           style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
         >
-          {progressLine ? (
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-gray-700">
-                {campaign.mechanic === 'stamp' ? 'Stamps Collected' : 'Progress'}
-              </span>
-              <span
-                className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white shrink-0"
-                style={{ color: theme.accent }}
+          {claimMode ? (
+            <>
+              {(rewardLabel || claimProgress) && (
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  {rewardLabel && (
+                    <span className="text-sm font-bold truncate" style={{ color: theme.accent }}>
+                      {rewardLabel}
+                    </span>
+                  )}
+                  {claimProgress && (
+                    <span
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white shrink-0"
+                      style={{ color: theme.accent }}
+                    >
+                      {claimProgress.current}/{claimProgress.total} {claimProgress.label}
+                    </span>
+                  )}
+                </div>
+              )}
+              {claimProgress && (
+                <div className="h-1.5 rounded-full bg-white overflow-hidden mb-2">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${pct}%`,
+                      background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentTo})`,
+                    }}
+                  />
+                </div>
+              )}
+              {(claimDateLabel || redeemDateLabel) && (
+                <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                  <CalendarDays className="size-3 text-gray-400 shrink-0" />
+                  <span>
+                    {claimDateLabel && (
+                      <>
+                        Claim by{' '}
+                        <span className="font-semibold text-gray-700">
+                          {claimDateLabel}
+                          {claimTime ? ` · ${claimTime}` : ''}
+                        </span>
+                      </>
+                    )}
+                    {claimDateLabel && redeemDateLabel && ' · '}
+                    {redeemDateLabel && (
+                      <>
+                        Redeem by{' '}
+                        <span className="font-semibold text-gray-700">{redeemDateLabel}</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : hasPossibleRewards ? (
+            <>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                Possible Rewards
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {possibleRewards!.slice(0, 3).map(prize => (
+                  <span
+                    key={prize}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white"
+                    style={{ color: theme.accent }}
+                  >
+                    {prize}
+                  </span>
+                ))}
+              </div>
+              <div
+                className="flex items-center gap-1.5 text-[10px] text-gray-500 flex-wrap mt-2 pt-2 border-t"
+                style={{ borderColor: `${theme.accent}22` }}
               >
-                {progressLine}
-              </span>
-            </div>
-          ) : null}
-          <div
-            className={cn(
-              'flex items-center gap-1.5 text-[10px] text-gray-500 flex-wrap',
-              progressLine && 'mt-2 pt-2 border-t',
-            )}
-            style={progressLine ? { borderColor: `${theme.accent}22` } : undefined}
-          >
-            {playingToday != null && playingToday > 0 && (
-              <>
-                <span className="font-semibold" style={{ color: theme.accent }}>
-                  {playingToday} playing today
-                </span>
-                <span className="text-gray-300">·</span>
-              </>
-            )}
-            {statsLine && (
-              <>
-                <span className="font-semibold" style={{ color: theme.accent }}>
-                  {statsLine}
-                </span>
-                <span className="text-gray-300">·</span>
-              </>
-            )}
-            <span>{schedule}</span>
-          </div>
+                {playingToday != null && playingToday > 0 && (
+                  <>
+                    <span className="font-semibold" style={{ color: theme.accent }}>
+                      {playingToday} playing today
+                    </span>
+                    <span className="text-gray-300">·</span>
+                  </>
+                )}
+                {statsLine && (
+                  <>
+                    <span className="font-semibold" style={{ color: theme.accent }}>
+                      {statsLine}
+                    </span>
+                    <span className="text-gray-300">·</span>
+                  </>
+                )}
+                <span>{schedule}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              {progressLine ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-gray-700">
+                    {campaign.mechanic === 'stamp' ? 'Stamps Collected' : 'Progress'}
+                  </span>
+                  <span
+                    className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white shrink-0"
+                    style={{ color: theme.accent }}
+                  >
+                    {progressLine}
+                  </span>
+                </div>
+              ) : null}
+              <div
+                className={cn(
+                  'flex items-center gap-1.5 text-[10px] text-gray-500 flex-wrap',
+                  progressLine && 'mt-2 pt-2 border-t',
+                )}
+                style={progressLine ? { borderColor: `${theme.accent}22` } : undefined}
+              >
+                {playingToday != null && playingToday > 0 && (
+                  <>
+                    <span className="font-semibold" style={{ color: theme.accent }}>
+                      {playingToday} playing today
+                    </span>
+                    <span className="text-gray-300">·</span>
+                  </>
+                )}
+                {statsLine && (
+                  <>
+                    <span className="font-semibold" style={{ color: theme.accent }}>
+                      {statsLine}
+                    </span>
+                    <span className="text-gray-300">·</span>
+                  </>
+                )}
+                <span>{schedule}</span>
+              </div>
+            </>
+          )}
         </div>
 
         {actions ? (
