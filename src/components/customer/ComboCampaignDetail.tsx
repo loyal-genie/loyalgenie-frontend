@@ -68,13 +68,13 @@ export function ComboCampaignDetail({
     <CampaignPinDetailShell
       mechanic="combo"
       title={campaign.name}
-      subtitle="Claim a bundled package deal before spots run out."
+      subtitle="Claim a bundled package deal before they run out."
       businessName={businessName}
       onBack={onBack}
       loading={loading && !hasClaimed}
       coverExtra={
         remaining != null && total != null ? (
-          <CampaignDetailCoverChip>{remaining} of {total} spots left</CampaignDetailCoverChip>
+          <CampaignDetailCoverChip>{remaining} of {total} bundles left</CampaignDetailCoverChip>
         ) : undefined
       }
       footer={
@@ -130,7 +130,7 @@ export function ComboCampaignDetail({
             className="mt-3 flex items-center gap-1.5 text-xs font-semibold"
             style={{ color: theme.accent, opacity: 0.85 }}
           >
-            <Package className="size-3.5" /> {remaining} of {total} spots left
+            <Package className="size-3.5" /> {remaining} of {total} bundles left
           </p>
         )}
       </div>

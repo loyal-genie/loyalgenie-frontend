@@ -70,8 +70,6 @@ export function CustomerFlashPage() {
 
   const rewardLabel = state?.rewardLabel ?? campaign?.rewards[0]?.name ?? 'Flash Deal'
   const terms = state?.termsAndConditions?.trim() || campaign?.flashConfig?.termsAndConditions?.trim() || ''
-  const total = state?.totalSlots ?? campaign?.flashConfig?.totalSlots ?? 0
-  const remaining = state?.spotsRemaining ?? total
 
   return (
     <CampaignLampClaim
@@ -84,15 +82,22 @@ export function CustomerFlashPage() {
       onAlreadyClaimedWallet={() => navigate('/customer/wallet')}
       preview={{
         sectionLabel: 'Your reward',
+        badgeLabel: rewardLabel,
         rewardTitle: rewardLabel,
         description: terms || undefined,
-        metaLeft: `${remaining} of ${total} left`,
+        claimBefore: campaign?.endDate ?? state?.endDate,
+        redeemBefore: state?.walletReward?.redeemBefore,
       }}
       onClaim={async () => {
         if (!playSession) throw new Error('Session expired. Enter PIN again.')
         try {
           const result = await claimMutation.mutateAsync()
-          return { reward: result.reward, code: result.code, icon: result.icon }
+          return {
+            reward: result.reward,
+            code: result.code,
+            icon: result.icon,
+            redeemBefore: result.redeemBefore,
+          }
         } catch (err) {
           throw new Error(getApiErrorMessage(err, 'Could not claim flash deal. Try again.'))
         }

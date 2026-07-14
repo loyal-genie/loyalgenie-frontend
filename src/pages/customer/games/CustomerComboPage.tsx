@@ -71,8 +71,6 @@ export function CustomerComboPage() {
   const rewardLabel = state?.rewardLabel ?? campaign?.rewards[0]?.name ?? 'Combo Deal'
   const offerSentence = state?.offerSentence ?? ''
   const terms = state?.termsAndConditions?.trim() || campaign?.comboConfig?.termsAndConditions?.trim() || ''
-  const total = state?.totalSpots ?? campaign?.comboConfig?.totalSpots ?? 0
-  const remaining = state?.spotsRemaining ?? total
 
   return (
     <CampaignLampClaim
@@ -85,16 +83,23 @@ export function CustomerComboPage() {
       onAlreadyClaimedWallet={() => navigate('/customer/wallet')}
       preview={{
         sectionLabel: 'Your combo',
+        badgeLabel: rewardLabel,
         rewardTitle: rewardLabel,
         description: terms || offerSentence || undefined,
         highlight: offerSentence || undefined,
-        metaLeft: `${remaining} of ${total} spots left`,
+        claimBefore: campaign?.endDate ?? state?.endDate,
+        redeemBefore: state?.walletReward?.redeemBefore,
       }}
       onClaim={async () => {
         if (!playSession) throw new Error('Session expired. Enter PIN again.')
         try {
           const result = await claimMutation.mutateAsync()
-          return { reward: result.reward, code: result.code, icon: result.icon }
+          return {
+            reward: result.reward,
+            code: result.code,
+            icon: result.icon,
+            redeemBefore: result.redeemBefore,
+          }
         } catch (err) {
           throw new Error(getApiErrorMessage(err, 'Could not claim combo. Try again.'))
         }

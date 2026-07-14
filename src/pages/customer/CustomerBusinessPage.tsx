@@ -397,11 +397,11 @@ function ComboCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Spots gone'}
+      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'No bundles left'}
       statsLine={
         offerState?.hasClaimed
           ? `✓ Claimed · ${offerState.rewardLabel ?? 'Combo Deal'}`
-          : `${offerState?.rewardLabel ?? 'Combo Deal'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+          : `${offerState?.rewardLabel ?? 'Combo Deal'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} bundles left` : ''}`
       }
     />
   )

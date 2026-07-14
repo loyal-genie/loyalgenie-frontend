@@ -71,8 +71,6 @@ export function CustomerFriendPage() {
   const rewardLabel = state?.rewardLabel ?? campaign?.rewards[0]?.name ?? 'Bring a Friend'
   const offerSentence = state?.offerSentence ?? ''
   const minFriends = state?.minFriends ?? campaign?.friendConfig?.minFriends ?? 2
-  const total = state?.userCap ?? 0
-  const remaining = state?.spotsRemaining ?? total
 
   return (
     <CampaignLampClaim
@@ -85,16 +83,23 @@ export function CustomerFriendPage() {
       onAlreadyClaimedWallet={() => navigate('/customer/wallet')}
       preview={{
         sectionLabel: 'Your reward',
+        badgeLabel: rewardLabel,
         rewardTitle: rewardLabel,
         description: offerSentence || undefined,
         highlight: `Bring ${minFriends} friend${minFriends !== 1 ? 's' : ''} to unlock`,
-        metaLeft: `${remaining} of ${total} claims left`,
+        claimBefore: campaign?.endDate ?? state?.endDate,
+        redeemBefore: state?.walletReward?.redeemBefore,
       }}
       onClaim={async () => {
         if (!playSession) throw new Error('Session expired. Enter PIN again.')
         try {
           const result = await claimMutation.mutateAsync()
-          return { reward: result.reward, code: result.code, icon: result.icon }
+          return {
+            reward: result.reward,
+            code: result.code,
+            icon: result.icon,
+            redeemBefore: result.redeemBefore,
+          }
         } catch (err) {
           throw new Error(getApiErrorMessage(err, 'Could not claim reward. Try again.'))
         }
