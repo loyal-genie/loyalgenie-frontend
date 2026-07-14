@@ -363,8 +363,10 @@ function FlashCampaignBlock({
 }) {
   const blocked = Boolean(offerState && !offerState.canClaim)
   const theme = getCampaignTheme('flash')
+  // Daily claim-window end — default 23:59 when vendor leaves Active Hours off.
+  // Prototype always shows a countdown on flash cards; hide only if times are missing.
   const endTime = (campaign.endTime ?? '23:59').slice(0, 5)
-  const showCountdown = !isFullDayEnd(endTime)
+  const hasWindowedHours = !isFullDayWindow(campaign.startTime, endTime)
 
   return (
     <CampaignListingCard
@@ -379,19 +381,18 @@ function FlashCampaignBlock({
           : undefined
       }
       claimBefore={campaign.endDate}
-      claimTime={showCountdown ? formatFlashClaimTime(endTime) : undefined}
+      claimTime={hasWindowedHours ? formatFlashClaimTime(endTime) : undefined}
       redeemBefore={offerState?.redeemBefore ?? undefined}
       titleAccessory={
-        showCountdown ? (
-          <CountdownTimer target={nextDailyDeadline(endTime)} color={theme.accent} />
-        ) : undefined
+        <CountdownTimer target={nextDailyDeadline(endTime)} color={theme.accent} />
       }
     />
   )
 }
 
-function isFullDayEnd(endTime: string) {
-  return endTime === '23:59' || endTime === '24:00'
+function isFullDayWindow(startTime: string | undefined, endTime: string) {
+  const start = (startTime ?? '00:00').slice(0, 5)
+  return (start === '00:00' || start === '0:00') && (endTime === '23:59' || endTime === '24:00')
 }
 
 function formatFlashClaimTime(hhmm: string) {
