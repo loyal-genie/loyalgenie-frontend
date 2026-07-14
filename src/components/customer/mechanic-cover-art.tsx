@@ -154,7 +154,7 @@ export function CouponTicketArt({ className = '' }: { className?: string }) {
         <rect x="50" y="48" width="30" height="4" rx="2" fill="#A5F3FC" />
 
         {/* barcode */}
-        {holes.map((y, i) => (
+        {holes.map((_, i) => (
           <rect key={i} x={120 + (i % 3) * 6} y="30" width={i % 2 === 0 ? 2.5 : 1.5} height="40" fill="#0B4A5C" opacity="0.85" />
         ))}
       </g>

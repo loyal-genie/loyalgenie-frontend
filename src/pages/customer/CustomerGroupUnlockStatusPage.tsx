@@ -265,7 +265,7 @@ export function CustomerGroupUnlockStatusPage() {
           </Link>
         )}
 
-        {canClaimReward && walletStatus !== 'redeemed' && (
+        {canClaimReward && (
           <button
             type="button"
             onClick={() => setShowLampClaim(true)}

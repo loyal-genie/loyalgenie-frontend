@@ -82,7 +82,7 @@ export function CustomerSpinPage() {
   }, [campaign?.spinConfig?.segments, campaign?.rewards])
 
   const winPrizes = useMemo(
-    () => segments.filter(s => s.isWin && (s.label || s.reward).trim()),
+    () => segments.filter(s => s.isWin && (s.label || s.reward || '').trim()),
     [segments],
   )
 
