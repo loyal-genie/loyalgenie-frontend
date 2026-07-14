@@ -1070,6 +1070,8 @@ export interface StampState {
   cardComplete: boolean
   userCap: number
   currentUsers: number
+  /** Customers who stamped today (list cards). */
+  playingToday?: number
 }
 
 export interface StampCollectResult {

@@ -28,7 +28,7 @@ import {
   type PlayState,
   type StampState,
 } from '@/lib/api'
-import { formatCampaignDayMonth, formatCampaignTimeShort } from '@/lib/customer-ui'
+import { formatCampaignTimeShort } from '@/lib/customer-ui'
 import { nextDailyDeadline } from '@/lib/campaign-dates'
 import { getCampaignTheme } from '@/lib/campaign-themes'
 
@@ -50,7 +50,7 @@ function StampCampaignBlock({
     Boolean(stampState && !stampState.enrolled && !stampState.enrollmentOpen)
 
   const progressLine =
-    stampState?.enrolled && stampState.totalStamps
+    stampState?.totalStamps
       ? `${stampState.stampsCollected}/${stampState.totalStamps}`
       : undefined
 
@@ -69,11 +69,7 @@ function StampCampaignBlock({
               : 'Enrollment closed — no spots left'
       }
       progressLine={progressLine}
-      statsLine={
-        stampState
-          ? `${stampState.currentUsers}/${stampState.userCap} enrolled`
-          : undefined
-      }
+      playingToday={stampState?.playingToday}
     />
   )
 }
@@ -146,6 +142,13 @@ function SpinCampaignBlock({
           ? `✓ All spins used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
           : playState?.message
       }
+      titleSuffix={
+        playState
+          ? `(${playState.playsUsedToday}/${playState.playsPerDay})`
+          : campaign.playsPerDay != null
+            ? `(0/${campaign.playsPerDay})`
+            : undefined
+      }
       playingToday={playState?.playingToday}
       possibleRewards={playState?.possibleRewards}
     />
@@ -182,6 +185,13 @@ function DiceCampaignBlock({
           ? `✓ All rolls used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
           : playState?.message
       }
+      titleSuffix={
+        playState
+          ? `(${playState.playsUsedToday}/${playState.playsPerDay})`
+          : campaign.playsPerDay != null
+            ? `(0/${campaign.playsPerDay})`
+            : undefined
+      }
       playingToday={playState?.playingToday}
       possibleRewards={playState?.possibleRewards}
     />
@@ -217,17 +227,9 @@ function LotteryCampaignBlock({
 }) {
   const canClaim = Boolean(lotteryState?.canClaimTicket)
   const hasTicket = Boolean(lotteryState?.hasTicket)
-  const drawLabel = formatCampaignDayMonth(lotteryState?.drawDate ?? campaign.endDate)
+  const drawDate = lotteryState?.drawDate ?? campaign.endDate
   const ticketCount = lotteryState?.ticketCount ?? 0
-  const playsPerDay = lotteryState?.playsPerDay ?? campaign.playsPerDay ?? 1
-  const playsUsedToday = lotteryState?.playsUsedToday ?? 0
   const entriesClosed = Boolean(lotteryState && !canClaim && !hasTicket)
-
-  const statsLine = lotteryState?.drawCompleted
-    ? `Draw complete · ${ticketCount} ticket${ticketCount === 1 ? '' : 's'}`
-    : hasTicket
-      ? `${ticketCount} ticket${ticketCount === 1 ? '' : 's'} · ${playsUsedToday}/${playsPerDay} today · Draw ${drawLabel}`
-      : `Draw on ${drawLabel}${lotteryState?.totalTickets ? ` · ${lotteryState.totalTickets} entered` : ''}`
 
   return (
     <CampaignListingCard
@@ -236,7 +238,8 @@ function LotteryCampaignBlock({
       blocked={entriesClosed}
       blockedLabel={lotteryState?.drawCompleted ? 'Draw complete' : 'Entries closed'}
       playingToday={lotteryState?.playingToday}
-      statsLine={statsLine}
+      lotteryDrawDate={drawDate}
+      lotteryTicketCount={ticketCount}
       actions={
         entriesClosed && !hasTicket
           ? undefined
@@ -425,10 +428,21 @@ function ComboCampaignBlock({
     claimedCount?: number
     totalSpots?: number
     redeemBefore?: string | null
+    variant?: 'discount' | 'freeitem'
+    originalPrice?: number
+    bundlePrice?: number
     active?: boolean
   }
 }) {
   const blocked = Boolean(offerState && !offerState.canClaim)
+  const theme = getCampaignTheme('combo')
+  const showDiscountPrices =
+    offerState?.variant === 'discount'
+    && offerState.originalPrice != null
+    && offerState.bundlePrice != null
+  const savePct = showDiscountPrices && offerState.originalPrice! > offerState.bundlePrice!
+    ? Math.round(((offerState.originalPrice! - offerState.bundlePrice!) / offerState.originalPrice!) * 100)
+    : null
 
   return (
     <CampaignListingCard
@@ -444,6 +458,24 @@ function ComboCampaignBlock({
       }
       claimBefore={campaign.endDate}
       redeemBefore={offerState?.redeemBefore ?? undefined}
+      claimExtra={
+        showDiscountPrices ? (
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xs text-gray-400 line-through">₹{offerState!.originalPrice}</span>
+              <span className="text-sm font-bold" style={{ color: theme.accent }}>₹{offerState!.bundlePrice}</span>
+            </div>
+            {savePct != null && savePct > 0 && (
+              <span
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white"
+                style={{ color: theme.accent }}
+              >
+                Save {savePct}%
+              </span>
+            )}
+          </div>
+        ) : undefined
+      }
     />
   )
 }
@@ -523,6 +555,7 @@ function GroupUnlockCampaignBlock({
 }) {
   const hasClaimed = Boolean(offerState?.hasClaimed)
   const canClaim = Boolean(offerState?.canClaim)
+  const unlocked = Boolean(offerState?.unlocked)
   const claimHref = `/customer/campaigns/${campaign.id}`
 
   return (
@@ -542,6 +575,7 @@ function GroupUnlockCampaignBlock({
           campaignId={campaign.id}
           canClaim={canClaim}
           hasClaimed={hasClaimed}
+          unlocked={unlocked}
           claimHref={claimHref}
         />
       }
@@ -557,6 +591,7 @@ function LoyaltyCampaignBlock({
   state?: LoyaltyState
 }) {
   const checkedInToday = state?.checkedInToday ?? false
+  const pointsPer = state?.pointsPerCheckIn
 
   return (
     <CampaignListingCard
@@ -564,8 +599,19 @@ function LoyaltyCampaignBlock({
       href={checkedInToday ? '#' : `/customer/campaigns/${campaign.id}`}
       blocked={checkedInToday}
       blockedLabel={`✓ Checked in today · ${state?.loyaltyPoints ?? 0} pts`}
-      extraBadge={state ? `${state.loyaltyPoints} pts` : undefined}
-      statsLine={state ? `${state.loyaltyPoints} pts` : undefined}
+      titleAccessory={
+        pointsPer != null ? (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+            +{pointsPer} pts
+          </span>
+        ) : state ? (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+            {state.loyaltyPoints} pts
+          </span>
+        ) : undefined
+      }
+      checkInPointsPer={pointsPer}
+      checkInTotalPoints={state?.loyaltyPoints}
       playingToday={state?.playingToday}
     />
   )
@@ -794,6 +840,9 @@ export function CustomerBusinessPage() {
                       claimedCount?: number
                       totalSpots?: number
                       redeemBefore?: string | null
+                      variant?: 'discount' | 'freeitem'
+                      originalPrice?: number
+                      bundlePrice?: number
                       active?: boolean
                     } | undefined}
                   />
