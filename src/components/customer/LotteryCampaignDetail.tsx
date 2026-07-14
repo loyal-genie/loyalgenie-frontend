@@ -18,6 +18,7 @@ interface LotteryCampaignDetailProps {
   playsPerDay?: number
   drawDate?: string
   totalTickets?: number
+  businessName?: string
   onBack: () => void
   onKey: (digit: string) => void
   onDelete: () => void
@@ -36,6 +37,7 @@ export function LotteryCampaignDetail({
   playsPerDay,
   drawDate,
   totalTickets,
+  businessName,
   onBack,
   onKey,
   onDelete,
@@ -56,6 +58,7 @@ export function LotteryCampaignDetail({
       mechanic="lottery"
       title={campaign.name}
       subtitle="Enter for a chance at big rewards."
+      businessName={businessName}
       onBack={onBack}
       loading={loading}
       coverExtra={
@@ -87,13 +90,19 @@ export function LotteryCampaignDetail({
               onKey={onKey}
               onDelete={onDelete}
               onSubmit={onSubmit}
-              submitLabel="Claim ticket 🎟️"
+              submitLabel="Claim Now"
               submitColor={theme.accent}
+              submitColorTo={theme.accentTo}
             />
             {hasTicket && (
               <Link
                 to={`/customer/campaigns/${campaign.id}/lottery-status`}
-                className="flex w-full items-center justify-center rounded-full border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-900 no-underline"
+                className="flex w-full items-center justify-center rounded-full border py-2.5 text-xs font-bold no-underline"
+                style={{
+                  borderColor: `${theme.accent}44`,
+                  background: `${theme.accent}0C`,
+                  color: theme.accent,
+                }}
               >
                 Check Status
               </Link>
@@ -101,7 +110,7 @@ export function LotteryCampaignDetail({
           </div>
         ) : (
           <div className="rounded-2xl bg-white p-4 text-center">
-            <p className="text-sm font-semibold text-amber-900">
+            <p className="text-sm font-semibold" style={{ color: theme.accent }}>
               {hasTicket ? 'No claims left today' : 'Entries closed'}
             </p>
             <p className="mt-1 text-xs text-[#6a7282]">
@@ -123,8 +132,14 @@ export function LotteryCampaignDetail({
       }
     >
       {prizes.length > 0 && (
-        <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
-          <p className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-800/70">
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
+        >
+          <p
+            className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider"
+            style={{ color: theme.accent }}
+          >
             <Gift className="size-3.5" /> Prizes up for grabs
           </p>
           <div className="space-y-2">
@@ -133,11 +148,13 @@ export function LotteryCampaignDetail({
                 key={`${p.name}-${i}`}
                 className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2.5 shadow-sm"
               >
-                <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[#101828]">
+                <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-900">
                   <span>{p.icon ?? (p.tier === 'jackpot' ? '👑' : '🎁')}</span>
                   <span className="truncate">{p.name}</span>
                 </span>
-                <span className="shrink-0 text-xs font-medium text-amber-800">{p.reward}</span>
+                <span className="shrink-0 text-xs font-medium" style={{ color: theme.accent }}>
+                  {p.reward}
+                </span>
               </div>
             ))}
           </div>

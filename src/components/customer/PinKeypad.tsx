@@ -13,10 +13,15 @@ interface PinKeypadProps {
   onDelete: () => void
   onSubmit: () => void
   submitLabel?: string
-  /** Overrides default purple submit button (match campaign cover/theme). */
+  /** Brand start color for filled digits + submit gradient. */
   submitColor?: string
+  /** Brand end color for submit gradient. Falls back to submitColor. */
+  submitColorTo?: string
 }
 
+/**
+ * Prototype-aligned PIN keypad: square digit slots, light keys, gradient CTA.
+ */
 export function PinKeypad({
   pin,
   pinLength = 3,
@@ -28,45 +33,35 @@ export function PinKeypad({
   onKey,
   onDelete,
   onSubmit,
-  submitLabel = 'Redeem code',
-  submitColor = '#5b0e81',
+  submitLabel = 'Play Now',
+  submitColor = '#7C3AED',
+  submitColorTo,
 }: PinKeypadProps) {
   const complete = pin.length >= pinLength
+  const gradientTo = submitColorTo ?? submitColor
+  const enabled = complete && !disabled && !loading
 
   return (
     <div className="w-full">
       {!hideHeader && (
-        <div className={compact ? 'mb-2.5 text-center' : 'mb-5 text-center'}>
-          <h2 className={compact ? 'text-sm font-semibold text-[#2b2827] mb-0.5' : 'text-xl font-semibold text-[#2b2827] mb-2'}>
-            Enter the code shared by staff
-          </h2>
-          <p className={compact ? 'text-[11px] text-[rgba(43,40,39,0.65)]' : 'text-sm text-[rgba(43,40,39,0.7)]'}>
-            3-digit code · refreshes every 2 minutes
-          </p>
+        <div className={compact ? 'mb-3 text-center' : 'mb-4 text-center'}>
+          <p className="text-sm font-bold text-gray-900 mb-1">Enter the code shared by staff</p>
+          <p className="text-xs text-gray-400">3-digit code · refreshes every 2 minutes</p>
         </div>
       )}
 
-      <div className={`flex justify-center ${compact ? 'gap-3 mb-2.5' : 'gap-4 mb-4'}`}>
+      <div className={`flex justify-center gap-2.5 ${compact ? 'mb-3' : 'mb-4'}`}>
         {Array.from({ length: pinLength }, (_, i) => (
           <motion.div
             key={i}
             animate={error ? { x: [0, -6, 6, 0] } : {}}
-            className={
-              compact
-                ? 'w-11 h-9 rounded-lg border border-[#e5e0dc] bg-white flex items-center justify-center'
-                : 'w-14 h-10 rounded-xl border border-[#e5e0dc] bg-white shadow-sm flex items-center justify-center'
-            }
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black text-gray-900 transition-colors"
+            style={{
+              background: '#F9FAFB',
+              border: pin[i] ? `2px solid ${submitColor}` : '2px solid #E5E7EB',
+            }}
           >
-            {pin[i] ? (
-              <span
-                className={compact ? 'text-lg font-bold' : 'text-xl font-bold'}
-                style={{ color: submitColor }}
-              >
-                {pin[i]}
-              </span>
-            ) : (
-              <span className="text-lg font-normal" style={{ color: `${submitColor}26` }}>•</span>
-            )}
+            {pin[i] ?? ''}
           </motion.div>
         ))}
       </div>
@@ -75,13 +70,13 @@ export function PinKeypad({
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className={`text-center text-xs text-red-500 ${compact ? 'mb-2' : 'mb-4'}`}
+          className={`text-center text-xs text-red-500 ${compact ? 'mb-2' : 'mb-3'}`}
         >
           {error}
         </motion.p>
       )}
 
-      <div className={`grid grid-cols-3 ${compact ? 'gap-1.5 mb-2.5' : 'gap-2 mb-5'}`}>
+      <div className={`grid grid-cols-3 gap-2 max-w-[220px] mx-auto ${compact ? 'mb-3' : 'mb-4'}`}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
           <motion.button
             key={n}
@@ -89,11 +84,7 @@ export function PinKeypad({
             whileTap={{ scale: 0.92 }}
             onClick={() => onKey(String(n))}
             disabled={disabled || loading || pin.length >= pinLength}
-            className={
-              compact
-                ? 'h-10 rounded-xl text-base font-semibold text-[#2b2827] bg-[#faf8f6] border border-[#e5e0dc] cursor-pointer disabled:opacity-40 touch-manipulation'
-                : 'h-12 rounded-2xl text-lg font-semibold text-[#2b2827] bg-[#faf8f6] border border-[#e5e0dc] cursor-pointer disabled:opacity-40 touch-manipulation'
-            }
+            className="py-2.5 rounded-xl text-sm font-bold text-gray-800 bg-gray-50 border-0 cursor-pointer disabled:opacity-40 touch-manipulation"
           >
             {n}
           </motion.button>
@@ -104,11 +95,7 @@ export function PinKeypad({
           whileTap={{ scale: 0.92 }}
           onClick={() => onKey('0')}
           disabled={disabled || loading || pin.length >= pinLength}
-          className={
-            compact
-              ? 'h-10 rounded-xl text-base font-semibold text-[#2b2827] bg-[#faf8f6] border border-[#e5e0dc] cursor-pointer disabled:opacity-40 touch-manipulation'
-              : 'h-12 rounded-2xl text-lg font-semibold text-[#2b2827] bg-[#faf8f6] border border-[#e5e0dc] cursor-pointer disabled:opacity-40 touch-manipulation'
-          }
+          className="py-2.5 rounded-xl text-sm font-bold text-gray-800 bg-gray-50 border-0 cursor-pointer disabled:opacity-40 touch-manipulation"
         >
           0
         </motion.button>
@@ -117,27 +104,23 @@ export function PinKeypad({
           whileTap={{ scale: 0.92 }}
           onClick={onDelete}
           disabled={disabled || loading}
-          className={
-            compact
-              ? 'h-10 rounded-xl text-[#6b6461] bg-[#faf8f6] border border-[#e5e0dc] cursor-pointer flex items-center justify-center disabled:opacity-40 touch-manipulation'
-              : 'h-12 rounded-2xl text-[#6b6461] bg-[#faf8f6] border border-[#e5e0dc] cursor-pointer flex items-center justify-center disabled:opacity-40 touch-manipulation'
-          }
+          className="py-2.5 rounded-xl flex items-center justify-center text-gray-500 bg-gray-50 border-0 cursor-pointer disabled:opacity-40 touch-manipulation"
         >
-          <Delete className={compact ? 'size-4' : 'size-5'} />
+          <Delete className="w-3.5 h-3.5" />
         </motion.button>
       </div>
 
       <motion.button
         type="button"
-        whileTap={{ scale: 0.98 }}
+        whileTap={{ scale: 0.97 }}
         onClick={onSubmit}
-        disabled={!complete || disabled || loading}
-        style={{ backgroundColor: submitColor }}
-        className={
-          compact
-            ? 'w-full h-10 rounded-full font-semibold text-sm text-white disabled:opacity-40 border-0 cursor-pointer flex items-center justify-center gap-2'
-            : 'w-full h-12 rounded-full font-medium text-sm text-white shadow-[0px_18px_40px_-18px_rgba(0,0,0,0.35)] disabled:opacity-40 border-0 cursor-pointer flex items-center justify-center gap-2'
-        }
+        disabled={!enabled}
+        className="w-full py-3.5 rounded-2xl font-bold text-base border-0 cursor-pointer flex items-center justify-center gap-2 transition-all disabled:cursor-not-allowed"
+        style={{
+          background: enabled ? `linear-gradient(135deg, ${submitColor}, ${gradientTo})` : '#F3F4F6',
+          color: enabled ? '#FFFFFF' : '#9CA3AF',
+          boxShadow: enabled ? `0 8px 28px ${submitColor}55` : 'none',
+        }}
       >
         {loading ? <Loader2 className="size-4 animate-spin" /> : submitLabel}
       </motion.button>

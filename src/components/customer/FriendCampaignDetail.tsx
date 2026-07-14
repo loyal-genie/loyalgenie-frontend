@@ -13,6 +13,7 @@ interface FriendCampaignDetailProps {
   hasClaimed?: boolean
   spotsRemaining?: number
   userCap?: number
+  businessName?: string
   onBack: () => void
   onKey: (digit: string) => void
   onDelete: () => void
@@ -27,6 +28,7 @@ export function FriendCampaignDetail({
   hasClaimed,
   spotsRemaining,
   userCap,
+  businessName,
   onBack,
   onKey,
   onDelete,
@@ -57,6 +59,7 @@ export function FriendCampaignDetail({
       mechanic="friend"
       title={campaign.name}
       subtitle="Bring friends along and unlock a reward together."
+      businessName={businessName}
       onBack={onBack}
       loading={loading && !hasClaimed}
       coverExtra={
@@ -87,18 +90,25 @@ export function FriendCampaignDetail({
             onKey={onKey}
             onDelete={onDelete}
             onSubmit={onSubmit}
-            submitLabel="Claim reward"
+            submitLabel="Claim Now"
             submitColor={theme.accent}
+            submitColorTo={theme.accentTo}
           />
         )
       }
     >
-      <div className="rounded-2xl border border-pink-100 bg-pink-50/90 p-4">
-        <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-pink-700/70">
+      <div
+        className="rounded-2xl p-4"
+        style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
+      >
+        <p
+          className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"
+          style={{ color: theme.accent }}
+        >
           <Gift className="size-3.5" /> Your reward
         </p>
-        <p className="text-2xl font-black tracking-tight text-pink-950">{rewardName}</p>
-        <p className="mt-1.5 text-sm font-semibold text-pink-800/80">{offerSentence}</p>
+        <p className="text-2xl font-black tracking-tight text-gray-900">{rewardName}</p>
+        <p className="mt-1.5 text-sm font-semibold text-gray-600">{offerSentence}</p>
       </div>
     </CampaignPinDetailShell>
   )

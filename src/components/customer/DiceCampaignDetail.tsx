@@ -1,4 +1,4 @@
-import { CampaignPinDetailShell, CampaignDetailCoverChip } from '@/components/customer/CampaignPinDetailShell'
+import { CampaignPinDetailShell } from '@/components/customer/CampaignPinDetailShell'
 import { PinKeypad } from '@/components/customer/PinKeypad'
 import { DiceFace } from '@/components/shared/DiceFace'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
@@ -15,6 +15,7 @@ interface DiceCampaignDetailProps {
   userCap?: number
   playsUsedToday?: number
   playsPerDay?: number
+  businessName?: string
   onBack: () => void
   onKey: (digit: string) => void
   onDelete: () => void
@@ -31,6 +32,7 @@ export function DiceCampaignDetail({
   userCap,
   playsUsedToday,
   playsPerDay,
+  businessName,
   onBack,
   onKey,
   onDelete,
@@ -49,20 +51,25 @@ export function DiceCampaignDetail({
       mechanic="dice"
       title={campaign.name}
       subtitle="Roll the dice for surprise perks."
+      businessName={businessName}
       onBack={onBack}
       loading={loading}
       coverExtra={
-        <>
-          {overallWinners != null && userCap != null && (
-            <CampaignDetailCoverChip>✨ {formatShakeWinLabel(overallWinners, userCap)}</CampaignDetailCoverChip>
-          )}
-          {overallWinners == null && winRatePercent != null && (
-            <CampaignDetailCoverChip>✨ {winRatePercent}% of rolls win</CampaignDetailCoverChip>
-          )}
-          {playsUsedToday != null && playsPerDay != null && (
-            <CampaignDetailCoverChip>{playsUsedToday}/{playsPerDay} rolls today</CampaignDetailCoverChip>
-          )}
-        </>
+        playsUsedToday != null && playsPerDay != null ? (
+          <span
+            className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold"
+            style={{ background: `${theme.accent}18`, color: theme.accent }}
+          >
+            {playsUsedToday}/{playsPerDay} tries
+          </span>
+        ) : undefined
+      }
+      headerRight={
+        overallWinners != null && userCap != null
+          ? formatShakeWinLabel(overallWinners, userCap)
+          : winRatePercent != null
+            ? `${winRatePercent}% win rate`
+            : undefined
       }
       footer={
         <PinKeypad
@@ -73,24 +80,32 @@ export function DiceCampaignDetail({
           onKey={onKey}
           onDelete={onDelete}
           onSubmit={onSubmit}
-          submitLabel="Roll the dice"
+          submitLabel="Play Now"
           submitColor={theme.accent}
+          submitColorTo={theme.accentTo}
         />
       }
     >
       {prizeChips.length > 0 && (
-        <div className="rounded-2xl border border-[#ffe4e6] bg-[#fff1f2] px-3.5 py-3">
-          <p className="mb-2.5 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-[#9f1239]/70">
+        <div
+          className="rounded-2xl px-3.5 py-3"
+          style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
+        >
+          <p
+            className="mb-2.5 text-center text-[10px] font-bold uppercase tracking-[0.14em]"
+            style={{ color: theme.accent, opacity: 0.7 }}
+          >
             Winning faces
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {prizeChips.map((chip, i) => (
               <span
                 key={`${chip.reward}-${i}`}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold leading-tight text-[#9f1239] shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold leading-tight shadow-sm"
+                style={{ color: theme.accent }}
               >
                 <span className="size-3.5 shrink-0" aria-hidden>
-                  <DiceFace value={chip.value} pipColor="#9f1239" />
+                  <DiceFace value={chip.value} pipColor={theme.accent} />
                 </span>
                 {chip.reward}
               </span>

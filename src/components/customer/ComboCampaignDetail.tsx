@@ -13,6 +13,7 @@ interface ComboCampaignDetailProps {
   hasClaimed?: boolean
   spotsRemaining?: number
   totalSpots?: number
+  businessName?: string
   onBack: () => void
   onKey: (digit: string) => void
   onDelete: () => void
@@ -27,6 +28,7 @@ export function ComboCampaignDetail({
   hasClaimed,
   spotsRemaining,
   totalSpots,
+  businessName,
   onBack,
   onKey,
   onDelete,
@@ -66,12 +68,13 @@ export function ComboCampaignDetail({
     <CampaignPinDetailShell
       mechanic="combo"
       title={campaign.name}
-      subtitle="Claim a bundled package deal before spots run out."
+      subtitle="Claim a bundled package deal before they run out."
+      businessName={businessName}
       onBack={onBack}
       loading={loading && !hasClaimed}
       coverExtra={
         remaining != null && total != null ? (
-          <CampaignDetailCoverChip>{remaining} of {total} spots left</CampaignDetailCoverChip>
+          <CampaignDetailCoverChip>{remaining} of {total} bundles left</CampaignDetailCoverChip>
         ) : undefined
       }
       footer={
@@ -89,27 +92,45 @@ export function ComboCampaignDetail({
             onKey={onKey}
             onDelete={onDelete}
             onSubmit={onSubmit}
-            submitLabel="Claim combo"
+            submitLabel="Claim Now"
             submitColor={theme.accent}
+            submitColorTo={theme.accentTo}
           />
         )
       }
     >
-      <div className="rounded-2xl border border-lime-100 bg-lime-50/90 p-4">
-        <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-lime-700/70">
+      <div
+        className="rounded-2xl p-4"
+        style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
+      >
+        <p
+          className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"
+          style={{ color: theme.accent }}
+        >
           <Gift className="size-3.5" /> Your combo
         </p>
-        <p className="text-2xl font-black tracking-tight text-lime-950">{rewardName}</p>
-        <p className="mt-1.5 text-sm font-semibold text-lime-800/80">{offerSentence}</p>
+        <p className="text-2xl font-black tracking-tight text-gray-900">{rewardName}</p>
+        <p className="mt-1.5 text-sm font-semibold text-gray-600">{offerSentence}</p>
         {terms ? (
-          <div className="mt-3 rounded-xl border border-lime-200/60 bg-white/80 px-3 py-2.5">
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-lime-700/55">Terms</p>
-            <p className="whitespace-pre-wrap text-xs leading-relaxed text-lime-950/85">{terms}</p>
+          <div
+            className="mt-3 rounded-xl bg-white/80 px-3 py-2.5"
+            style={{ border: `1px solid ${theme.accent}22` }}
+          >
+            <p
+              className="mb-1 text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: theme.accent, opacity: 0.7 }}
+            >
+              Terms
+            </p>
+            <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-800">{terms}</p>
           </div>
         ) : null}
         {remaining != null && total != null && (
-          <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-lime-800/70">
-            <Package className="size-3.5" /> {remaining} of {total} spots left
+          <p
+            className="mt-3 flex items-center gap-1.5 text-xs font-semibold"
+            style={{ color: theme.accent, opacity: 0.85 }}
+          >
+            <Package className="size-3.5" /> {remaining} of {total} bundles left
           </p>
         )}
       </div>

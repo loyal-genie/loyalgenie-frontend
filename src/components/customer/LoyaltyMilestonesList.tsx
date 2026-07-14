@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { getCampaignTheme } from '@/lib/campaign-themes'
 import type { LoyaltyState } from '@/lib/api'
 
 interface LoyaltyMilestonesListProps {
@@ -14,11 +15,12 @@ export function LoyaltyMilestonesList({
   className,
   compact = false,
 }: LoyaltyMilestonesListProps) {
+  const theme = getCampaignTheme('check-in-loyalty')
   const sorted = [...milestones].sort((a, b) => a.pointsThreshold - b.pointsThreshold)
 
   if (sorted.length === 0) {
     return (
-      <p className={cn('text-xs text-[#888]', className)}>
+      <p className={cn('text-xs text-gray-400', className)}>
         Rewards will appear here once the business sets them up.
       </p>
     )
@@ -26,7 +28,10 @@ export function LoyaltyMilestonesList({
 
   return (
     <div className={cn(compact ? 'space-y-1.5' : 'space-y-2', className)}>
-      <p className="text-[10px] font-bold uppercase tracking-wide text-[#9b59e8]">
+      <p
+        className="text-[10px] font-bold uppercase tracking-wide"
+        style={{ color: theme.accent }}
+      >
         Rewards you&apos;ll unlock
       </p>
       {sorted.map(milestone => {
@@ -39,26 +44,27 @@ export function LoyaltyMilestonesList({
             className={cn(
               'flex items-center gap-2.5 rounded-lg',
               compact ? 'px-2.5 py-2' : 'rounded-xl px-3 py-2.5 gap-3',
-              unlocked
-                ? 'border border-emerald-100 bg-emerald-50'
-                : 'bg-[#f5f0ff]',
             )}
+            style={{
+              background: unlocked ? `${theme.accent}14` : '#FFFFFF',
+              border: `1px solid ${unlocked ? `${theme.accent}33` : `${theme.accent}18`}`,
+            }}
           >
             <span className={cn('leading-none shrink-0', compact ? 'text-base' : 'text-xl')} aria-hidden>
               {milestone.icon}
             </span>
             <div className="min-w-0 flex-1">
-              <p className={cn('truncate font-bold text-[#1a0030]', compact ? 'text-xs' : 'text-sm')}>
+              <p className={cn('truncate font-bold text-gray-900', compact ? 'text-xs' : 'text-sm')}>
                 {milestone.name}
               </p>
-              <p className="text-[10px] text-[#888]">{milestone.pointsThreshold} pts</p>
+              <p className="text-[10px] text-gray-500">{milestone.pointsThreshold} pts</p>
             </div>
             {unlocked ? (
-              <span className="shrink-0 text-[10px] font-bold text-emerald-600">
+              <span className="shrink-0 text-[10px] font-bold" style={{ color: theme.accent }}>
                 {milestone.redeemed ? 'Redeemed' : '✓'}
               </span>
             ) : (
-              <span className="shrink-0 text-[10px] font-semibold text-[#631cbb]">
+              <span className="shrink-0 text-[10px] font-semibold" style={{ color: theme.accent }}>
                 {pointsAway} away
               </span>
             )}

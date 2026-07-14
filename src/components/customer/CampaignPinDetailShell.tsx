@@ -2,26 +2,29 @@ import { type ReactNode } from 'react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getCampaignTheme } from '@/lib/campaign-themes'
-import { getCustomerMechanicChipLabel } from '@/lib/customer-ui'
+import { CampaignCoverHero } from '@/components/customer/CampaignCoverHero'
 
 interface CampaignPinDetailShellProps {
   mechanic: string
   title: string
   subtitle: string
   onBack: () => void
-  /** Extra chips / badges under the subtitle (inside the colored cover). */
+  /** Extra chips under the title in the white sheet (optional). */
   coverExtra?: ReactNode
+  /** Business name shown under the title. */
+  businessName?: string
   /** Main scrollable content inside the white sheet (above PIN). */
   children?: ReactNode
-  /** Sticky footer — typically compact PinKeypad, or claimed status. */
+  /** Sticky/inline footer — typically compact PinKeypad. */
   footer: ReactNode
   loading?: boolean
   className?: string
+  /** Override cover right badge (e.g. win-rate teaser). */
+  headerRight?: string
 }
 
 /**
- * Stamp / check-in layout for all campaign PIN pages:
- * themed cover on top → white sheet with details → themed action in footer.
+ * Prototype PIN layout: pastel hero cover → white overlapping sheet → keypad.
  */
 export function CampaignPinDetailShell({
   mechanic,
@@ -29,67 +32,68 @@ export function CampaignPinDetailShell({
   subtitle,
   onBack,
   coverExtra,
+  businessName,
   children,
   footer,
   loading,
   className,
+  headerRight,
 }: CampaignPinDetailShellProps) {
   const theme = getCampaignTheme(mechanic)
 
   return (
     <div
       className={cn(
-        'h-dvh flex flex-col max-w-[440px] mx-auto overflow-hidden relative',
+        'min-h-dvh flex flex-col max-w-[440px] mx-auto overflow-x-hidden relative bg-white',
         className,
       )}
-      style={{ backgroundColor: theme.cover }}
     >
-      <div className="relative shrink-0 px-4 pb-4 pt-[max(2.75rem,env(safe-area-inset-top))]">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-20"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(255,255,255,0.06) 10px, rgba(255,255,255,0.06) 20px)',
-          }}
+      <div className="relative shrink-0">
+        <CampaignCoverHero
+          mechanic={mechanic}
+          variant="detail"
+          headerRight={headerRight}
+          showStatusBadge
         />
-        <div className="relative flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex size-9 items-center justify-center rounded-full border-0 bg-black/25 backdrop-blur-sm cursor-pointer"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="size-4 text-white" />
-          </button>
-          <span
-            className={cn(
-              'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-              theme.badgeBg,
-              theme.badgeText,
-            )}
-          >
-            {getCustomerMechanicChipLabel(mechanic)}
-          </span>
-        </div>
-        <div className="relative mt-3">
-          <h1 className="text-xl font-extrabold leading-tight text-white">{title}</h1>
-          <p className="mt-1 text-xs text-white/75">{subtitle}</p>
-          {coverExtra ? <div className="mt-2.5 flex flex-wrap gap-1.5">{coverExtra}</div> : null}
-        </div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="absolute top-[max(2.75rem,env(safe-area-inset-top))] left-4 z-20 flex size-9 items-center justify-center rounded-full border-0 bg-black/25 backdrop-blur-md cursor-pointer"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="size-4 text-white" />
+        </button>
+        {/* Scallop into white body */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-white rounded-t-[2rem] pointer-events-none" />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[28px] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)]">
-        {children ? (
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-2">{children}</div>
-        ) : null}
-        <div className="shrink-0 border-t border-[#f0ebf8] bg-[#faf8fc] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          {footer}
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col px-5 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <h1 className="text-xl font-extrabold text-gray-900 leading-tight">{title}</h1>
+          {coverExtra ? <div className="shrink-0 flex flex-wrap gap-1.5 justify-end">{coverExtra}</div> : null}
+        </div>
+        {businessName && (
+          <p className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
+            <span aria-hidden>☕</span>
+            {businessName}
+          </p>
+        )}
+        <p className="text-sm text-gray-500 mb-4 leading-relaxed">{subtitle}</p>
+
+        <div
+          className="rounded-3xl bg-white px-4 py-5 flex-1 flex flex-col"
+          style={{
+            boxShadow: `0 16px 48px ${theme.accent}20, 0 0 0 1px ${theme.accent}1A`,
+          }}
+        >
+          {children ? <div className="mb-5">{children}</div> : null}
+          <div className="mt-auto">{footer}</div>
         </div>
       </div>
 
       {loading && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20">
-          <Loader2 className="size-10 animate-spin" style={{ color: theme.cover }} />
+          <Loader2 className="size-10 animate-spin" style={{ color: theme.accent }} />
         </div>
       )}
     </div>
@@ -106,7 +110,7 @@ export function CampaignDetailCoverChip({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-bold text-white',
+        'inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-700',
         className,
       )}
     >

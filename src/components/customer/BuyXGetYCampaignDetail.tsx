@@ -12,6 +12,7 @@ interface BuyXGetYCampaignDetailProps {
   loading?: boolean
   hasClaimed?: boolean
   spotsRemaining?: number
+  businessName?: string
   onBack: () => void
   onKey: (digit: string) => void
   onDelete: () => void
@@ -25,6 +26,7 @@ export function BuyXGetYCampaignDetail({
   loading,
   hasClaimed,
   spotsRemaining,
+  businessName,
   onBack,
   onKey,
   onDelete,
@@ -58,6 +60,7 @@ export function BuyXGetYCampaignDetail({
       mechanic="buy-x-get-y"
       title={campaign.name}
       subtitle="Buy or spend to unlock a reward."
+      businessName={businessName}
       onBack={onBack}
       loading={loading && !hasClaimed}
       coverExtra={
@@ -80,17 +83,24 @@ export function BuyXGetYCampaignDetail({
             onKey={onKey}
             onDelete={onDelete}
             onSubmit={onSubmit}
-            submitLabel="Claim offer"
+            submitLabel="Claim Now"
             submitColor={theme.accent}
+            submitColorTo={theme.accentTo}
           />
         )
       }
     >
-      <div className="rounded-2xl border border-orange-100 bg-orange-50/80 p-4">
-        <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-orange-800/70">
+      <div
+        className="rounded-2xl p-4"
+        style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
+      >
+        <p
+          className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider"
+          style={{ color: theme.accent }}
+        >
           <Gift className="size-3.5" /> Your reward
         </p>
-        <p className="text-lg font-bold text-[#101828]">{rewardName}</p>
+        <p className="text-lg font-bold text-gray-900">{rewardName}</p>
         {description && (
           <p className="mt-1.5 text-sm leading-relaxed text-[#6a7282]">{description}</p>
         )}

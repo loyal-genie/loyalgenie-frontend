@@ -13,6 +13,7 @@ import { CustomerRewardCard } from '@/components/customer/CustomerRewardCard'
 import { PullToRefresh } from '@/components/customer/PullToRefresh'
 import {
   CampaignListingCard,
+  GroupUnlockCardActions,
   LotteryCardActions,
   LoyaltyCampaignSectionHeader,
 } from '@/components/customer/CampaignListingCard'
@@ -47,7 +48,7 @@ function StampCampaignBlock({
 
   const progressLine =
     stampState?.enrolled && stampState.totalStamps
-      ? `${stampState.stampsCollected}/${stampState.totalStamps} stamps collected`
+      ? `${stampState.stampsCollected}/${stampState.totalStamps}`
       : undefined
 
   return (
@@ -67,7 +68,7 @@ function StampCampaignBlock({
       progressLine={progressLine}
       statsLine={
         stampState
-          ? `${stampState.currentUsers}/${stampState.userCap} playing today`
+          ? `${stampState.currentUsers}/${stampState.userCap} enrolled`
           : undefined
       }
     />
@@ -396,11 +397,11 @@ function ComboCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Spots gone'}
+      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'No bundles left'}
       statsLine={
         offerState?.hasClaimed
           ? `✓ Claimed · ${offerState.rewardLabel ?? 'Combo Deal'}`
-          : `${offerState?.rewardLabel ?? 'Combo Deal'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+          : `${offerState?.rewardLabel ?? 'Combo Deal'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} bundles left` : ''}`
       }
     />
   )
@@ -457,24 +458,40 @@ function GroupUnlockCampaignBlock({
     rewardLabel?: string
     canClaim?: boolean
     hasClaimed?: boolean
+    unlocked?: boolean
     spotsRemaining?: number
     groupJoined?: number
     targetParticipants?: number
     active?: boolean
   }
 }) {
-  const blocked = Boolean(offerState && !offerState.canClaim)
+  const hasClaimed = Boolean(offerState?.hasClaimed)
+  const canClaim = Boolean(offerState?.canClaim)
+  const claimHref = `/customer/campaigns/${campaign.id}`
 
   return (
     <CampaignListingCard
       campaign={campaign}
-      href={`/customer/campaigns/${campaign.id}`}
-      blocked={blocked}
-      blockedLabel={offerState?.hasClaimed ? 'Already reserved' : 'Spots gone'}
+      href={hasClaimed ? `/customer/campaigns/${campaign.id}/groupunlock-status` : claimHref}
+      progressLine={
+        offerState?.groupJoined != null && offerState?.targetParticipants != null
+          ? `${offerState.groupJoined}/${offerState.targetParticipants}`
+          : undefined
+      }
       statsLine={
-        offerState?.hasClaimed
-          ? `✓ Reserved · ${offerState.rewardLabel ?? 'Community Offer'}`
+        hasClaimed
+          ? offerState?.unlocked
+            ? `✓ Unlocked · ${offerState.rewardLabel ?? 'Community Offer'}`
+            : `✓ Spot reserved · ${offerState?.rewardLabel ?? 'Community Offer'}`
           : `${offerState?.rewardLabel ?? 'Community Offer'}${offerState?.spotsRemaining != null ? ` · ${offerState.spotsRemaining} left` : ''}`
+      }
+      actions={
+        <GroupUnlockCardActions
+          campaignId={campaign.id}
+          canClaim={canClaim}
+          hasClaimed={hasClaimed}
+          claimHref={claimHref}
+        />
       }
     />
   )
@@ -496,7 +513,8 @@ function LoyaltyCampaignBlock({
       blocked={checkedInToday}
       blockedLabel={`✓ Checked in today · ${state?.loyaltyPoints ?? 0} pts`}
       extraBadge={state ? `${state.loyaltyPoints} pts` : undefined}
-      statsLine={state ? `${state.loyaltyPoints} pts · ${state.currentUsers}/${state.userCap} players` : undefined}
+      statsLine={state ? `${state.loyaltyPoints} pts` : undefined}
+      playingToday={state?.playingToday}
     />
   )
 }
@@ -737,6 +755,7 @@ export function CustomerBusinessPage() {
                       rewardLabel?: string
                       canClaim?: boolean
                       hasClaimed?: boolean
+                      unlocked?: boolean
                       spotsRemaining?: number
                       groupJoined?: number
                       targetParticipants?: number
