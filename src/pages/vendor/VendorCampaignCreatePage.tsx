@@ -1204,6 +1204,7 @@ export function VendorCampaignCreatePage() {
                       { label: 'Offer', value: formatBuyXGetYSentence(buyXGetYConfig) },
                       { label: 'Trigger', value: buyXGetYConfig.condition === 'spend' ? `₹${buyXGetYConfig.spendAmount} spend` : `${buyXGetYConfig.buyQuantity} purchases` },
                       { label: 'Reward', value: buyXGetYConfig.rewardValue || '—' },
+                      { label: 'Terms & Conditions', value: buyXGetYConfig.termsAndConditions.trim() || '—' },
                       { label: 'Redeem before', value: formatRedeemBeforeSummary(buyXGetYRedeem) },
                     ] : []),
                     ...(mechanic === 'coupon' ? [

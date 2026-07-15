@@ -41,19 +41,20 @@ export function BuyXGetYCampaignDetail({
         spendAmount: config.spendAmount,
         rewardKind: config.rewardKind,
         rewardValue: config.rewardValue,
+        termsAndConditions: config.termsAndConditions ?? '',
       })
     : campaign.rewards[0]?.name ?? 'Reward'
-  const description =
-    campaign.rewards[0]?.description ||
-    (config
-      ? formatBuyXGetYSentence({
-          condition: config.condition,
-          buyQuantity: config.buyQuantity,
-          spendAmount: config.spendAmount,
-          rewardKind: config.rewardKind,
-          rewardValue: config.rewardValue,
-        })
-      : '')
+  const offerSentence = config
+    ? formatBuyXGetYSentence({
+        condition: config.condition,
+        buyQuantity: config.buyQuantity,
+        spendAmount: config.spendAmount,
+        rewardKind: config.rewardKind,
+        rewardValue: config.rewardValue,
+        termsAndConditions: config.termsAndConditions ?? '',
+      })
+    : ''
+  const terms = config?.termsAndConditions?.trim() || ''
 
   return (
     <CampaignPinDetailShell
@@ -95,14 +96,36 @@ export function BuyXGetYCampaignDetail({
         style={{ background: `${theme.accent}0C`, border: `1px solid ${theme.accent}22` }}
       >
         <p
-          className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider"
+          className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"
           style={{ color: theme.accent }}
         >
           <Gift className="size-3.5" /> Your reward
         </p>
-        <p className="text-lg font-bold text-gray-900">{rewardName}</p>
-        {description && (
-          <p className="mt-1.5 text-sm leading-relaxed text-[#6a7282]">{description}</p>
+        <p className="text-2xl font-black tracking-tight text-gray-900">{rewardName}</p>
+        {offerSentence ? (
+          <p className="mt-1.5 text-sm font-semibold text-gray-600">{offerSentence}</p>
+        ) : null}
+        {terms ? (
+          <div
+            className="mt-3 rounded-xl bg-white/80 px-3 py-2.5"
+            style={{ border: `1px solid ${theme.accent}22` }}
+          >
+            <p
+              className="mb-1 text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: theme.accent, opacity: 0.7 }}
+            >
+              Terms
+            </p>
+            <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-800">{terms}</p>
+          </div>
+        ) : null}
+        {spotsRemaining != null && (
+          <p
+            className="mt-3 flex items-center gap-1.5 text-xs font-semibold"
+            style={{ color: theme.accent, opacity: 0.85 }}
+          >
+            <Gift className="size-3.5" /> {spotsRemaining} spots remaining
+          </p>
         )}
       </div>
     </CampaignPinDetailShell>

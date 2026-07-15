@@ -9,6 +9,7 @@ export interface BuyXGetYConfigUi {
   spendAmount: number
   rewardKind: RewardKind
   rewardValue: string
+  termsAndConditions: string
 }
 
 export function defaultBuyXGetYConfig(): BuyXGetYConfigUi {
@@ -18,6 +19,7 @@ export function defaultBuyXGetYConfig(): BuyXGetYConfigUi {
     spendAmount: 500,
     rewardKind: 'item',
     rewardValue: '',
+    termsAndConditions: '',
   }
 }
 
@@ -70,6 +72,7 @@ export function buildBuyXGetYCampaignPayload(config: BuyXGetYConfigUi, redeem: R
       spendAmount: config.spendAmount,
       rewardKind: config.rewardKind,
       rewardValue: config.rewardValue.trim(),
+      termsAndConditions: config.termsAndConditions.trim(),
       redeemExpiryMode: redeem.redeemExpiryMode,
       redeemFixedDate: redeem.redeemExpiryMode === 'fixed' ? redeem.redeemFixedDate : undefined,
       redeemRelativeAmount: redeem.redeemExpiryMode === 'relative' ? redeem.redeemRelativeAmount : undefined,
@@ -86,6 +89,7 @@ export function buyXGetYFromApi(
         spendAmount: number
         rewardKind: 'flat' | 'percent' | 'item'
         rewardValue: string
+        termsAndConditions?: string
         redeemExpiryMode?: 'fixed' | 'relative'
         redeemFixedDate?: string | null
         redeemRelativeAmount?: number
@@ -104,6 +108,7 @@ export function buyXGetYFromApi(
       spendAmount: apiConfig.spendAmount,
       rewardKind: apiConfig.rewardKind,
       rewardValue: apiConfig.rewardValue,
+      termsAndConditions: apiConfig.termsAndConditions ?? '',
     },
     redeem: {
       redeemExpiryMode: apiConfig.redeemExpiryMode ?? 'relative',

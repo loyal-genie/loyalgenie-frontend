@@ -8,12 +8,12 @@ import { getMechanicEmoji, hexToRgb, hexMix } from '@/lib/utils'
 
 /** Preview props kept optional for callers; pre-claim reward details are intentionally hidden. */
 
-/** Larger circle so lamp/genie fill the CTA (prototype fit). */
-const CONTAINER = 280
-const R = 102
-const CX = 120
-const CY = 120
-const SVG_SIZE = 240
+/** Lamp / genie CTA circle — sized to leave room for reward card below. */
+const CONTAINER = 232
+const R = 86
+const CX = 100
+const CY = 100
+const SVG_SIZE = 200
 
 const STARS = [
   { x: 8, y: 10, s: 14, o: 0.38 },
@@ -400,7 +400,7 @@ export function CampaignLampClaim({
                   initial={{ scale: 0, y: 28, opacity: 0 }}
                   animate={{ scale: [0, 1.14, 1], y: 0, opacity: 1 }}
                   transition={{ type: 'spring', stiffness: 260, damping: 14 }}
-                  style={{ width: 196, height: 'auto', objectFit: 'contain', position: 'relative', zIndex: 1 }}
+                  style={{ width: 156, height: 'auto', objectFit: 'contain', position: 'relative', zIndex: 1 }}
                 />
               ) : (
                 <motion.img
@@ -418,7 +418,7 @@ export function CampaignLampClaim({
                       : { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }
                   }
                   style={{
-                    width: 168,
+                    width: 132,
                     height: 'auto',
                     objectFit: 'contain',
                     position: 'relative',
@@ -560,17 +560,6 @@ export function CampaignLampClaim({
                   View in Wallet →
                 </Link>
               </motion.div>
-              <button
-                type="button"
-                onClick={onBack}
-                className="mt-3 w-full py-3.5 rounded-2xl font-bold text-sm text-white border-0 cursor-pointer"
-                style={{
-                  background: accentTo,
-                  boxShadow: `0 8px 20px rgba(${deepRgb},0.28)`,
-                }}
-              >
-                Back to Business
-              </button>
             </motion.div>
           )}
         </AnimatePresence>

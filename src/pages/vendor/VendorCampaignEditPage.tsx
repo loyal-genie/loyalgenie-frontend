@@ -238,6 +238,7 @@ function buyXGetYEqual(
     && a.spendAmount === b.spendAmount
     && a.rewardKind === b.rewardKind
     && a.rewardValue === b.rewardValue
+    && a.termsAndConditions === b.termsAndConditions
     && redeemA.redeemExpiryMode === redeemB.redeemExpiryMode
     && redeemA.redeemFixedDate === redeemB.redeemFixedDate
     && redeemA.redeemRelativeAmount === redeemB.redeemRelativeAmount
@@ -945,6 +946,7 @@ export function VendorCampaignEditPage() {
       { label: 'Offer', value: formatBuyXGetYSentence(buyXGetYConfig), changed: changedFields.buyXGetYConfig, previous: formatBuyXGetYSentence(originalBuyXGetYConfig) },
       { label: 'Trigger', value: buyXGetYConfig.condition === 'spend' ? `₹${buyXGetYConfig.spendAmount} spend` : `${buyXGetYConfig.buyQuantity} purchases`, changed: changedFields.buyXGetYConfig },
       { label: 'Reward', value: buyXGetYConfig.rewardValue || '—', changed: changedFields.buyXGetYConfig },
+      { label: 'Terms & Conditions', value: buyXGetYConfig.termsAndConditions.trim() || '—', changed: changedFields.buyXGetYConfig, previous: originalBuyXGetYConfig.termsAndConditions.trim() || '—' },
       { label: 'Redeem before', value: formatRedeemBeforeSummary(buyXGetYRedeem), changed: changedFields.buyXGetYConfig, previous: formatRedeemBeforeSummary(originalBuyXGetYRedeem) },
     ] : []),
     ...(isCoupon ? [

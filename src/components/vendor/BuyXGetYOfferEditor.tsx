@@ -43,6 +43,9 @@ export function BuyXGetYOfferEditor({ config, setConfig, readOnly }: BuyXGetYOff
         <p className="text-v-text-3 text-xs">
           Trigger: {config.condition === 'spend' ? `₹${config.spendAmount} spend` : `${config.buyQuantity} purchases`}
         </p>
+        {config.termsAndConditions.trim() && (
+          <p className="text-v-text-3 text-xs whitespace-pre-wrap">{config.termsAndConditions}</p>
+        )}
       </div>
     )
   }
@@ -124,6 +127,19 @@ export function BuyXGetYOfferEditor({ config, setConfig, readOnly }: BuyXGetYOff
           value={config.rewardValue}
           onChange={e => patch({ rewardValue: e.target.value })}
         />
+      </div>
+
+      <div>
+        <label className={`${labelClass} mb-1.5 block`}>Terms & Conditions</label>
+        <textarea
+          className={`${inputClass} h-28 py-3 resize-none`}
+          placeholder="e.g. Valid today only, while spots last. One redemption per customer. Show this screen at billing to redeem."
+          value={config.termsAndConditions}
+          onChange={e => patch({ termsAndConditions: e.target.value })}
+        />
+        <p className="text-xs text-v-text-3 mt-1.5">
+          Qualifying conditions and redemption instructions shown to customers before they claim.
+        </p>
       </div>
 
       <div className="rounded-xl bg-v-purple/5 border border-v-purple/15 px-4 py-3">
