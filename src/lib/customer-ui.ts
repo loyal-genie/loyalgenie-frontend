@@ -6,7 +6,7 @@ import {
   CUSTOMER_CATEGORIES,
   type CustomerCategory,
 } from './business-display'
-import { campaignDaysLeft, fmtCampaignDate, todayInCampaignTz } from '@/lib/campaign-dates'
+import { campaignDaysLeft, fmtCampaignDate, todayInCampaignTz, currentTimeInCampaignTz } from '@/lib/campaign-dates'
 import { inferDurationMode } from '@/lib/campaign-duration'
 
 export { formatBusinessCategory, categoryMatches, CUSTOMER_CATEGORIES, type CustomerCategory }
@@ -123,6 +123,55 @@ export function formatCampaignDayMonth(iso: string): string {
     month: 'short',
     timeZone: 'UTC',
   })
+}
+
+/** "16-07" from YYYY-MM-DD — customer “Live on” badge. */
+export function formatCampaignDdMm(iso: string): string {
+  const day = iso.slice(0, 10)
+  const [, mo, d] = day.split('-')
+  if (!mo || !d) return iso
+  return `${d}-${mo}`
+}
+
+function normalizeListingHhMm(time: string): string {
+  const match = /^(\d{1,2}):(\d{2})/.exec(time.trim())
+  if (!match) return time.trim().slice(0, 5)
+  const h = Math.min(23, Math.max(0, Number(match[1])))
+  const m = Math.min(59, Math.max(0, Number(match[2])))
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/**
+ * True when the campaign has not opened yet:
+ * - start calendar day still in the future, OR
+ * - start day before start_time (shows “Live on …” not Active Hours).
+ */
+export function isCampaignUpcoming(
+  startDate: string,
+  startTime?: string | null,
+  today = todayInCampaignTz(),
+  nowTime = currentTimeInCampaignTz(),
+): boolean {
+  const start = startDate.slice(0, 10)
+  if (today < start) return true
+  if (today > start) return false
+  const normalized = normalizeListingHhMm(startTime ?? '00:00')
+  if (normalized === '00:00') return false
+  return nowTime < normalized
+}
+
+/**
+ * “Live on 16-07” or “Live on 16-07 · 4PM” when Active Hours / start time are set.
+ */
+export function formatCampaignLiveOnLabel(
+  startDate: string,
+  startTime?: string | null,
+  endTime?: string | null,
+): string {
+  const dateLabel = formatCampaignDdMm(startDate)
+  if (isFullDayWindow(startTime, endTime)) return `Live on ${dateLabel}`
+  const startT = formatCampaignTimeShort((startTime ?? '00:00').slice(0, 5))
+  return `Live on ${dateLabel} · ${startT}`
 }
 
 /** "10AM" / "10:30AM" from HH:mm. */

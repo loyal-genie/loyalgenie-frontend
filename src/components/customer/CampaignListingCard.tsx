@@ -66,6 +66,8 @@ interface CampaignListingCardProps {
   playingToday?: number
   className?: string
   comingSoon?: boolean
+  /** Overrides default “Live soon” copy, e.g. “Live on 16-07 · 4PM”. */
+  comingSoonLabel?: string
   /** When set, replaces the default single play button (e.g. lottery dual CTAs). */
   actions?: ReactNode
 }
@@ -74,8 +76,9 @@ function getHeaderRightBadge(
   campaign: CampaignListingCardProps['campaign'],
   extraBadge?: string,
   comingSoon?: boolean,
+  comingSoonLabel?: string,
 ): string | undefined {
-  if (comingSoon) return 'Live soon'
+  if (comingSoon) return comingSoonLabel ?? 'Live soon'
   if (campaign.mechanic === 'shake' && campaign.overallWinners != null && campaign.userCap != null) {
     return formatShakeWinLabel(campaign.overallWinners, campaign.userCap)
   }
@@ -179,10 +182,11 @@ export function CampaignListingCard({
   playingToday,
   className,
   comingSoon = false,
+  comingSoonLabel,
   actions,
 }: CampaignListingCardProps) {
   const navigate = useNavigate()
-  const headerRight = getHeaderRightBadge(campaign, extraBadge, comingSoon)
+  const headerRight = getHeaderRightBadge(campaign, extraBadge, comingSoon, comingSoonLabel)
   const theme = getCampaignTheme(campaign.mechanic)
   const navigable = !blocked && !comingSoon && Boolean(href) && href !== '#'
   const schedule = getScheduleLine(campaign)
@@ -405,7 +409,9 @@ export function CampaignListingCard({
                 : 'bg-[#f3f4f6] text-[#6a7282]',
             )}
           >
-            {comingSoon ? '✨ Live soon — not playable yet' : blockedLabel ?? '✓ Played today — come back tomorrow'}
+            {comingSoon
+              ? (comingSoonLabel ? `✨ ${comingSoonLabel}` : '✨ Live soon — not playable yet')
+              : blockedLabel ?? '✓ Played today — come back tomorrow'}
           </div>
         ) : (
           <CampaignPlayButton mechanic={campaign.mechanic} />

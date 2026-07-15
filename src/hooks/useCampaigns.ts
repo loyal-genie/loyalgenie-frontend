@@ -123,6 +123,9 @@ export function useCreateCampaign() {
     mutationFn: (payload: CreateCampaignPayload) => createCampaign(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['business-campaign-states'] })
+      queryClient.invalidateQueries({ queryKey: ['vendor-dashboard-stats'] })
     },
   })
 }
@@ -134,6 +137,8 @@ export function useUpdateCampaign(id: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
       queryClient.invalidateQueries({ queryKey: ['campaigns', id] })
+      queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['business-campaign-states'] })
       queryClient.invalidateQueries({ queryKey: ['vendor-dashboard-stats'] })
     },
   })
@@ -147,6 +152,8 @@ export function useDeleteCampaign() {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
       queryClient.removeQueries({ queryKey: ['campaigns', campaignId] })
       queryClient.removeQueries({ queryKey: ['campaigns', campaignId, 'pin'] })
+      queryClient.invalidateQueries({ queryKey: ['businesses-with-campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['business-campaign-states'] })
       queryClient.invalidateQueries({ queryKey: ['vendor-dashboard-stats'] })
       queryClient.invalidateQueries({ queryKey: ['vendor-redemptions'] })
       queryClient.invalidateQueries({ queryKey: ['vendor-customers'] })

@@ -909,6 +909,8 @@ export interface PublicCampaign {
   mechanic: string
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   playsPerDay?: number
   overallWinners?: number
   winRatePercent?: number

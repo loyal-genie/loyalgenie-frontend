@@ -19,7 +19,7 @@ import {
 } from '@/lib/api'
 import { setPlaySession, markMotionGesture } from '@/lib/customer-game'
 import { primeMotionSensors } from '@/lib/shake-motion-sensors'
-import { getGameRouteForMechanic } from '@/lib/customer-ui'
+import { getGameRouteForMechanic, formatCampaignLiveOnLabel, isCampaignUpcoming } from '@/lib/customer-ui'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { isMechanicComingSoon } from '@/lib/live-mechanics'
 import { MechanicComingSoon } from '@/components/shared/MechanicComingSoon'
@@ -323,6 +323,17 @@ export function CustomerCampaignPage() {
       <MechanicComingSoon
         mechanic={campaign.mechanic}
         title={campaign.name}
+        onBack={handleBack}
+      />
+    )
+  }
+
+  if (isCampaignUpcoming(campaign.startDate, campaign.startTime)) {
+    return (
+      <CampaignPinBlocked
+        title={formatCampaignLiveOnLabel(campaign.startDate, campaign.startTime, campaign.endTime)}
+        detail="This campaign isn’t playable yet. Come back when it goes live."
+        emoji="📅"
         onBack={handleBack}
       />
     )
