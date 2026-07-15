@@ -558,10 +558,14 @@ function FlashCampaignBlock({
       claimTime={hasWindowedHours ? formatClockAmPm(endTime) : undefined}
       redeemBefore={offerState?.redeemBefore ?? undefined}
       titleAccessory={
-        <CountdownTimer
-          target={flashCountdownTarget(startTime, endTime)}
-          color={theme.accent}
-        />
+        upcoming || !hasWindowedHours
+          ? undefined
+          : (
+            <CountdownTimer
+              target={flashCountdownTarget(startTime, endTime)}
+              color={theme.accent}
+            />
+          )
       }
     />
   )

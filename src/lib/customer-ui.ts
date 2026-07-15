@@ -125,7 +125,7 @@ export function formatCampaignDayMonth(iso: string): string {
   })
 }
 
-/** "16-07" from YYYY-MM-DD — customer “Live on” badge. */
+/** "16-07" from YYYY-MM-DD — legacy numeric day-month (prefer formatCampaignDayMonth for UI). */
 export function formatCampaignDdMm(iso: string): string {
   const day = iso.slice(0, 10)
   const [, mo, d] = day.split('-')
@@ -161,14 +161,14 @@ export function isCampaignUpcoming(
 }
 
 /**
- * “Live on 16-07” or “Live on 16-07 · 4PM” when Active Hours / start time are set.
+ * “Live on 16 Jul” or “Live on 16 Jul · 9AM” when Active Hours / start time are set.
  */
 export function formatCampaignLiveOnLabel(
   startDate: string,
   startTime?: string | null,
   endTime?: string | null,
 ): string {
-  const dateLabel = formatCampaignDdMm(startDate)
+  const dateLabel = formatCampaignDayMonth(startDate)
   if (isFullDayWindow(startTime, endTime)) return `Live on ${dateLabel}`
   const startT = formatCampaignTimeShort((startTime ?? '00:00').slice(0, 5))
   return `Live on ${dateLabel} · ${startT}`

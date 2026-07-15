@@ -66,7 +66,7 @@ interface CampaignListingCardProps {
   playingToday?: number
   className?: string
   comingSoon?: boolean
-  /** Overrides default “Live soon” copy, e.g. “Live on 16-07 · 4PM”. */
+  /** Overrides default “Live soon” copy, e.g. “Live on 16 Jul · 9AM”. */
   comingSoonLabel?: string
   /** When set, replaces the default single play button (e.g. lottery dual CTAs). */
   actions?: ReactNode
@@ -202,7 +202,8 @@ export function CampaignListingCard({
   const claimDateLabel = fmtShortDate(claimBefore)
   const redeemDateLabel = fmtRedeemBefore(redeemBefore)
   const endsIn = campaignDaysLeft(campaign.endDate)
-  const showEndsIn = endsIn > 0 && endsIn <= 7
+  // Only show urgency when the campaign is already live — not on upcoming “Live on …” cards.
+  const showEndsIn = !comingSoon && endsIn > 0 && endsIn <= 7
 
   const openCard = () => {
     if (navigable) navigate(href)
