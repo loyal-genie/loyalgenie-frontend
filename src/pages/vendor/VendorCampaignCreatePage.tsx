@@ -311,13 +311,14 @@ export function VendorCampaignCreatePage() {
     setLaunchError(null)
     try {
       if (mechanic === 'shake') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
         const campaign = await createMutation.mutateAsync({
           name: basics.name.trim(),
           mechanic: 'shake',
           startDate: dates.start,
           endDate: dates.end,
-          startTime: dates.startTime,
-          endTime: dates.endTime,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
           userCap: basics.userCap,
           perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
           playsPerDay: basics.playsPerDay,

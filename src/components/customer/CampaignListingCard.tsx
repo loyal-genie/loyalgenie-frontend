@@ -482,12 +482,15 @@ export function GroupUnlockCardActions({
   hasClaimed,
   unlocked,
   claimHref,
+  outsideHoursLabel,
 }: {
   campaignId: string
   canClaim: boolean
   hasClaimed: boolean
   unlocked?: boolean
   claimHref: string
+  /** When set, !canClaim is outside Active Hours — not group capacity. */
+  outsideHoursLabel?: string
 }) {
   const theme = getCampaignTheme('groupunlock')
   const statusBtn =
@@ -521,8 +524,8 @@ export function GroupUnlockCardActions({
 
   if (!canClaim) {
     return (
-      <div className="w-full py-2.5 rounded-xl text-xs font-bold text-center bg-[#f3f4f6] text-[#6a7282]">
-        Group Full
+      <div className="w-full py-2.5 rounded-xl text-xs font-bold text-center bg-[#f3f4f6] text-[#6a7282] px-2">
+        {outsideHoursLabel ?? 'Group Full'}
       </div>
     )
   }

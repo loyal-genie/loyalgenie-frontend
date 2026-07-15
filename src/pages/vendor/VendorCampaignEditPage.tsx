@@ -425,10 +425,16 @@ export function VendorCampaignEditPage() {
       setOriginalUserCapLimited(campaign.userCap < UNLIMITED_USER_CAP)
     }
 
-    if (campaign.mechanic === 'spin') {
-      const hydrated = applyEqualProbabilities(spinSegmentsFromApi(campaign.spinConfig ?? null, campaign.rewards))
-      setSpinSegments(hydrated)
-      setOriginalSpinSegments(hydrated)
+    if (campaign.mechanic === 'shake' || campaign.mechanic === 'spin') {
+      if (campaign.mechanic === 'spin') {
+        const hydrated = applyEqualProbabilities(spinSegmentsFromApi(campaign.spinConfig ?? null, campaign.rewards))
+        setSpinSegments(hydrated)
+        setOriginalSpinSegments(hydrated)
+        if (campaign.startDate !== campaign.endDate) {
+          const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
+          dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
+        }
+      }
       const start = campaign.startTime ?? '00:00'
       const end = campaign.endTime ?? '23:59'
       const hoursEnabled = start !== '00:00' || end !== '23:59'
@@ -438,10 +444,6 @@ export function VendorCampaignEditPage() {
       setOriginalActiveHoursEnabled(hoursEnabled)
       setOriginalActiveStartTime(start)
       setOriginalActiveEndTime(end)
-      if (campaign.startDate !== campaign.endDate) {
-        const cap = campaign.userCap >= UNLIMITED_USER_CAP ? 200 : campaign.userCap
-        dailyLimitSyncRef.current = `${cap}:${campaignDayCount(campaign.startDate, campaign.endDate)}`
-      }
     }
 
     if (campaign.mechanic === 'dice') {
@@ -685,7 +687,7 @@ export function VendorCampaignEditPage() {
     comboConfig: isCombo && !comboEqual(comboConfig, originalComboConfig, comboRedeem, originalComboRedeem),
     friendConfig: isFriend && !friendEqual(friendConfig, originalFriendConfig, friendRedeem, originalFriendRedeem),
     groupUnlockConfig: isGroupUnlock && !groupUnlockEqual(groupUnlockConfig, originalGroupUnlockConfig, groupUnlockRedeem, originalGroupUnlockRedeem),
-    activeHours: (isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) && (
+    activeHours: (isShake || isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) && (
       activeHoursEnabled !== originalActiveHoursEnabled
       || activeStartTime !== originalActiveStartTime
       || activeEndTime !== originalActiveEndTime
@@ -748,6 +750,10 @@ export function VendorCampaignEditPage() {
               redeemRelativeAmount: r.redeemExpiryMode === 'relative' ? r.redeemRelativeAmount : undefined,
               redeemRelativeUnit: r.redeemExpiryMode === 'relative' ? r.redeemRelativeUnit : undefined,
             }))
+        }
+        if (changedFields.activeHours) {
+          payload.startTime = activeHoursEnabled ? activeStartTime : '00:00'
+          payload.endTime = activeHoursEnabled ? activeEndTime : '23:59'
         }
       }
 
@@ -922,6 +928,7 @@ export function VendorCampaignEditPage() {
       ...(!isSingleDay ? [{ label: 'Daily User Limit', value: `${perDayUserLimit} / day`, changed: changedFields.perDayUserLimit, previous: `${campaign.perDayUserLimit} / day` }] : []),
       { label: 'Plays Per User / Day', value: String(playsPerDay), changed: changedFields.playsPerDay, previous: String(campaign.playsPerDay) },
       { label: 'Overall Winners', value: `${formatWinnerCount(overallWinners, true)} customers`, changed: changedFields.overallWinners, previous: `${formatWinnerCount(campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100)), true)} customers` },
+      ...(activeHoursEnabled ? [{ label: 'Active Hours', value: `${activeStartTime} – ${activeEndTime} daily`, changed: changedFields.activeHours }] : []),
     ] : []),
     ...(isStamp ? [
       { label: 'User Cap', value: `${userCap} users`, changed: changedFields.userCap, previous: `${campaign.userCap} users` },
@@ -1212,7 +1219,7 @@ export function VendorCampaignEditPage() {
                       </>
                     ))}
 
-                    {(isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) && !isEnded && (
+                    {(isShake || isSpin || isDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) && !isEnded && (
                       <div className="pt-2 border-t border-v-border mb-4">
                         <div className="flex items-center justify-between mb-2">
                             <div>

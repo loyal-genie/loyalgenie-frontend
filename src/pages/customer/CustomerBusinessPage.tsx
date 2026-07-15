@@ -29,8 +29,89 @@ import {
   type StampState,
 } from '@/lib/api'
 import { formatCampaignTimeShort } from '@/lib/customer-ui'
-import { nextDailyDeadline } from '@/lib/campaign-dates'
+import { currentTimeInCampaignTz, nextDailyDeadline } from '@/lib/campaign-dates'
 import { getCampaignTheme } from '@/lib/campaign-themes'
+
+function isFullDayWindow(startTime: string | undefined, endTime: string) {
+  const start = (startTime ?? '00:00').slice(0, 5)
+  return (start === '00:00' || start === '0:00') && (endTime === '23:59' || endTime === '24:00')
+}
+
+function formatClockAmPm(hhmm: string) {
+  const [hRaw, mRaw] = hhmm.split(':')
+  const h = Number(hRaw)
+  const m = Number(mRaw ?? 0)
+  if (!Number.isFinite(h)) return formatCampaignTimeShort(hhmm)
+  const ap = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${String(m).padStart(2, '0')} ${ap}`
+}
+
+function hasActiveHoursWindow(startTime?: string, endTime?: string): boolean {
+  const end = (endTime ?? '23:59').slice(0, 5)
+  return !isFullDayWindow(startTime, end)
+}
+
+/** e.g. "Today · Active Hours 4:00 PM–9:00 PM" */
+function activeHoursBlockedLabel(startTime?: string, endTime?: string): string {
+  const start = (startTime ?? '00:00').slice(0, 5)
+  const end = (endTime ?? '23:59').slice(0, 5)
+  if (isFullDayWindow(start, end)) return 'Outside active hours'
+  return `Today · Active Hours ${formatClockAmPm(start)}–${formatClockAmPm(end)}`
+}
+
+/** Listing CTA when canClaim is false — capacity vs Active Hours. */
+function claimBlockedLabel(opts: {
+  hasClaimed?: boolean
+  active?: boolean
+  spotsRemaining?: number
+  claimedCount?: number
+  total?: number
+  exhaustedLabel: string
+  startTime?: string
+  endTime?: string
+}): string {
+  if (opts.hasClaimed) return 'Already claimed'
+  const exhausted =
+    (opts.spotsRemaining != null && opts.spotsRemaining <= 0)
+    || (
+      opts.claimedCount != null
+      && opts.total != null
+      && opts.total > 0
+      && opts.claimedCount >= opts.total
+    )
+  if (exhausted) return opts.exhaustedLabel
+  if (opts.active === false && hasActiveHoursWindow(opts.startTime, opts.endTime)) {
+    return activeHoursBlockedLabel(opts.startTime, opts.endTime)
+  }
+  if (opts.active === false) return 'Not available now'
+  return opts.exhaustedLabel
+}
+
+function playOutsideHoursLabel(opts: {
+  blockReason?: string | null
+  message?: string
+  quotaUsed: boolean
+  quotaLabel: string
+  startTime?: string
+  endTime?: string
+}): string | undefined {
+  if (opts.quotaUsed) return opts.quotaLabel
+  if (opts.blockReason === 'campaign_inactive' && hasActiveHoursWindow(opts.startTime, opts.endTime)) {
+    return activeHoursBlockedLabel(opts.startTime, opts.endTime)
+  }
+  return opts.message
+}
+
+/** Countdown to window open if before Active Hours today; otherwise to daily end. */
+function flashCountdownTarget(startTime: string | undefined, endTime: string): string {
+  const start = (startTime ?? '00:00').slice(0, 5)
+  const end = endTime.slice(0, 5)
+  if (isFullDayWindow(start, end)) return nextDailyDeadline(end)
+  const time = currentTimeInCampaignTz()
+  if (time < start) return nextDailyDeadline(start)
+  return nextDailyDeadline(end)
+}
 
 function StampCampaignBlock({
   campaign,
@@ -101,11 +182,14 @@ function ShakeCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={
-        quotaUsed
-          ? `✓ All plays used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
-          : playState?.message
-      }
+      blockedLabel={playOutsideHoursLabel({
+        blockReason: playState?.blockReason,
+        message: playState?.message,
+        quotaUsed,
+        quotaLabel: `✓ All plays used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
       playingToday={playState?.playingToday}
       possibleRewards={playState?.possibleRewards}
     />
@@ -137,11 +221,14 @@ function SpinCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={
-        quotaUsed
-          ? `✓ All spins used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
-          : playState?.message
-      }
+      blockedLabel={playOutsideHoursLabel({
+        blockReason: playState?.blockReason,
+        message: playState?.message,
+        quotaUsed,
+        quotaLabel: `✓ All spins used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
       titleSuffix={
         playState
           ? `(${playState.playsUsedToday}/${playState.playsPerDay})`
@@ -180,11 +267,14 @@ function DiceCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={
-        quotaUsed
-          ? `✓ All rolls used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
-          : playState?.message
-      }
+      blockedLabel={playOutsideHoursLabel({
+        blockReason: playState?.blockReason,
+        message: playState?.message,
+        quotaUsed,
+        quotaLabel: `✓ All rolls used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
       titleSuffix={
         playState
           ? `(${playState.playsUsedToday}/${playState.playsPerDay})`
@@ -266,6 +356,8 @@ function BuyXGetYCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
   }
   offerState?: {
     rewardLabel?: string
@@ -285,7 +377,16 @@ function BuyXGetYCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Offer closed'}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.userCap,
+        exhaustedLabel: 'Offer closed',
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
       rewardLabel={offerState?.rewardLabel}
       claimProgress={
         offerState?.claimedCount != null && offerState?.userCap != null
@@ -308,6 +409,8 @@ function CouponCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
   }
   offerState?: {
     rewardLabel?: string
@@ -327,7 +430,16 @@ function CouponCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Coupons gone'}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.totalCoupons,
+        exhaustedLabel: 'Coupons gone',
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
       rewardLabel={offerState?.rewardLabel}
       claimProgress={
         offerState?.claimedCount != null && offerState?.totalCoupons != null
@@ -366,17 +478,25 @@ function FlashCampaignBlock({
 }) {
   const blocked = Boolean(offerState && !offerState.canClaim)
   const theme = getCampaignTheme('flash')
-  // Daily claim-window end — default 23:59 when vendor leaves Active Hours off.
-  // Prototype always shows a countdown on flash cards; hide only if times are missing.
+  const startTime = (campaign.startTime ?? '00:00').slice(0, 5)
   const endTime = (campaign.endTime ?? '23:59').slice(0, 5)
-  const hasWindowedHours = !isFullDayWindow(campaign.startTime, endTime)
+  const hasWindowedHours = hasActiveHoursWindow(startTime, endTime)
 
   return (
     <CampaignListingCard
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Spots gone'}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.totalSlots,
+        exhaustedLabel: 'Spots gone',
+        startTime,
+        endTime,
+      })}
       rewardLabel={offerState?.rewardLabel}
       claimProgress={
         offerState?.claimedCount != null && offerState?.totalSlots != null
@@ -384,29 +504,16 @@ function FlashCampaignBlock({
           : undefined
       }
       claimBefore={campaign.endDate}
-      claimTime={hasWindowedHours ? formatFlashClaimTime(endTime) : undefined}
+      claimTime={hasWindowedHours ? formatClockAmPm(endTime) : undefined}
       redeemBefore={offerState?.redeemBefore ?? undefined}
       titleAccessory={
-        <CountdownTimer target={nextDailyDeadline(endTime)} color={theme.accent} />
+        <CountdownTimer
+          target={flashCountdownTarget(startTime, endTime)}
+          color={theme.accent}
+        />
       }
     />
   )
-}
-
-function isFullDayWindow(startTime: string | undefined, endTime: string) {
-  const start = (startTime ?? '00:00').slice(0, 5)
-  return (start === '00:00' || start === '0:00') && (endTime === '23:59' || endTime === '24:00')
-}
-
-function formatFlashClaimTime(hhmm: string) {
-  // Prefer "6:00 PM" style for claim-by row
-  const [hRaw, mRaw] = hhmm.split(':')
-  const h = Number(hRaw)
-  const m = Number(mRaw ?? 0)
-  if (!Number.isFinite(h)) return formatCampaignTimeShort(hhmm)
-  const ap = h >= 12 ? 'PM' : 'AM'
-  const hour = h % 12 || 12
-  return `${hour}:${String(m).padStart(2, '0')} ${ap}`
 }
 
 function ComboCampaignBlock({
@@ -419,6 +526,8 @@ function ComboCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
   }
   offerState?: {
     rewardLabel?: string
@@ -449,7 +558,16 @@ function ComboCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'No bundles left'}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.totalSpots,
+        exhaustedLabel: 'No bundles left',
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
       rewardLabel={offerState?.rewardLabel ?? campaign.name}
       claimProgress={
         offerState?.claimedCount != null && offerState?.totalSpots != null
@@ -490,6 +608,8 @@ function FriendCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
   }
   offerState?: {
     rewardLabel?: string
@@ -521,7 +641,16 @@ function FriendCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={offerState?.hasClaimed ? 'Already claimed' : 'Claims full'}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.userCap,
+        exhaustedLabel: 'Claims full',
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
       rewardLabel={offerState?.rewardLabel}
       claimProgress={friendsProgress}
       claimBefore={campaign.endDate}
@@ -540,6 +669,8 @@ function GroupUnlockCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
   }
   offerState?: {
     rewardLabel?: string
@@ -557,6 +688,9 @@ function GroupUnlockCampaignBlock({
   const canClaim = Boolean(offerState?.canClaim)
   const unlocked = Boolean(offerState?.unlocked)
   const claimHref = `/customer/campaigns/${campaign.id}`
+  const outsideHours =
+    offerState?.active === false
+    && hasActiveHoursWindow(campaign.startTime, campaign.endTime)
 
   return (
     <CampaignListingCard
@@ -577,6 +711,11 @@ function GroupUnlockCampaignBlock({
           hasClaimed={hasClaimed}
           unlocked={unlocked}
           claimHref={claimHref}
+          outsideHoursLabel={
+            outsideHours
+              ? activeHoursBlockedLabel(campaign.startTime, campaign.endTime)
+              : undefined
+          }
         />
       }
     />
