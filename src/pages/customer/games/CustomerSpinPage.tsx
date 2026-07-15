@@ -11,7 +11,7 @@ import {
   pickSpinLandingIndex,
   segmentAngles,
   spinConfigToSegments,
-  spinRotationForLanding,
+  spinFinalRotation,
 } from '@/lib/instant-win-ui'
 import { spinRewardChipStyleLight, spinSegmentAccentHex } from '@/lib/spin-segment-colors'
 import { SpinWheelGradientDefs, segmentPathFill } from '@/components/vendor/SpinWheelGradientDefs'
@@ -130,8 +130,12 @@ export function CustomerSpinPage() {
 
     const idx = pickSpinLandingIndex(segments, playResult.won, playResult.reward)
     const extraSpins = 6 + Math.floor(Math.random() * 3)
-    const targetAngle = spinRotationForLanding(segments, idx)
-    const finalRotation = rotationBeforeSpinRef.current + extraSpins * 360 + targetAngle
+    const finalRotation = spinFinalRotation(
+      rotationBeforeSpinRef.current,
+      segments,
+      idx,
+      extraSpins,
+    )
 
     setLandedIdx(idx)
     setRotation(finalRotation)

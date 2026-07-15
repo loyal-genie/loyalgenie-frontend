@@ -50,6 +50,23 @@ export function spinRotationForLanding(segments: SpinSegment[], index: number): 
   return ((270 - mid) % 360 + 360) % 360
 }
 
+/**
+ * Absolute CSS rotation to animate to, so segment `index` lands under the pointer.
+ * Must account for the wheel's current rotation (e.g. idle drift) — adding an absolute
+ * target on top of the current angle mis-lands by exactly that offset.
+ */
+export function spinFinalRotation(
+  currentRotation: number,
+  segments: SpinSegment[],
+  index: number,
+  extraSpins = 6,
+): number {
+  const target = spinRotationForLanding(segments, index)
+  const startMod = ((currentRotation % 360) + 360) % 360
+  const delta = ((target - startMod) % 360 + 360) % 360
+  return currentRotation + extraSpins * 360 + delta
+}
+
 function normalizeRewardKey(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase()
 }

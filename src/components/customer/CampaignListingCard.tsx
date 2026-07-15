@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { CampaignCoverHero } from '@/components/customer/CampaignCoverHero'
 import { CampaignPlayButton } from '@/components/customer/CampaignPlayButton'
 import { formatCampaignCardSchedule, formatCampaignDayMonth, getCampaignSubtitle } from '@/lib/customer-ui'
+import { isIsoDateString } from '@/lib/redeem-listing-label'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { getCampaignTheme } from '@/lib/campaign-themes'
 import { campaignDaysLeft } from '@/lib/campaign-dates'
@@ -105,6 +106,13 @@ function fmtShortDate(iso?: string) {
   }
 }
 
+/** Fixed expiry → day/month; rolling period → "7 Days" / "1 Month" as returned by listing API. */
+function fmtRedeemBefore(value?: string) {
+  if (!value) return null
+  if (isIsoDateString(value)) return fmtShortDate(value)
+  return value
+}
+
 function ActivityFooter({
   accent,
   playingToday,
@@ -188,7 +196,7 @@ export function CampaignListingCard({
     ? Math.min(100, Math.round((claimProgress.current / claimProgress.total) * 100))
     : 0
   const claimDateLabel = fmtShortDate(claimBefore)
-  const redeemDateLabel = fmtShortDate(redeemBefore)
+  const redeemDateLabel = fmtRedeemBefore(redeemBefore)
   const endsIn = campaignDaysLeft(campaign.endDate)
   const showEndsIn = endsIn > 0 && endsIn <= 7
 
@@ -293,7 +301,7 @@ export function CampaignListingCard({
                     {claimDateLabel && redeemDateLabel && ' · '}
                     {redeemDateLabel && (
                       <>
-                        Redeem by{' '}
+                        {isIsoDateString(redeemBefore ?? '') ? 'Redeem by' : 'Redeem within'}{' '}
                         <span className="font-semibold text-gray-700">{redeemDateLabel}</span>
                       </>
                     )}
