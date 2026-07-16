@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -6,7 +6,6 @@ import { ArrowLeft, CalendarDays, Gift, Handshake, Loader2 } from 'lucide-react'
 import { fetchGroupUnlockState, getApiErrorMessage } from '@/lib/api'
 import { fmtCampaignDate } from '@/lib/campaign-dates'
 import { getUser } from '@/lib/auth'
-import { CampaignLampClaim } from '@/components/customer/CampaignLampClaim'
 import { getMechanicEmoji } from '@/lib/utils'
 
 const RING_R = 80
@@ -25,13 +24,12 @@ export function CustomerGroupUnlockStatusPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const customerId = getUser('customer')?.userId
-  const [showLampClaim, setShowLampClaim] = useState(false)
 
   const { data: state, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['groupunlock-state', id, customerId],
     queryFn: () => fetchGroupUnlockState(id!),
     enabled: Boolean(id) && Boolean(customerId),
-    refetchInterval: showLampClaim ? false : 5_000,
+    refetchInterval: 5_000,
   })
 
   const target = state?.targetParticipants ?? 0
@@ -77,37 +75,12 @@ export function CustomerGroupUnlockStatusPage() {
   const unlocked = state.unlocked
   const hasSpot = state.hasClaimed
   const walletStatus = state.walletReward?.status
-  const canClaimReward =
-    hasSpot && unlocked && (walletStatus === 'earned' || walletStatus === 'group_pending' || walletStatus === 'pending')
+  // After unlock the reward is in the wallet as earned — redeem from there.
+  const canGoToWallet =
+    hasSpot && unlocked && (walletStatus === 'earned' || walletStatus === 'pending')
   const reserveBefore = formatMaybeDate(state.endDate)
-  const redeemBefore = formatMaybeDate(state.walletReward?.redeemBefore)
+  const redeemBefore = unlocked ? formatMaybeDate(state.walletReward?.redeemBefore) : null
   const emoji = getMechanicEmoji('groupunlock')
-
-  if (showLampClaim && canClaimReward) {
-    return (
-      <CampaignLampClaim
-        mechanic="groupunlock"
-        businessName={state.businessName}
-        claimedHeadline="Here's Your Community Reward ✨"
-        onBack={() => setShowLampClaim(false)}
-        preview={{
-          sectionLabel: 'Your reward',
-          badgeLabel: state.rewardLabel,
-          rewardTitle: state.rewardLabel,
-          description: state.offerSentence || state.rewardDescription || undefined,
-          highlight: `${joined} / ${target} joined — unlocked`,
-          claimBefore: state.endDate,
-          redeemBefore: state.walletReward?.redeemBefore,
-        }}
-        onClaim={async () => ({
-          reward: state.rewardLabel,
-          code: state.walletReward?.code,
-          icon: '🤝',
-          redeemBefore: state.walletReward?.redeemBefore,
-        })}
-      />
-    )
-  }
 
   return (
     <div
@@ -265,15 +238,21 @@ export function CustomerGroupUnlockStatusPage() {
           </Link>
         )}
 
-        {canClaimReward && (
+        {canGoToWallet && (
           <button
             type="button"
-            onClick={() => setShowLampClaim(true)}
+            onClick={() => navigate('/customer/wallet')}
             className="w-full max-w-xs flex items-center justify-center py-3.5 rounded-2xl font-bold text-sm text-teal-950 border-0 cursor-pointer"
             style={{ background: '#5EEAD4', boxShadow: '0 10px 28px rgba(45,212,191,0.35)' }}
           >
-            Claim Reward →
+            Redeem in Wallet →
           </button>
+        )}
+
+        {hasSpot && !unlocked && (
+          <p className="w-full max-w-xs text-center text-[11px] text-white/55 mt-1 leading-snug">
+            Your spot is reserved. The reward appears in your wallet once the group unlocks.
+          </p>
         )}
 
         {walletStatus === 'redeemed' && (
