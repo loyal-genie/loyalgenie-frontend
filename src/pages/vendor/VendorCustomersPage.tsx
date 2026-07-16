@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, Crown, TrendingUp, Clock, Users, Activity, Gift, Gamepad2, CheckCircle2, Loader2 } from 'lucide-react'
+import { Search, Crown, TrendingUp, Clock, Users, Gamepad2, CheckCircle2, Loader2, Trophy } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { formatRelativeTime } from '@/lib/utils'
-import { useVendorCustomers } from '@/hooks/useVendorAnalytics'
+import { useVendorCustomers, useVendorDashboardStats } from '@/hooks/useVendorAnalytics'
 import { daysSince, getCustomerSegment, type CustomerSegment } from '@/lib/vendor-customers'
-import type { VendorCustomerSummary } from '@/lib/api'
+import type { VendorCustomerSummary, VendorStatsPeriod } from '@/lib/api'
 
 const SEGMENTS: { key: CustomerSegment | 'all'; label: string; icon: React.ReactNode; color: string; bg: string; border: string }[] = [
   { key: 'all',      label: 'All',      icon: <Users className="w-3.5 h-3.5" />,     color: '#6B68A8', bg: 'bg-v-surface-2',   border: 'border-v-border' },
@@ -25,12 +25,12 @@ const BADGE: Record<CustomerSegment, { label: string; className: string }> = {
 
 type VisitWindow = 'all' | '7d' | '30d' | '3m' | '1y'
 
-const VISIT_WINDOWS: { key: VisitWindow; label: string; days: number | null }[] = [
-  { key: 'all', label: 'All time',  days: null },
-  { key: '7d',  label: '7 Days',    days: 7 },
-  { key: '30d', label: 'Month',     days: 30 },
-  { key: '3m',  label: '3 Months',  days: 90 },
-  { key: '1y',  label: 'Year',      days: 365 },
+const VISIT_WINDOWS: { key: VisitWindow; label: string; days: number | null; statsPeriod: VendorStatsPeriod }[] = [
+  { key: 'all', label: 'All time',  days: null, statsPeriod: 'all' },
+  { key: '7d',  label: '7 Days',    days: 7,    statsPeriod: '7d' },
+  { key: '30d', label: 'Month',     days: 30,   statsPeriod: 'month' },
+  { key: '3m',  label: '3 Months',  days: 90,   statsPeriod: '3m' },
+  { key: '1y',  label: 'Year',      days: 365,  statsPeriod: 'year' },
 ]
 
 function winRate(c: VendorCustomerSummary) {
@@ -44,6 +44,7 @@ export function VendorCustomersPage() {
   const [visitWindow, setVisitWindow] = useState<VisitWindow>('all')
 
   const windowMeta = VISIT_WINDOWS.find(w => w.key === visitWindow)!
+  const { data: stats } = useVendorDashboardStats(windowMeta.statsPeriod)
 
   const withSegments = customers.map(c => ({ ...c, segment: getCustomerSegment(c) }))
 
@@ -73,14 +74,57 @@ export function VendorCustomersPage() {
     setSearch('')
   }
 
-  // Summaries from the same customer rows shown in the list (customer-side activity aggregates)
-  const summarySource = isFiltered ? filtered : withSegments
+  // Same vendor metrics as Dashboard / Campaigns (Total Check-ins removed)
+  const totalUsers = stats?.totalCustomers ?? customers.length
+  const totalPlays = stats?.totalPlays ?? 0
+  const totalWins = stats?.totalWins ?? 0
+  const totalRedeemed = stats?.totalRedeemed ?? 0
+
   const SUMMARY = [
-    { label: 'Total Customers', value: summarySource.length, icon: <Users className="w-4 h-4" />, color: 'text-v-purple', bg: 'bg-purple-50', border: 'border-purple-100' },
-    { label: 'Total Check-ins', value: summarySource.reduce((n, c) => n + c.totalVisits, 0), icon: <Activity className="w-4 h-4" />, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-    { label: 'Games Played', value: summarySource.reduce((n, c) => n + c.gamesPlayed, 0), icon: <Gamepad2 className="w-4 h-4" />, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
-    { label: 'Rewards Earned', value: summarySource.reduce((n, c) => n + c.rewardsEarned, 0), icon: <Gift className="w-4 h-4" />, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
-    { label: 'Redeemed', value: summarySource.reduce((n, c) => n + c.redeemedCount, 0), icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
+    {
+      label: 'Total Users',
+      value: totalUsers,
+      sub: visitWindow === 'all'
+        ? 'unique customers who’ve ever played'
+        : `lifetime unique · plays below are ${windowMeta.label.toLowerCase()}`,
+      icon: <Users className="w-4 h-4" />,
+      color: 'text-v-purple',
+      bg: 'bg-purple-50',
+      border: 'border-purple-100',
+    },
+    {
+      label: 'Total Plays',
+      value: totalPlays,
+      sub: visitWindow === 'all'
+        ? 'all play events across the vendor'
+        : `play events in ${windowMeta.label.toLowerCase()}`,
+      icon: <Gamepad2 className="w-4 h-4" />,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-50',
+      border: 'border-indigo-100',
+    },
+    {
+      label: 'Total Wins',
+      value: totalWins,
+      sub: totalPlays > 0
+        ? `${totalWins} of ${totalPlays} plays · rewards won`
+        : 'rewards won',
+      icon: <Trophy className="w-4 h-4" />,
+      color: 'text-amber-600',
+      bg: 'bg-amber-50',
+      border: 'border-amber-100',
+    },
+    {
+      label: 'Total Redemptions',
+      value: totalRedeemed,
+      sub: totalWins > 0
+        ? `${totalRedeemed} of ${totalWins} wins claimed at the counter`
+        : 'claimed at the counter',
+      icon: <CheckCircle2 className="w-4 h-4" />,
+      color: 'text-green-600',
+      bg: 'bg-green-50',
+      border: 'border-green-100',
+    },
   ]
 
   return (
@@ -110,16 +154,17 @@ export function VendorCustomersPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.04 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-7"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7"
       >
         {SUMMARY.map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 + i * 0.04 }}>
-            <Card className={`p-4 border ${s.border} ${s.bg} flex flex-col gap-2`}>
+            <Card className={`p-4 border ${s.border} ${s.bg} flex flex-col gap-2 h-full`}>
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center bg-white shadow-sm ${s.color}`}>
                 {s.icon}
               </div>
-              <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
-              <div className="text-[11px] font-medium text-v-text-3 leading-tight">{s.label}</div>
+              <div className={`text-2xl font-black ${s.color}`}>{s.value.toLocaleString()}</div>
+              <div className="text-[11px] font-semibold text-v-text leading-tight">{s.label}</div>
+              <div className="text-[10px] font-medium text-v-text-3 leading-tight">{s.sub}</div>
             </Card>
           </motion.div>
         ))}

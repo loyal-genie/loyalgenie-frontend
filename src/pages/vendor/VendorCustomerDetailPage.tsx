@@ -24,6 +24,18 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: 'year', label: 'Year' },
 ]
 const PERIOD_DAYS: Record<Period, number> = { all: Infinity, '7d': 7, month: 30, '3m': 90, year: 365 }
+const PERIOD_LABEL: Record<Period, string> = {
+  all: 'all time',
+  '7d': '7 days',
+  month: 'this month',
+  '3m': '3 months',
+  year: 'this year',
+}
+
+/** Calendar day key in IST — one day with any play = one visit. */
+function visitDayKey(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+}
 
 const SEGMENT_META: Record<Segment, {
   label: string; icon: string; color: string
@@ -173,15 +185,18 @@ export function VendorCustomerDetailPage() {
     ? Math.round((customer.rewardsEarned / customer.gamesPlayed) * 100) : 0
 
   const periodDays = PERIOD_DAYS[period]
-  const gamesInPeriod = customer.gameHistory.filter(g => daysSince(g.playedAt) <= periodDays)
+  const inPeriod = (iso: string) => periodDays === Infinity || daysSince(iso) <= periodDays
+
+  const gamesInPeriod = customer.gameHistory.filter(g => inPeriod(g.playedAt))
   const playsInPeriod = gamesInPeriod.length
   const winsInPeriod = gamesInPeriod.filter(g => g.won).length
   const redeemsInPeriod = customer.rewards.filter(r =>
-    r.status === 'redeemed' && r.redeemedAt && daysSince(r.redeemedAt) <= periodDays
+    r.status === 'redeemed' && r.redeemedAt && inPeriod(r.redeemedAt)
   ).length
-  // Visits = plays in window (same event stream; no separate check-in table)
-  const visitsInPeriod = period === 'all' ? customer.totalVisits : playsInPeriod
+  // Visits = distinct calendar days with at least one play (not play count)
+  const visitsInPeriod = new Set(gamesInPeriod.map(g => visitDayKey(g.playedAt))).size
   const points = customer.totalLoyaltyPoints
+  const periodPhrase = PERIOD_LABEL[period]
 
   const filteredHistory = visitHistory.filter(e => {
     if (visitFilter === 'all') return true
@@ -274,25 +289,31 @@ export function VendorCustomerDetailPage() {
           {
             label: 'No. of Visits',
             value: visitsInPeriod,
-            sub: period === 'all' ? `${visitsPerMonth}× / month` : `est. for ${PERIODS.find(p => p.key === period)!.label.toLowerCase()}`,
+            sub: period === 'all'
+              ? `${visitsInPeriod} distinct days visited`
+              : `days visited in ${periodPhrase}`,
             icon: '📅', color: '#7C3AED',
           },
           {
             label: 'Plays',
             value: playsInPeriod,
-            sub: `${visitsInPeriod} visits`,
+            sub: `${playsInPeriod} play events · ${visitsInPeriod} visit days`,
             icon: '🎮', color: '#DB2777',
           },
           {
             label: 'Wins',
             value: winsInPeriod,
-            sub: `of ${playsInPeriod} plays`,
+            sub: playsInPeriod > 0
+              ? `${winsInPeriod} of ${playsInPeriod} plays`
+              : 'rewards won',
             icon: '🎯', color: '#D97706',
           },
           {
             label: 'Redeems',
             value: redeemsInPeriod,
-            sub: `of ${winsInPeriod} rewards earned`,
+            sub: winsInPeriod > 0
+              ? `${redeemsInPeriod} of ${winsInPeriod} wins claimed`
+              : 'claimed at the counter',
             icon: '🎁', color: '#16A34A',
           },
           {
@@ -302,12 +323,12 @@ export function VendorCustomerDetailPage() {
             icon: '⭐', color: '#2563EB',
           },
         ].map((s, i) => (
-          <motion.div key={s.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}>
-            <Card className="p-4">
+          <motion.div key={s.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }} className="h-full">
+            <Card className="p-4 h-full flex flex-col">
               <div className="text-xl mb-2">{s.icon}</div>
               <div className="text-xl font-black leading-none" style={{ color: s.color }}>{s.value}</div>
               <div className="text-xs text-v-text-3 mt-0.5 font-medium">{s.label}</div>
-              <div className="text-[10px] text-v-text-3 mt-1">{s.sub}</div>
+              <div className="text-[10px] text-v-text-3 mt-1 leading-snug line-clamp-2">{s.sub}</div>
             </Card>
           </motion.div>
         ))}

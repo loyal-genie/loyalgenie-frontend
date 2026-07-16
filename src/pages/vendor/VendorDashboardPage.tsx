@@ -122,10 +122,9 @@ export function VendorDashboardPage() {
   const activeCamps = apiCampaigns.filter(c => c.status === 'active')
   const totalCustomers = stats?.totalCustomers ?? 0
   const activeCustomers = stats?.activeCustomers ?? 0
-  // Total Players = unique customers for the business (never sum of campaign enrollments / plays)
-  const uniquePlayers = totalCustomers
   const repeatVisitRate = stats?.repeatVisitRate ?? 0
   const retentionRate = stats?.retentionRate ?? 0
+  const totalPlays = stats?.totalPlays ?? 0
   const totalWins = stats?.totalWins ?? 0
   const totalRedemptions = stats?.totalRedeemed ?? 0
   const multiPlayCount = stats?.multiPlayCustomers ?? 0
@@ -185,7 +184,9 @@ export function VendorDashboardPage() {
             <div className="text-4xl font-black text-blue-600 leading-none mb-2">{activeCustomers}</div>
             <TrendOrLifetime period={period} now={activeCustomers} prev={prev?.activeCustomers ?? activeCustomers} />
             <p className="text-xs text-v-text-3 mt-2">
-              {period === 'all' ? 'active at any point' : `active in ${PERIOD_PHRASE[period]}`}
+              {period === 'all'
+                ? 'presently active (visited in last 30 days)'
+                : `active in ${PERIOD_PHRASE[period]}`}
             </p>
           </div>
         </Card>
@@ -200,8 +201,9 @@ export function VendorDashboardPage() {
             <div className="text-4xl font-black text-v-purple leading-none mb-2">{repeatVisitRate}%</div>
             <TrendOrLifetime period={period} now={repeatVisitRate} prev={prev?.repeatVisitRate ?? repeatVisitRate} unit="pp" />
             <p className="text-xs text-v-text-3 mt-2">
-              {multiPlayCount} of {uniquePlayers} played more than once
-              {period !== 'all' ? ` in ${PERIOD_PHRASE[period]}` : ''}
+              {period === 'all'
+                ? `${multiPlayCount} of ${totalCustomers} played more than once`
+                : `${multiPlayCount} played more than once in ${PERIOD_PHRASE[period]}`}
             </p>
           </div>
         </Card>
@@ -236,10 +238,10 @@ export function VendorDashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 {
-                  label: 'Total Players',
-                  value: uniquePlayers,
-                  prev: prev?.totalCustomers ?? uniquePlayers,
-                  sub: 'unique customers',
+                  label: 'Total Plays',
+                  value: totalPlays,
+                  prev: prev?.totalPlays ?? totalPlays,
+                  sub: 'across all campaigns',
                   color: '#7C3AED',
                   bg: 'bg-purple-50',
                   border: 'border-purple-200',
@@ -248,7 +250,9 @@ export function VendorDashboardPage() {
                   label: 'Total Wins',
                   value: totalWins,
                   prev: prev?.totalWins ?? totalWins,
-                  sub: 'rewards won',
+                  sub: totalPlays > 0
+                    ? `${totalWins} of ${totalPlays} plays · rewards won`
+                    : 'rewards won',
                   color: '#16A34A',
                   bg: 'bg-green-50',
                   border: 'border-green-200',
@@ -257,7 +261,9 @@ export function VendorDashboardPage() {
                   label: 'Total Redemptions',
                   value: totalRedemptions,
                   prev: prev?.totalRedeemed ?? totalRedemptions,
-                  sub: 'claimed at the counter',
+                  sub: totalWins > 0
+                    ? `${totalRedemptions} of ${totalWins} wins claimed at the counter`
+                    : 'claimed at the counter',
                   color: '#D97706',
                   bg: 'bg-amber-50',
                   border: 'border-amber-200',

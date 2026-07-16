@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, LayoutList, LayoutGrid, ArrowUpDown,
-  CalendarDays, Users, Trophy, TrendingUp, Gift,
+  CalendarDays, Users, Trophy, TrendingUp, Gift, Gamepad2,
   Eye, Loader2, RefreshCw, Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -306,12 +306,10 @@ export function VendorCampaignsPage() {
 
   const windowMeta = DATE_WINDOWS.find(w => w.key === dateWindow)!
   const { data: stats } = useVendorDashboardStats(windowMeta.statsPeriod)
-  // Always lifetime unique customers — never period window, never sum(campaign.currentUsers)
-  const { data: lifetimeStats } = useVendorDashboardStats('all')
 
-  const wPlayers  = lifetimeStats?.totalCustomers ?? stats?.totalCustomers ?? 0
-  const wRewards  = stats?.totalWins ?? 0
-  const wRedeemed = stats?.totalRedeemed ?? 0
+  const totalPlays = stats?.totalPlays ?? 0
+  const totalWins = stats?.totalWins ?? 0
+  const totalRedeemed = stats?.totalRedeemed ?? 0
 
   const filtered = campaigns
     .filter(c => {
@@ -359,12 +357,12 @@ export function VendorCampaignsPage() {
         <Card className="p-5 border border-purple-100 bg-gradient-to-br from-white to-purple-50">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-              <Users className="w-4 h-4 text-v-purple" />
+              <Gamepad2 className="w-4 h-4 text-v-purple" />
             </div>
-            <span className="text-xs font-semibold text-v-text-2">Total Players</span>
+            <span className="text-xs font-semibold text-v-text-2">Total Plays</span>
           </div>
-          <div className="text-4xl font-black text-v-purple leading-none mb-2">{wPlayers.toLocaleString()}</div>
-          <p className="text-xs text-v-text-3">unique customers</p>
+          <div className="text-4xl font-black text-v-purple leading-none mb-2">{totalPlays.toLocaleString()}</div>
+          <p className="text-xs text-v-text-3">across all campaigns</p>
         </Card>
 
         <Card className="p-5 border border-green-100 bg-gradient-to-br from-white to-green-50">
@@ -372,10 +370,14 @@ export function VendorCampaignsPage() {
             <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
               <Trophy className="w-4 h-4 text-green-600" />
             </div>
-            <span className="text-xs font-semibold text-v-text-2">Total Winners</span>
+            <span className="text-xs font-semibold text-v-text-2">Total Wins</span>
           </div>
-          <div className="text-4xl font-black text-green-600 leading-none mb-2">{wRewards.toLocaleString()}</div>
-          <p className="text-xs text-v-text-3">rewards won</p>
+          <div className="text-4xl font-black text-green-600 leading-none mb-2">{totalWins.toLocaleString()}</div>
+          <p className="text-xs text-v-text-3">
+            {totalPlays > 0
+              ? `${totalWins} of ${totalPlays} plays · rewards won`
+              : 'rewards won'}
+          </p>
         </Card>
 
         <Card className="p-5 border border-amber-100 bg-gradient-to-br from-white to-amber-50">
@@ -383,10 +385,14 @@ export function VendorCampaignsPage() {
             <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
               <Gift className="w-4 h-4 text-amber-600" />
             </div>
-            <span className="text-xs font-semibold text-v-text-2">Redemptions</span>
+            <span className="text-xs font-semibold text-v-text-2">Total Redemptions</span>
           </div>
-          <div className="text-4xl font-black text-amber-600 leading-none mb-2">{wRedeemed.toLocaleString()}</div>
-          <p className="text-xs text-v-text-3">claimed at the counter</p>
+          <div className="text-4xl font-black text-amber-600 leading-none mb-2">{totalRedeemed.toLocaleString()}</div>
+          <p className="text-xs text-v-text-3">
+            {totalWins > 0
+              ? `${totalRedeemed} of ${totalWins} wins claimed at the counter`
+              : 'claimed at the counter'}
+          </p>
         </Card>
 
       </motion.div>
