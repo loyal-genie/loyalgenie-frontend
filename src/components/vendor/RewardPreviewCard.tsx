@@ -20,7 +20,7 @@ type RewardPreviewCardProps = {
 }
 
 function formatClaimBefore(value?: string) {
-  if (!value) return '31 Dec 2026'
+  if (!value) return 'No expiry'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })

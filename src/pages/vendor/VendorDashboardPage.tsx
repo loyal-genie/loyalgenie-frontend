@@ -9,11 +9,11 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useBusinessProfile } from '@/hooks/useBusinessProfile'
 import { useCampaigns } from '@/hooks/useCampaigns'
-import { useVendorDashboardStats, useVendorCustomers } from '@/hooks/useVendorAnalytics'
-import { daysSince } from '@/lib/vendor-customers'
+import { useVendorDashboardStats } from '@/hooks/useVendorAnalytics'
 import { RedemptionQueue } from '@/components/vendor/redemption-queue'
+import type { VendorStatsPeriod } from '@/lib/api'
 
-type Period = 'all' | '7d' | 'month' | '3m' | 'year'
+type Period = VendorStatsPeriod
 
 const PERIODS: { key: Period; label: string }[] = [
   { key: 'all', label: 'All time' },
@@ -22,14 +22,6 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: '3m', label: '3 Months' },
   { key: 'year', label: 'Year' },
 ]
-
-const PERIOD_DAYS: Record<Period, number> = {
-  all: Infinity,
-  '7d': 7,
-  month: 30,
-  '3m': 90,
-  year: 365,
-}
 
 const PERIOD_PHRASE: Record<Period, string> = {
   all: 'all time',
@@ -47,15 +39,6 @@ const COMPARISON_LABEL: Record<Period, string> = {
   year: 'last year',
 }
 
-/** Scale lifetime campaign rollups for shorter windows (matches prototype UX). */
-const PERIOD_SCALE: Record<Period, number> = {
-  all: 1,
-  '7d': 0.08,
-  month: 0.28,
-  '3m': 0.55,
-  year: 0.85,
-}
-
 const fadeUp = (i: number) => ({
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { delay: i * 0.06 } },
@@ -64,18 +47,15 @@ const fadeUp = (i: number) => ({
 function Trend({
   now,
   prev,
-  unit = 'pp',
-  invert = false,
+  unit = '',
   comparisonLabel,
 }: {
   now: number
   prev: number
   unit?: string
-  invert?: boolean
   comparisonLabel: string
 }) {
   const diff = now - prev
-  const isUp = invert ? diff < 0 : diff > 0
   if (diff === 0) {
     return (
       <span className="inline-flex items-center gap-0.5 text-[10px] text-v-text-3 font-medium">
@@ -83,6 +63,7 @@ function Trend({
       </span>
     )
   }
+  const isUp = diff > 0
   return (
     <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${isUp ? 'text-v-success' : 'text-v-danger'}`}>
       {isUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
@@ -93,18 +74,19 @@ function Trend({
 
 function TrendOrLifetime({
   period,
-  ...trendProps
+  now,
+  prev,
+  unit = '',
 }: {
   period: Period
   now: number
   prev: number
   unit?: string
-  invert?: boolean
 }) {
   if (period === 'all') {
     return <span className="text-[10px] text-v-text-3 font-medium">Lifetime total</span>
   }
-  return <Trend {...trendProps} comparisonLabel={COMPARISON_LABEL[period]} />
+  return <Trend now={now} prev={prev} unit={unit} comparisonLabel={COMPARISON_LABEL[period]} />
 }
 
 function PeriodTabs({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
@@ -130,48 +112,25 @@ export function VendorDashboardPage() {
   const [period, setPeriod] = useState<Period>('all')
   const { data: profile } = useBusinessProfile()
   const { data: apiCampaigns = [] } = useCampaigns()
-  const { data: stats, isLoading: statsLoading } = useVendorDashboardStats()
-  const { data: customers = [] } = useVendorCustomers()
+  const { data: stats, isLoading: statsLoading } = useVendorDashboardStats(period)
   const businessName = profile?.name ?? 'Your business'
 
   const todayLabel = new Date().toLocaleDateString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
-  const periodDays = PERIOD_DAYS[period]
-  const comparisonLabel = COMPARISON_LABEL[period]
-  const n = customers.length
-  const visitedInPeriod = customers.filter(c => daysSince(c.lastVisit) <= periodDays)
-  const repeatVisitRate = n > 0 ? Math.round((visitedInPeriod.length / n) * 100) : 0
-  const returnedCustomers = customers.filter(c => c.totalVisits > 1)
-  const retentionRate = period === 'all'
-    ? (stats?.retentionRate ?? (n > 0 ? Math.round((returnedCustomers.length / n) * 100) : 0))
-    : (visitedInPeriod.length > 0
-      ? Math.round((visitedInPeriod.filter(c => c.totalVisits > 1).length / visitedInPeriod.length) * 100)
-      : 0)
-
-  const prevPeriodDays = periodDays === Infinity ? 30 : Math.round(periodDays * 1.15)
-  const visitedPrev = customers.filter(c => daysSince(c.lastVisit) <= prevPeriodDays)
-  const LM = {
-    totalUsers: Math.max(0, n - 1),
-    currentUsers: Math.round(visitedPrev.length * 0.88),
-    repeatVisitRate: Math.max(0, repeatVisitRate - 8),
-    retentionRate: Math.max(0, retentionRate - 3),
-  }
-
   const activeCamps = apiCampaigns.filter(c => c.status === 'active')
-  const scale = PERIOD_SCALE[period]
-  const scaled = (v: number) => Math.max(0, Math.round(v * scale))
-  const totalPlayers = scaled(activeCamps.reduce((s, c) => s + c.currentUsers, 0))
-  const totalWins = scaled(activeCamps.reduce((s, c) => s + c.rewardsClaimed, 0))
-  const totalRedemptions = scaled(activeCamps.reduce((s, c) => s + c.redeemedCount, 0))
-  const LM_CAMPAIGNS = {
-    totalPlayers: Math.round(totalPlayers * 0.9),
-    totalWins: Math.round(totalWins * 0.85),
-    totalRedemptions: Math.round(totalRedemptions * 0.9),
-  }
+  const totalCustomers = stats?.totalCustomers ?? 0
+  const activeCustomers = stats?.activeCustomers ?? 0
+  const uniquePlayers = stats?.uniquePlayers ?? 0
+  const repeatVisitRate = stats?.repeatVisitRate ?? 0
+  const retentionRate = stats?.retentionRate ?? 0
+  const totalWins = stats?.totalWins ?? 0
+  const totalRedemptions = stats?.totalRedeemed ?? 0
+  const multiPlayCount = stats?.multiPlayCustomers ?? 0
+  const prev = stats?.previous
 
-  if (statsLoading) {
+  if (statsLoading && !stats) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 flex justify-center py-20">
         <Loader2 className="w-8 h-8 text-v-purple animate-spin" />
@@ -204,8 +163,13 @@ export function VendorDashboardPage() {
               <span className="text-sm font-semibold text-v-text-2">Total Users</span>
               <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold">all-time</span>
             </div>
-            <div className="text-4xl font-black text-indigo-600 leading-none mb-2">{n}</div>
-            <Trend now={n} prev={LM.totalUsers} unit="" comparisonLabel="last month" />
+            <div className="text-4xl font-black text-indigo-600 leading-none mb-2">{totalCustomers}</div>
+            <Trend
+              now={totalCustomers}
+              prev={prev?.totalCustomers ?? totalCustomers}
+              unit=""
+              comparisonLabel="last month"
+            />
             <p className="text-xs text-v-text-3 mt-2">customers who&apos;ve ever played a campaign</p>
           </div>
         </Card>
@@ -217,8 +181,8 @@ export function VendorDashboardPage() {
               <UserCheck className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-semibold text-v-text-2">Current Users</span>
             </div>
-            <div className="text-4xl font-black text-blue-600 leading-none mb-2">{visitedInPeriod.length}</div>
-            <TrendOrLifetime period={period} now={visitedInPeriod.length} prev={LM.currentUsers} unit="" />
+            <div className="text-4xl font-black text-blue-600 leading-none mb-2">{activeCustomers}</div>
+            <TrendOrLifetime period={period} now={activeCustomers} prev={prev?.activeCustomers ?? activeCustomers} />
             <p className="text-xs text-v-text-3 mt-2">
               {period === 'all' ? 'active at any point' : `active in ${PERIOD_PHRASE[period]}`}
             </p>
@@ -233,11 +197,10 @@ export function VendorDashboardPage() {
               <span className="text-sm font-semibold text-v-text-2">Repeat Visits</span>
             </div>
             <div className="text-4xl font-black text-v-purple leading-none mb-2">{repeatVisitRate}%</div>
-            <TrendOrLifetime period={period} now={repeatVisitRate} prev={LM.repeatVisitRate} />
+            <TrendOrLifetime period={period} now={repeatVisitRate} prev={prev?.repeatVisitRate ?? repeatVisitRate} unit="pp" />
             <p className="text-xs text-v-text-3 mt-2">
-              {period === 'all'
-                ? `${visitedInPeriod.length} of ${n} have ever visited`
-                : `${visitedInPeriod.length} of ${n} visited in ${PERIOD_PHRASE[period]}`}
+              {multiPlayCount} of {uniquePlayers} played more than once
+              {period !== 'all' ? ` in ${PERIOD_PHRASE[period]}` : ''}
             </p>
           </div>
         </Card>
@@ -250,11 +213,11 @@ export function VendorDashboardPage() {
               <span className="text-sm font-semibold text-v-text-2">Retention</span>
             </div>
             <div className="text-4xl font-black text-green-600 leading-none mb-2">{retentionRate}%</div>
-            <TrendOrLifetime period={period} now={retentionRate} prev={LM.retentionRate} />
+            <TrendOrLifetime period={period} now={retentionRate} prev={prev?.retentionRate ?? retentionRate} unit="pp" />
             <p className="text-xs text-v-text-3 mt-2">
               {period === 'all'
                 ? 'of all customers have returned at least once'
-                : `of ${comparisonLabel}'s customers came back`}
+                : `of prior-period customers came back`}
             </p>
           </div>
         </Card>
@@ -271,9 +234,33 @@ export function VendorDashboardPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { label: 'Total Players', value: totalPlayers, prev: LM_CAMPAIGNS.totalPlayers, sub: 'unique players', color: '#7C3AED', bg: 'bg-purple-50', border: 'border-purple-200' },
-                { label: 'Total Wins', value: totalWins, prev: LM_CAMPAIGNS.totalWins, sub: 'rewards won', color: '#16A34A', bg: 'bg-green-50', border: 'border-green-200' },
-                { label: 'Total Redemptions', value: totalRedemptions, prev: LM_CAMPAIGNS.totalRedemptions, sub: 'claimed at the counter', color: '#D97706', bg: 'bg-amber-50', border: 'border-amber-200' },
+                {
+                  label: 'Total Players',
+                  value: uniquePlayers,
+                  prev: prev?.uniquePlayers ?? uniquePlayers,
+                  sub: 'unique players',
+                  color: '#7C3AED',
+                  bg: 'bg-purple-50',
+                  border: 'border-purple-200',
+                },
+                {
+                  label: 'Total Wins',
+                  value: totalWins,
+                  prev: prev?.totalWins ?? totalWins,
+                  sub: 'rewards won',
+                  color: '#16A34A',
+                  bg: 'bg-green-50',
+                  border: 'border-green-200',
+                },
+                {
+                  label: 'Total Redemptions',
+                  value: totalRedemptions,
+                  prev: prev?.totalRedeemed ?? totalRedemptions,
+                  sub: 'claimed at the counter',
+                  color: '#D97706',
+                  bg: 'bg-amber-50',
+                  border: 'border-amber-200',
+                },
               ].map((m, i) => (
                 <motion.div key={m.label} variants={fadeUp(3 + i)} initial="hidden" animate="show">
                   <div className={`vendor-card p-5 ${m.bg} border ${m.border}`}>
@@ -282,7 +269,7 @@ export function VendorDashboardPage() {
                     </div>
                     <div className="text-xs font-semibold text-v-text mb-0.5">{m.label}</div>
                     <div className="text-[10px] text-v-text-3 mb-2">{m.sub}</div>
-                    <TrendOrLifetime period={period} now={m.value} prev={m.prev} unit="" />
+                    <TrendOrLifetime period={period} now={m.value} prev={m.prev} />
                   </div>
                 </motion.div>
               ))}

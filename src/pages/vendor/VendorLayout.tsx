@@ -4,7 +4,7 @@ import { LayoutDashboard, Megaphone, Users, Settings, ChevronRight, Zap, QrCode,
 import { cn } from '@/lib/utils'
 import { useBusinessProfile } from '@/hooks/useBusinessProfile'
 import { useCampaigns, useVendorPinRealtime } from '@/hooks/useCampaigns'
-import { useVendorSessionRealtime } from '@/hooks/useVendorAnalytics'
+import { useVendorSessionRealtime, useVendorDashboardStats } from '@/hooks/useVendorAnalytics'
 import { effectiveCampaignStatus } from '@/lib/campaign-dates'
 import type { CampaignStatus } from '@/lib/types'
 import { clearSession } from '@/lib/auth' // Imported your auth clearer
@@ -23,8 +23,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate()
   const { data: profile } = useBusinessProfile()
   const { data: campaigns = [] } = useCampaigns()
+  const { data: stats } = useVendorDashboardStats('all')
   const activeCount = campaigns.filter(c => effectiveCampaignStatus(c.status as CampaignStatus, c.endDate) === 'active').length
-  const totalPlays = campaigns.reduce((s, c) => s + c.participations, 0)
+  const totalPlays = stats?.totalPlays ?? campaigns.reduce((s, c) => s + c.participations, 0)
 
   const handleSignOut = () => {
     if (onNavigate) onNavigate() // Close mobile menu drawer if open

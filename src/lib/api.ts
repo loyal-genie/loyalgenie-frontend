@@ -1833,8 +1833,13 @@ export interface VendorCustomerDetail extends VendorCustomerSummary {
   }[]
 }
 
+export type VendorStatsPeriod = 'all' | '7d' | 'month' | '3m' | 'year'
+
 export interface VendorDashboardStats {
+  period: VendorStatsPeriod
   totalCustomers: number
+  uniquePlayers: number
+  activeCustomers: number
   activeCustomers30d: number
   repeatVisitRate: number
   retentionRate: number
@@ -1851,6 +1856,17 @@ export interface VendorDashboardStats {
   totalRedeemed: number
   playsLast30d: number
   returningCustomers30d: number
+  multiPlayCustomers: number
+  previous: {
+    uniquePlayers: number
+    activeCustomers: number
+    totalWins: number
+    totalRedeemed: number
+    totalPlays: number
+    repeatVisitRate: number
+    retentionRate: number
+    totalCustomers: number
+  }
 }
 
 export interface VendorRedemptionItem {
@@ -1866,8 +1882,10 @@ export interface VendorRedemptionItem {
   code: string
 }
 
-export async function fetchVendorDashboardStats() {
-  const { data } = await api.get<{ success: boolean; data: VendorDashboardStats }>('/business/dashboard/stats')
+export async function fetchVendorDashboardStats(period: VendorStatsPeriod = 'all') {
+  const { data } = await api.get<{ success: boolean; data: VendorDashboardStats }>('/business/dashboard/stats', {
+    params: { period },
+  })
   return data.data
 }
 

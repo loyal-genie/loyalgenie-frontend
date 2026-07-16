@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card'
 import { MechanicBadge } from '@/components/ui/badge'
 import { getMechanicEmoji, getMechanicLabel, formatDate, formatRelativeTime } from '@/lib/utils'
 import { useVendorCustomer } from '@/hooks/useVendorAnalytics'
-import { daysSince, getCustomerSegment, estimateLifetimeValue } from '@/lib/vendor-customers'
+import { daysSince, getCustomerSegment } from '@/lib/vendor-customers'
 import type { VendorCustomerDetail } from '@/lib/api'
 import type { MechanicType } from '@/lib/types'
 
@@ -24,7 +24,6 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: 'year', label: 'Year' },
 ]
 const PERIOD_DAYS: Record<Period, number> = { all: Infinity, '7d': 7, month: 30, '3m': 90, year: 365 }
-const PERIOD_SCALE: Record<Period, number> = { all: 1, '7d': 0.08, month: 0.28, '3m': 0.55, year: 0.85 }
 
 const SEGMENT_META: Record<Segment, {
   label: string; icon: string; color: string
@@ -115,7 +114,7 @@ function buildCampaignActivity(customer: VendorCustomerDetail) {
 function buildRedemption(customer: VendorCustomerDetail) {
   const pending = customer.rewards.filter(r => r.status === 'pending' || r.status === 'earned')
   const redeemed = customer.rewards.filter(r => r.status === 'redeemed')
-  return { pending, redeemed, total: customer.rewards.length, totalValue: customer.rewardsEarned * 50 }
+  return { pending, redeemed, total: customer.rewards.length }
 }
 
 function monthsSince(iso: string) {
@@ -172,7 +171,6 @@ export function VendorCustomerDetailPage() {
   const visitsPerMonth = Math.round((customer.totalVisits / monthsSince(customer.joinedAt)) * 10) / 10
   const winRatePct     = customer.gamesPlayed > 0
     ? Math.round((customer.rewardsEarned / customer.gamesPlayed) * 100) : 0
-  const lifetimeValue  = estimateLifetimeValue(customer.totalVisits)
 
   const periodDays = PERIOD_DAYS[period]
   const gamesInPeriod = customer.gameHistory.filter(g => daysSince(g.playedAt) <= periodDays)
@@ -181,12 +179,9 @@ export function VendorCustomerDetailPage() {
   const redeemsInPeriod = customer.rewards.filter(r =>
     r.status === 'redeemed' && r.redeemedAt && daysSince(r.redeemedAt) <= periodDays
   ).length
-  const visitsInPeriod = period === 'all'
-    ? customer.totalVisits
-    : Math.round(customer.totalVisits * PERIOD_SCALE[period])
-  const points = customer.totalLoyaltyPoints > 0
-    ? customer.totalLoyaltyPoints
-    : customer.totalVisits * 100
+  // Visits = plays in window (same event stream; no separate check-in table)
+  const visitsInPeriod = period === 'all' ? customer.totalVisits : playsInPeriod
+  const points = customer.totalLoyaltyPoints
 
   const filteredHistory = visitHistory.filter(e => {
     if (visitFilter === 'all') return true
@@ -303,7 +298,7 @@ export function VendorCustomerDetailPage() {
           {
             label: 'Points',
             value: points.toLocaleString(),
-            sub: customer.totalLoyaltyPoints > 0 ? 'lifetime balance' : '100 pts / visit · lifetime',
+            sub: 'available · same as customer',
             icon: '⭐', color: '#2563EB',
           },
         ].map((s, i) => (
@@ -365,7 +360,7 @@ export function VendorCustomerDetailPage() {
                     { label: 'Member since',    value: formatDate(customer.joinedAt) },
                     { label: 'Visit frequency', value: `${visitsPerMonth}× / month` },
                     { label: 'Games played',    value: `${customer.gamesPlayed} (${winRatePct}% win rate)` },
-                    { label: 'Lifetime value',  value: `₹${lifetimeValue.toLocaleString()} est.` },
+                    { label: 'Available points',  value: String(customer.totalLoyaltyPoints) },
                   ].map(row => (
                     <div key={row.label} className="flex items-center justify-between text-xs">
                       <span className="text-v-text-3">{row.label}</span>
@@ -400,7 +395,7 @@ export function VendorCustomerDetailPage() {
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-v-text-3">
                       <span>{Math.round((redemption.redeemed.length / Math.max(1, redemption.total)) * 100)}% redeemed</span>
-                      <span>Est. value: ₹{redemption.totalValue}</span>
+                      <span>{redemption.pending.length} pending · {redemption.redeemed.length} redeemed</span>
                     </div>
                   </div>
                 ) : (

@@ -12,9 +12,10 @@ import { MechanicBadge, StatusBadge } from '@/components/ui/badge'
 import { MechanicComingSoonBadge } from '@/components/vendor/MechanicComingSoonBanner'
 import { LivePIN } from '@/components/vendor/live-pin'
 import { useCampaigns } from '@/hooks/useCampaigns'
+import { useVendorDashboardStats } from '@/hooks/useVendorAnalytics'
 import { getMechanicEmoji, getMechanicColor, formatDate, capPercent } from '@/lib/utils'
 import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
-import type { CampaignDto } from '@/lib/api'
+import type { CampaignDto, VendorStatsPeriod } from '@/lib/api'
 import {
   campaignDaysLeft,
   campaignDaysLeftLabel,
@@ -46,21 +47,13 @@ function winRate(c: CampaignDto) {
 
 // ── Date-window filter ────────────────────────────────────────────────────────
 type DateWindow = 'all' | '7d' | '30d' | '90d' | '1y'
-const DATE_WINDOWS: { key: DateWindow; label: string; days: number | null }[] = [
-  { key: 'all', label: 'All time',  days: null },
-  { key: '7d',  label: '7 Days',    days: 7    },
-  { key: '30d', label: 'Month',     days: 30   },
-  { key: '90d', label: '3 Months',  days: 90   },
-  { key: '1y',  label: 'Year',      days: 365  },
+const DATE_WINDOWS: { key: DateWindow; label: string; statsPeriod: VendorStatsPeriod }[] = [
+  { key: 'all', label: 'All time',  statsPeriod: 'all' },
+  { key: '7d',  label: '7 Days',    statsPeriod: '7d' },
+  { key: '30d', label: 'Month',     statsPeriod: 'month' },
+  { key: '90d', label: '3 Months',  statsPeriod: '3m' },
+  { key: '1y',  label: 'Year',      statsPeriod: 'year' },
 ]
-
-function campaignsInWindow(campaigns: CampaignDto[], days: number | null) {
-  if (days === null) return campaigns
-  const windowStart = new Date(TODAY_DATE.getTime() - days * 86400000)
-  return campaigns.filter(c =>
-    new Date(c.startDate) <= TODAY_DATE && new Date(c.endDate) >= windowStart
-  )
-}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FILTERS: { label: string; value: CampaignStatus | 'all' }[] = [
@@ -312,13 +305,13 @@ export function VendorCampaignsPage() {
 
   const activeCampaigns = activeCampaignsCount(campaigns)
 
-  // ── Window-scoped metrics ───────────────────────────────────────────────────
-  const windowDays = DATE_WINDOWS.find(w => w.key === dateWindow)!.days
-  const wCampaigns = campaignsInWindow(campaigns, windowDays)
+  const windowMeta = DATE_WINDOWS.find(w => w.key === dateWindow)!
+  const { data: stats } = useVendorDashboardStats(windowMeta.statsPeriod)
 
-  const wPlayers  = wCampaigns.reduce((s, c) => s + c.currentUsers, 0)
-  const wRewards  = wCampaigns.reduce((s, c) => s + c.rewardsClaimed, 0)
-  const wRedeemed = wCampaigns.reduce((s, c) => s + c.redeemedCount, 0)
+  // Accurate business-wide aggregates (unique players — not sum of campaign.currentUsers)
+  const wPlayers  = stats?.uniquePlayers ?? 0
+  const wRewards  = stats?.totalWins ?? 0
+  const wRedeemed = stats?.totalRedeemed ?? 0
 
   const filtered = campaigns
     .filter(c => {

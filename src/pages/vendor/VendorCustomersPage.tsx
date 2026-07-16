@@ -27,10 +27,10 @@ type VisitWindow = 'all' | '7d' | '30d' | '3m' | '1y'
 
 const VISIT_WINDOWS: { key: VisitWindow; label: string; days: number | null }[] = [
   { key: 'all', label: 'All time',  days: null },
-  { key: '7d',  label: '7 Days',    days: 7    },
-  { key: '30d', label: 'Month',     days: 30   },
-  { key: '3m',  label: '3 Months',  days: 90   },
-  { key: '1y',  label: 'Year',      days: 365  },
+  { key: '7d',  label: '7 Days',    days: 7 },
+  { key: '30d', label: 'Month',     days: 30 },
+  { key: '3m',  label: '3 Months',  days: 90 },
+  { key: '1y',  label: 'Year',      days: 365 },
 ]
 
 function winRate(c: VendorCustomerSummary) {
@@ -43,6 +43,8 @@ export function VendorCustomersPage() {
   const [segment, setSegment] = useState<CustomerSegment | 'all'>('all')
   const [visitWindow, setVisitWindow] = useState<VisitWindow>('all')
 
+  const windowMeta = VISIT_WINDOWS.find(w => w.key === visitWindow)!
+
   const withSegments = customers.map(c => ({ ...c, segment: getCustomerSegment(c) }))
 
   const counts: Record<CustomerSegment | 'all', number> = {
@@ -53,7 +55,7 @@ export function VendorCustomersPage() {
     inactive: withSegments.filter(c => c.segment === 'inactive').length,
   }
 
-  const windowDays = VISIT_WINDOWS.find(w => w.key === visitWindow)?.days ?? null
+  const windowDays = windowMeta.days
 
   const filtered = withSegments.filter(c => {
     const matchSeg = segment === 'all' || c.segment === segment
@@ -71,21 +73,14 @@ export function VendorCustomersPage() {
     setSearch('')
   }
 
-  const windowCohort = customers.filter(c =>
-    windowDays === null || daysSince(c.lastVisit) <= windowDays
-  )
-  const statTotalCustomers = windowCohort.length
-  const statCheckIns = windowCohort.reduce((s, c) => s + c.totalVisits, 0)
-  const statGames = windowCohort.reduce((s, c) => s + c.gamesPlayed, 0)
-  const statRewards = windowCohort.reduce((s, c) => s + c.rewardsEarned, 0)
-  const statRedeemed = windowCohort.reduce((s, c) => s + c.redeemedCount, 0)
-
+  // Summaries from the same customer rows shown in the list (customer-side activity aggregates)
+  const summarySource = isFiltered ? filtered : withSegments
   const SUMMARY = [
-    { label: 'Total Customers', value: statTotalCustomers, icon: <Users className="w-4 h-4" />, color: 'text-v-purple', bg: 'bg-purple-50', border: 'border-purple-100' },
-    { label: 'Total Check-ins', value: statCheckIns, icon: <Activity className="w-4 h-4" />, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-    { label: 'Games Played', value: statGames, icon: <Gamepad2 className="w-4 h-4" />, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
-    { label: 'Rewards Earned', value: statRewards, icon: <Gift className="w-4 h-4" />, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
-    { label: 'Redeemed', value: statRedeemed, icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
+    { label: 'Total Customers', value: summarySource.length, icon: <Users className="w-4 h-4" />, color: 'text-v-purple', bg: 'bg-purple-50', border: 'border-purple-100' },
+    { label: 'Total Check-ins', value: summarySource.reduce((n, c) => n + c.totalVisits, 0), icon: <Activity className="w-4 h-4" />, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+    { label: 'Games Played', value: summarySource.reduce((n, c) => n + c.gamesPlayed, 0), icon: <Gamepad2 className="w-4 h-4" />, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+    { label: 'Rewards Earned', value: summarySource.reduce((n, c) => n + c.rewardsEarned, 0), icon: <Gift className="w-4 h-4" />, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+    { label: 'Redeemed', value: summarySource.reduce((n, c) => n + c.redeemedCount, 0), icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
   ]
 
   return (

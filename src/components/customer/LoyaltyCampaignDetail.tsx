@@ -32,19 +32,20 @@ function refreshBusinessPointsAfterCheckIn(
   queryClient: QueryClient,
   businessId: string,
   campaignId: string,
-  loyaltyPoints: number,
+  pointsEarned: number,
 ) {
   queryClient.setQueryData<CustomerBusinessRewardsDto>(
     ['customer-business-rewards', businessId],
     old => {
       if (!old) return old
+      const points = Math.max(0, (old.points ?? 0) + pointsEarned)
       return {
         ...old,
-        points: loyaltyPoints,
+        points,
         rewards: old.rewards.map(reward => ({
           ...reward,
-          claimable: reward.status === 'active' && loyaltyPoints >= reward.pointsRequired,
-          lockedByPoints: loyaltyPoints < reward.pointsRequired,
+          claimable: reward.status === 'active' && points >= reward.pointsRequired,
+          lockedByPoints: points < reward.pointsRequired,
         })),
       }
     },
@@ -72,6 +73,7 @@ export function LoyaltyCampaignDetail({
   const [checkInResult, setCheckInResult] = useState<{
     pointsBefore: number
     loyaltyPoints: number
+    pointsEarned: number
     businessName: string
     milestonesUnlocked: { name: string; icon: string; code: string }[]
   } | null>(null)
@@ -89,12 +91,13 @@ export function LoyaltyCampaignDetail({
             queryClient,
             loyaltyState.businessId,
             campaign.id,
-            result.loyaltyPoints,
+            result.pointsEarned,
           )
         }
         setCheckInResult({
           pointsBefore,
           loyaltyPoints: result.loyaltyPoints,
+          pointsEarned: result.pointsEarned,
           businessName: loyaltyState.businessName,
           milestonesUnlocked: result.milestonesUnlocked,
         })
@@ -118,7 +121,7 @@ export function LoyaltyCampaignDetail({
         queryClient,
         loyaltyState.businessId,
         campaign.id,
-        checkInResult.loyaltyPoints,
+        checkInResult.pointsEarned,
       )
     } else {
       queryClient.invalidateQueries({ queryKey: ['loyalty-state', campaign.id] })
