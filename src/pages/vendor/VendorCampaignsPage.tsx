@@ -33,7 +33,6 @@ import type { CampaignStatus } from '@/lib/types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const TODAY = todayInCampaignTz()
-const TODAY_DATE = new Date(`${TODAY}T12:00:00`)
 
 function daysLeft(endDate: string) {
   return campaignDaysLeft(endDate, TODAY)
