@@ -517,14 +517,14 @@ export function GroupUnlockCardActions({
   if (hasClaimed && unlocked) {
     return (
       <Link
-        to={statusHref}
+        to="/customer/wallet"
         className={cn(claimBtn, 'w-full')}
         style={{
           background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})`,
           boxShadow: `0 8px 20px ${theme.accent}40`,
         }}
       >
-        Claim Now
+        Redeem in Wallet →
       </Link>
     )
   }

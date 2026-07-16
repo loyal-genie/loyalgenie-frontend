@@ -192,13 +192,15 @@ export function CustomerWalletPage() {
     (r.status === 'earned' || r.status === 'pending' || r.status === 'group_pending')
     && isWalletRewardPastRedeem(r.redeemBefore ?? cardContext.get(r.id)?.expiresAt)
 
-  // Active = redeemable only. Pending lottery tickets live in Check Status, not wallet.
+  // Active = redeemable only.
+  // Lottery tickets + Group Unlock reservations live on Check Status until unlocked/won.
   const pendingRewards = rewards
     .filter(r => {
       if (r.status === 'lottery_pending' || r.status === 'lottery_lost' || r.status === 'lottery_archived') {
         return false
       }
-      if (r.status === 'group_pending') return !isDateExpiredReward(r)
+      // group_pending = reserved spot only — not a wallet reward until status → earned.
+      if (r.status === 'group_pending') return false
       if (r.status === 'earned' || r.status === 'pending') return !isDateExpiredReward(r)
       return false
     })
