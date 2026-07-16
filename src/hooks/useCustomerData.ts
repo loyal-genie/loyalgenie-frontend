@@ -22,7 +22,7 @@ export function useBusinessesWithCampaigns() {
 
   useSupabaseRealtime({
     table: 'campaigns',
-    event: 'UPDATE',
+    event: '*',
     enabled: isSupabaseConfigured(),
     onChange: refreshDiscover,
   })
@@ -52,9 +52,11 @@ export function useCustomerRewards() {
   })
 
   return useQuery({
-    queryKey: ['customer-rewards'],
+    queryKey: ['customer-rewards', customerId],
     queryFn: fetchCustomerRewards,
     enabled: session?.role === 'customer',
+    staleTime: 0,
+    refetchOnMount: 'always',
     refetchInterval: query => {
       const hasPending = query.state.data?.some(r => r.status === 'pending')
       if (!hasPending) return false
@@ -141,7 +143,7 @@ export function useBusinessCampaignStatesRealtime(businessId: string | undefined
 
   useSupabaseRealtime({
     table: 'campaigns',
-    event: 'UPDATE',
+    event: '*',
     filter: businessId ? `business_id=eq.${businessId}` : undefined,
     enabled: Boolean(businessId) && isSupabaseConfigured(),
     onChange: refreshStates,

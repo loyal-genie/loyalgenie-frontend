@@ -36,9 +36,22 @@ export function VendorCampaignDetailPage() {
   }
 
   const isStamp = campaign.mechanic === 'stamp'
+  const isGroupUnlock = campaign.mechanic === 'groupunlock'
+  const isCombo = campaign.mechanic === 'combo'
+  const comboTotalSpots = campaign.comboConfig?.totalSpots ?? campaign.userCap
+  const isClaimOffer =
+    campaign.mechanic === 'groupunlock'
+    || campaign.mechanic === 'coupon'
+    || campaign.mechanic === 'flash'
+    || campaign.mechanic === 'combo'
+    || campaign.mechanic === 'friend'
+    || campaign.mechanic === 'buy-x-get-y'
   const stampStats = campaign.stampStats
-  const engRate = campaign.userCap > 0
-    ? Math.round((campaign.currentUsers / campaign.userCap) * 100) : 0
+  const targetPeople =
+    campaign.groupUnlockConfig?.targetParticipants
+    ?? campaign.userCap
+  const engRate = (isCombo ? comboTotalSpots : isGroupUnlock ? targetPeople : campaign.userCap) > 0
+    ? Math.round((campaign.currentUsers / (isCombo ? comboTotalSpots : isGroupUnlock ? targetPeople : campaign.userCap)) * 100) : 0
   const winRate = campaign.participations > 0
     ? Math.round((campaign.rewardsClaimed / campaign.participations) * 100) : 0
   const redRate = campaign.rewardsClaimed > 0
@@ -51,10 +64,37 @@ export function VendorCampaignDetailPage() {
     { label: 'Completion Rate', pct: stampStats.completionRate, sub: `${stampStats.completed} / ${stampStats.enrolled} cards complete`, color: '#16A34A' },
     { label: 'Enrollment', pct: engRate, sub: `${campaign.currentUsers} / ${campaign.userCap} users`, color: '#7C3AED' },
     { label: 'Rewards Issued', pct: Math.min(100, stampStats.totalRewardsIssued * 5), sub: `${stampStats.surpriseAwards} surprise · ${stampStats.bigAwards} big`, color: '#D97706' },
+  ] : isGroupUnlock ? [
+    { label: 'Reserved', pct: engRate, sub: `${campaign.currentUsers} / ${targetPeople} people`, color: '#7C3AED' },
+    { label: 'Unlocked', pct: campaign.currentUsers >= targetPeople ? 100 : 0, sub: campaign.currentUsers >= targetPeople ? 'Offer unlocked' : `${Math.max(0, targetPeople - campaign.currentUsers)} more needed`, color: '#16A34A' },
+    { label: 'Redeemed', pct: redRate, sub: `${campaign.redeemedCount} redeemed`, color: '#D97706' },
   ] : [
     { label: 'Engagement', pct: engRate, sub: `${campaign.currentUsers} / ${campaign.userCap} users`, color: '#7C3AED' },
     { label: 'Win Rate', pct: winRate, sub: `${campaign.rewardsClaimed} wins / ${campaign.participations} plays`, color: '#16A34A' },
     { label: 'Redeemed', pct: redRate, sub: `${campaign.redeemedCount} redeemed`, color: '#D97706' },
+  ]
+
+  const settingsRows = isStamp ? [
+    { label: 'User Cap', value: String(campaign.userCap) },
+    { label: 'Claim Period', value: `${stampStats?.claimPeriodDays ?? campaign.claimPeriodDays ?? 30} days` },
+    { label: 'Total Stamps', value: String(stampStats?.stampConfig?.totalStamps ?? '—') },
+    { label: 'Stamps / Day', value: '1 per customer' },
+  ] : isGroupUnlock ? [
+    { label: 'Target Participants', value: String(targetPeople) },
+    { label: 'Reserved so far', value: String(campaign.currentUsers) },
+    { label: 'Spots left', value: String(Math.max(0, targetPeople - campaign.currentUsers)) },
+  ] : isCombo ? [
+    { label: 'Total Spots', value: String(comboTotalSpots) },
+    { label: 'Claims so far', value: String(campaign.currentUsers) },
+    { label: 'Spots left', value: String(Math.max(0, comboTotalSpots - campaign.currentUsers)) },
+  ] : isClaimOffer ? [
+    { label: 'User Cap', value: String(campaign.userCap) },
+    { label: 'Claims so far', value: String(campaign.currentUsers) },
+  ] : [
+    { label: 'Overall Winners', value: String(campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100))) },
+    { label: 'Plays / Day', value: String(campaign.playsPerDay) },
+    { label: 'Daily User Limit', value: String(campaign.perDayUserLimit) },
+    { label: 'User Cap', value: String(campaign.userCap) },
   ]
 
   return (
@@ -146,17 +186,7 @@ export function VendorCampaignDetailPage() {
           <Card className="p-5">
             <h3 className="text-sm font-bold text-v-text mb-4">Campaign Settings</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              {(isStamp ? [
-                { label: 'User Cap', value: String(campaign.userCap) },
-                { label: 'Claim Period', value: `${stampStats?.claimPeriodDays ?? campaign.claimPeriodDays ?? 30} days` },
-                { label: 'Total Stamps', value: String(stampStats?.stampConfig?.totalStamps ?? '—') },
-                { label: 'Stamps / Day', value: '1 per customer' },
-              ] : [
-                { label: 'Overall Winners', value: String(campaign.overallWinners ?? Math.max(1, Math.round(campaign.userCap * campaign.winRatePercent / 100))) },
-                { label: 'Plays / Day', value: String(campaign.playsPerDay) },
-                { label: 'Daily User Limit', value: String(campaign.perDayUserLimit) },
-                { label: 'User Cap', value: String(campaign.userCap) },
-              ]).map(row => (
+              {settingsRows.map(row => (
                 <div key={row.label} className="flex justify-between py-2 border-b border-v-border last:border-0">
                   <span className="text-v-text-3">{row.label}</span>
                   <span className="font-semibold text-v-text">{row.value}</span>
@@ -164,11 +194,13 @@ export function VendorCampaignDetailPage() {
               ))}
             </div>
             <div className="mt-4">
-              <p className="text-xs text-v-text-3 mb-2">User cap usage</p>
+              <p className="text-xs text-v-text-3 mb-2">
+                {isGroupUnlock ? 'Target progress' : 'User cap usage'}
+              </p>
               <ProgressBar
                 value={campaign.currentUsers}
-                max={campaign.userCap}
-                color={capPercent(campaign.currentUsers, campaign.userCap) > 85 ? '#DC2626' : '#7C3AED'}
+                max={isGroupUnlock ? targetPeople : campaign.userCap}
+                color={capPercent(campaign.currentUsers, isGroupUnlock ? targetPeople : campaign.userCap) > 85 ? '#DC2626' : '#7C3AED'}
               />
             </div>
           </Card>
@@ -207,7 +239,13 @@ export function VendorCampaignDetailPage() {
 
           <Card className="p-5">
             <h3 className="text-sm font-bold text-v-text mb-2">
-              {isStamp ? 'How stamp cards work' : 'How probability works'}
+              {isStamp
+                ? 'How stamp cards work'
+                : isGroupUnlock
+                  ? 'How Community Offer works'
+                  : isClaimOffer
+                    ? 'How this offer works'
+                    : 'How probability works'}
             </h3>
             <p className="text-xs text-v-text-3 leading-relaxed">
               {isStamp ? (
@@ -215,6 +253,18 @@ export function VendorCampaignDetailPage() {
                   Customers collect <strong className="text-v-text">1 stamp per visit</strong> (PIN required).
                   Vendors can configure multiple surprise drops and big rewards at different stamp ranges.
                   Each customer gets random trigger positions within each drop&apos;s range.
+                </>
+              ) : isGroupUnlock ? (
+                <>
+                  Customers reserve a spot with the staff PIN. The reward stays locked until{' '}
+                  <strong className="text-v-text">{targetPeople} people</strong> have reserved.
+                  Once the target is met, everyone who reserved can redeem. If the group isn&apos;t full
+                  before the redeem-before date, reserved spots expire.
+                </>
+              ) : isClaimOffer ? (
+                <>
+                  Customers enter the staff PIN to claim this offer. There is no win probability —
+                  each valid claim receives the configured reward until the cap is reached.
                 </>
               ) : (
                 <>

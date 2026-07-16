@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import type { LoyaltyState } from '@/lib/api'
+import { getCampaignTheme } from '@/lib/campaign-themes'
 
 interface LoyaltyPointsCardProps {
   businessName: string
@@ -18,23 +19,36 @@ export function LoyaltyPointsCard({
   nextMilestone,
   className,
 }: LoyaltyPointsCardProps) {
+  const theme = getCampaignTheme('check-in-loyalty')
+  const accent = theme.accent
   const sorted = [...milestones].sort((a, b) => a.pointsThreshold - b.pointsThreshold)
   const maxThreshold = sorted.at(-1)?.pointsThreshold ?? 100
   const progressPct = maxThreshold > 0 ? Math.min(100, Math.round((points / maxThreshold) * 100)) : 0
 
   return (
-    <div className={cn('relative overflow-hidden rounded-2xl bg-[#43036d] p-4', className)}>
-      <div className="pointer-events-none absolute bottom-[-28px] right-[-28px] size-[96px] rounded-full bg-[#631cbb]/50" />
+    <div
+      className={cn('relative overflow-hidden rounded-2xl p-4', className)}
+      style={{
+        background: `${accent}0C`,
+        border: `1px solid ${accent}22`,
+      }}
+    >
+      <div
+        className="pointer-events-none absolute bottom-[-28px] right-[-28px] size-[96px] rounded-full"
+        style={{ background: `${accent}18` }}
+      />
 
       <div className="relative">
         <div className="mb-4 flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[8px] tracking-widest text-[#c084fc]">LOYALTY CARD</p>
-            <p className="truncate text-sm font-bold text-white">{businessName}</p>
+            <p className="text-[8px] tracking-widest uppercase text-gray-400">LOYALTY CARD</p>
+            <p className="truncate text-sm font-bold text-gray-900">{businessName}</p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-[8px] text-[#c084fc]">POINTS</p>
-            <p className="text-2xl font-bold leading-none text-[#e8b050]">{points}</p>
+            <p className="text-[8px] uppercase text-gray-400">POINTS</p>
+            <p className="text-2xl font-bold leading-none" style={{ color: accent }}>
+              {points}
+            </p>
           </div>
         </div>
 
@@ -46,32 +60,33 @@ export function LoyaltyPointsCard({
                 return (
                   <div key={milestone.id} className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
                     <span
-                      className={cn(
-                        'flex size-8 items-center justify-center rounded-lg text-base',
-                        unlocked ? 'bg-white/25' : 'bg-white/10',
-                      )}
+                      className="flex size-8 items-center justify-center rounded-lg text-base"
+                      style={{
+                        background: unlocked ? `${accent}22` : `${accent}0F`,
+                        border: `1px solid ${unlocked ? `${accent}40` : `${accent}18`}`,
+                      }}
                       aria-hidden
                     >
                       {milestone.icon}
                     </span>
-                    <span className="max-w-full truncate text-[8px] font-semibold text-white/90">
+                    <span className="max-w-full truncate text-[8px] font-semibold text-gray-700">
                       {milestone.name}
                     </span>
-                    <span className="text-[8px] text-[#c084fc]">{milestone.pointsThreshold}</span>
+                    <span className="text-[8px] text-gray-400">{milestone.pointsThreshold}</span>
                   </div>
                 )
               })}
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
               <div
-                className="h-full rounded-full bg-[#e8b050] transition-all duration-500"
-                style={{ width: `${progressPct}%` }}
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${progressPct}%`, background: accent }}
               />
             </div>
           </div>
         )}
 
-        <p className="text-[10px] text-[#c084fc]">
+        <p className="text-[10px] text-gray-400">
           +{pointsPerCheckIn} pts per check-in
           {nextMilestone
             ? ` · ${nextMilestone.pointsNeeded} pts to ${nextMilestone.name}`

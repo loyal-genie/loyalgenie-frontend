@@ -19,6 +19,23 @@ export function currentTimeInCampaignTz(date = new Date()): string {
   return `${hour}:${minute}`
 }
 
+/**
+ * Next occurrence of a daily HH:mm deadline in campaign TZ (today if still ahead, else tomorrow).
+ * Used for flash-deal countdown badges.
+ */
+export function nextDailyDeadline(hhmm: string, now = new Date()): string {
+  const time = hhmm.slice(0, 5)
+  const [h = 0, m = 0] = time.split(':').map(Number)
+  const today = todayInCampaignTz(now)
+  const [y, mo, d] = today.split('-').map(Number)
+  // Build an Absolute time for "today at hh:mm" in IST by using a fixed offset (+05:30).
+  const todayTarget = new Date(Date.UTC(y!, mo! - 1, d!, h - 5, m - 30, 0))
+  if (todayTarget.getTime() > now.getTime()) return todayTarget.toISOString()
+  const tomorrow = addCampaignDays(today, 1)
+  const [ty, tmo, td] = tomorrow.split('-').map(Number)
+  return new Date(Date.UTC(ty!, tmo! - 1, td!, h - 5, m - 30, 0)).toISOString()
+}
+
 /** Calendar-safe day arithmetic for YYYY-MM-DD strings (IST calendar). */
 export function addCampaignDays(from: string, days: number): string {
   const [y, mo, d] = from.split('-').map(Number)

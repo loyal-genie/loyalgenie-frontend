@@ -1,24 +1,9 @@
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-
-const PLAY_BUTTON_LABELS: Record<string, string> = {
-  'check-in-loyalty': 'Check In & Earn Points ⭐',
-  shake: 'Enter PIN & Play 🤳',
-  stamp: 'Enter PIN & Collect Stamp 🎯',
-}
-
-const PLAY_BUTTON_STYLES: Record<string, string> = {
-  'check-in-loyalty':
-    'bg-gradient-to-r from-[#34d399] to-[#059669] text-white shadow-[0_8px_20px_rgba(16,185,129,0.32)]',
-  shake: 'bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-white shadow-[0_8px_20px_rgba(124,58,237,0.32)]',
-  stamp: 'bg-gradient-to-r from-[#fbbf24] to-[#d97706] text-white shadow-[0_8px_20px_rgba(251,191,36,0.32)]',
-}
-
-const DEFAULT_BUTTON_STYLE =
-  'bg-gradient-to-r from-[#631cbb] to-[#43036d] text-white shadow-[0_8px_20px_rgba(91,14,129,0.28)]'
+import { getCampaignTheme, isClaimStyleMechanic } from '@/lib/campaign-themes'
 
 export function getCampaignPlayButtonLabel(mechanic: string): string {
-  return PLAY_BUTTON_LABELS[mechanic] ?? 'Enter PIN & Play'
+  return isClaimStyleMechanic(mechanic) ? 'Claim Now' : 'Play Now'
 }
 
 interface CampaignPlayButtonProps {
@@ -30,6 +15,7 @@ interface CampaignPlayButtonProps {
   loadingLabel?: string
   className?: string
   size?: 'sm' | 'md'
+  label?: string
 }
 
 export function CampaignPlayButton({
@@ -41,33 +27,43 @@ export function CampaignPlayButton({
   loadingLabel,
   className,
   size = 'md',
+  label,
 }: CampaignPlayButtonProps) {
-  const label = loading && loadingLabel ? loadingLabel : getCampaignPlayButtonLabel(mechanic)
-  const styleClass = PLAY_BUTTON_STYLES[mechanic] ?? DEFAULT_BUTTON_STYLE
-  const sizeClass =
-    size === 'sm'
-      ? 'py-2.5 rounded-full text-xs'
-      : 'py-3.5 rounded-full text-sm'
+  const theme = getCampaignTheme(mechanic)
+  const displayLabel = loading && loadingLabel ? loadingLabel : label ?? getCampaignPlayButtonLabel(mechanic)
+  const sizeClass = size === 'sm' ? 'py-2 rounded-xl text-xs' : 'py-2.5 rounded-xl text-xs'
 
   const classes = cn(
-    'flex items-center justify-center w-full font-bold border-0 no-underline transition-opacity',
+    'flex items-center justify-center w-full font-bold border-0 no-underline text-white transition-opacity',
     sizeClass,
-    styleClass,
     disabled || loading ? 'opacity-60 cursor-not-allowed pointer-events-none' : 'cursor-pointer active:scale-[0.99]',
     className,
   )
 
+  const style = {
+    background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentTo})`,
+    boxShadow: `0 8px 20px ${theme.accent}45`,
+  }
+
   if (href && !disabled && !loading) {
     return (
-      <Link to={href} className={classes}>
-        {label}
+      <Link to={href} className={classes} style={style}>
+        {displayLabel}
       </Link>
     )
   }
 
+  if (!href && !onClick) {
+    return (
+      <div className={cn(classes, 'pointer-events-none')} style={style} aria-hidden>
+        {displayLabel}
+      </div>
+    )
+  }
+
   return (
-    <button type="button" onClick={onClick} disabled={disabled || loading} className={classes}>
-      {label}
+    <button type="button" onClick={onClick} disabled={disabled || loading} className={classes} style={style}>
+      {displayLabel}
     </button>
   )
 }

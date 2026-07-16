@@ -479,6 +479,115 @@ export interface CampaignDto {
   redeemedCount: number
   stampStats?: StampCampaignStatsDto | null
   loyaltyStats?: LoyaltyCampaignStatsDto | null
+  spinConfig?: {
+    segments: {
+      id?: string
+      label: string
+      color: string
+      isWin: boolean
+      probability?: number
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string | null
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
+  } | null
+  diceConfig?: {
+    outcomes: {
+      id?: string
+      value: number
+      isWin: boolean
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string | null
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
+  } | null
+  lotteryConfig?: {
+    prizes: {
+      id?: string
+      tier: 'jackpot' | 'prize'
+      name: string
+      reward: string
+      icon?: string
+    }[]
+    drawCompleted?: boolean
+    drawCompletedAt?: string | null
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  buyXGetYConfig?: {
+    condition: 'quantity' | 'spend'
+    buyQuantity: number
+    spendAmount: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  couponConfig?: {
+    totalCoupons: number
+    rewardKind: 'flat' | 'percent'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  flashConfig?: {
+    totalSlots: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  comboConfig?: {
+    variant: 'discount' | 'freeitem'
+    items?: string[]
+    originalPrice?: number
+    bundlePrice?: number
+    paidItems?: string[]
+    freeItems?: string[]
+    totalSpots: number
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  friendConfig?: {
+    minFriends: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  groupUnlockConfig?: {
+    targetParticipants: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
 }
 
 export interface CreateShakeCampaignPayload {
@@ -543,7 +652,205 @@ export interface CreateStampCampaignPayload {
   }
 }
 
-export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload
+export interface CreateSpinCampaignPayload {
+  name: string
+  mechanic: 'spin'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  userCap: number
+  perDayUserLimit: number
+  playsPerDay: number
+  spinConfig: {
+    segments: {
+      id?: string
+      label: string
+      color: string
+      isWin: boolean
+      probability: number
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
+  }
+}
+
+export interface DiceOutcomePayload {
+  id?: string
+  value: number
+  isWin: boolean
+  reward: string | null
+  description?: string
+  icon?: string
+  redeemExpiryMode?: 'fixed' | 'relative'
+  redeemFixedDate?: string
+  redeemRelativeAmount?: number
+  redeemRelativeUnit?: 'day' | 'week' | 'month'
+}
+
+export interface CreateDiceCampaignPayload {
+  name: string
+  mechanic: 'dice'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  userCap: number
+  perDayUserLimit: number
+  playsPerDay: number
+  diceConfig: {
+    outcomes: DiceOutcomePayload[]
+  }
+}
+
+export interface CreateLotteryCampaignPayload {
+  name: string
+  mechanic: 'lottery'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  lotteryConfig: {
+    prizes: {
+      id?: string
+      tier: 'jackpot' | 'prize'
+      name: string
+      reward: string
+      icon?: string
+    }[]
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export interface CreateBuyXGetYCampaignPayload {
+  name: string
+  mechanic: 'buy-x-get-y'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  userCap: number
+  buyXGetYConfig: {
+    condition: 'quantity' | 'spend'
+    buyQuantity: number
+    spendAmount: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export interface CreateCouponCampaignPayload {
+  name: string
+  mechanic: 'coupon'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  couponConfig: {
+    totalCoupons: number
+    rewardKind: 'flat' | 'percent'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export interface CreateFlashCampaignPayload {
+  name: string
+  mechanic: 'flash'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  flashConfig: {
+    totalSlots: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export interface CreateComboCampaignPayload {
+  name: string
+  mechanic: 'combo'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  comboConfig: {
+    variant: 'discount' | 'freeitem'
+    items: string[]
+    originalPrice: number
+    bundlePrice: number
+    paidItems: string[]
+    freeItems: string[]
+    totalSpots: number
+    termsAndConditions?: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export interface CreateFriendCampaignPayload {
+  name: string
+  mechanic: 'friend'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  userCap: number
+  friendConfig: {
+    minFriends: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export interface CreateGroupUnlockCampaignPayload {
+  name: string
+  mechanic: 'groupunlock'
+  startDate: string
+  endDate: string
+  startTime?: string
+  endTime?: string
+  groupUnlockConfig: {
+    targetParticipants: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode: 'fixed' | 'relative'
+    redeemFixedDate?: string
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  }
+}
+
+export type CreateCampaignPayload = CreateShakeCampaignPayload | CreateSpinCampaignPayload | CreateDiceCampaignPayload | CreateStampCampaignPayload | CreateCheckInLoyaltyCampaignPayload | CreateLotteryCampaignPayload | CreateBuyXGetYCampaignPayload | CreateCouponCampaignPayload | CreateFlashCampaignPayload | CreateComboCampaignPayload | CreateFriendCampaignPayload | CreateGroupUnlockCampaignPayload
 
 export interface CreateCheckInLoyaltyCampaignPayload {
   name: string
@@ -585,6 +892,8 @@ export interface BusinessWithCampaigns {
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     overallWinners?: number
     userCap?: number
     winRatePercent?: number
@@ -600,6 +909,8 @@ export interface PublicCampaign {
   mechanic: string
   startDate: string
   endDate: string
+  startTime?: string
+  endTime?: string
   playsPerDay?: number
   overallWinners?: number
   winRatePercent?: number
@@ -611,6 +922,115 @@ export interface PublicCampaign {
     prefillStamps: number
     surpriseRange: [number, number]
     bigRange: [number, number]
+  } | null
+  spinConfig?: {
+    segments: {
+      id?: string
+      label: string
+      color: string
+      isWin: boolean
+      probability?: number
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string | null
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
+  } | null
+  diceConfig?: {
+    outcomes: {
+      id?: string
+      value: number
+      isWin: boolean
+      reward: string | null
+      description?: string
+      icon?: string
+      redeemExpiryMode?: 'fixed' | 'relative'
+      redeemFixedDate?: string | null
+      redeemRelativeAmount?: number
+      redeemRelativeUnit?: 'day' | 'week' | 'month'
+    }[]
+  } | null
+  drawDate?: string
+  lotteryConfig?: {
+    prizes: {
+      id?: string
+      tier: 'jackpot' | 'prize'
+      name: string
+      reward: string
+      icon?: string
+    }[]
+    drawCompleted?: boolean
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  buyXGetYConfig?: {
+    condition: 'quantity' | 'spend'
+    buyQuantity: number
+    spendAmount: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  couponConfig?: {
+    totalCoupons: number
+    rewardKind: 'flat' | 'percent'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  flashConfig?: {
+    totalSlots: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  comboConfig?: {
+    variant: 'discount' | 'freeitem'
+    items?: string[]
+    originalPrice?: number
+    bundlePrice?: number
+    paidItems?: string[]
+    freeItems?: string[]
+    totalSpots: number
+    termsAndConditions?: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  friendConfig?: {
+    minFriends: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
+  } | null
+  groupUnlockConfig?: {
+    targetParticipants: number
+    rewardKind: 'flat' | 'percent' | 'item'
+    rewardValue: string
+    redeemExpiryMode?: 'fixed' | 'relative'
+    redeemFixedDate?: string | null
+    redeemRelativeAmount?: number
+    redeemRelativeUnit?: 'day' | 'week' | 'month'
   } | null
   rewards: { id: string; name: string; description: string; icon: string; tier?: string | null }[]
 }
@@ -655,6 +1075,8 @@ export interface StampState {
   cardComplete: boolean
   userCap: number
   currentUsers: number
+  /** Customers who stamped today (list cards). */
+  playingToday?: number
 }
 
 export interface StampCollectResult {
@@ -680,6 +1102,10 @@ export interface PlayState {
   blockReason?: 'campaign_inactive' | 'user_cap' | 'daily_participant_limit' | 'no_plays_remaining' | null
   overallWinners?: number
   winRatePercent?: number
+  /** Users who played this campaign today (list cards). */
+  playingToday?: number
+  /** Win prize chips for spin / shake / dice listing cards. */
+  possibleRewards?: string[]
 }
 
 export interface ShakeResult {
@@ -695,15 +1121,30 @@ export interface ShakeResult {
 export interface CustomerRewardDto {
   id: string
   campaignId: string | null
+  businessId?: string | null
   campaignName: string
   mechanic: string
   reward: string
   icon: string
   earnedAt: string
-  status: 'earned' | 'pending' | 'redeemed'
+  status: 'earned' | 'pending' | 'redeemed' | 'expired' | 'lottery_pending' | 'lottery_lost' | 'lottery_archived' | 'group_pending'
   requestedAt?: string
   redeemedAt?: string
   code: string
+  redeemBefore?: string | null
+  lottery?: {
+    ticketNumber: number | null
+    serialCode: string | null
+    drawDate: string | null
+    ticketStatus: string | null
+    hasViewedResult: boolean
+  }
+  groupUnlock?: {
+    targetParticipants: number
+    groupJoined: number
+    peopleLeft: number
+    unlocked: boolean
+  }
 }
 
 export interface CampaignPin {
@@ -784,6 +1225,16 @@ export interface UpdateCampaignPayload {
   }
   checkInConfig?: { pointsPerCheckIn: number }
   milestones?: { id?: string; name: string; description?: string; icon: string; pointsThreshold: number }[]
+  startTime?: string
+  spinConfig?: CreateSpinCampaignPayload['spinConfig']
+  diceConfig?: CreateDiceCampaignPayload['diceConfig']
+  lotteryConfig?: CreateLotteryCampaignPayload['lotteryConfig']
+  buyXGetYConfig?: CreateBuyXGetYCampaignPayload['buyXGetYConfig']
+  couponConfig?: CreateCouponCampaignPayload['couponConfig']
+  flashConfig?: CreateFlashCampaignPayload['flashConfig']
+  comboConfig?: CreateComboCampaignPayload['comboConfig']
+  friendConfig?: CreateFriendCampaignPayload['friendConfig']
+  groupUnlockConfig?: CreateGroupUnlockCampaignPayload['groupUnlockConfig']
 }
 
 export async function updateCampaign(id: string, payload: UpdateCampaignPayload) {
@@ -894,6 +1345,372 @@ export async function requestRewardRedemption(rewardId: string) {
   await api.post(`/campaigns/customer/rewards/${rewardId}/request-redemption`)
 }
 
+export interface LotteryTicketDto {
+  id: string
+  ticketNumber: number
+  serialCode: string
+  status: string
+  claimedAt: string
+  prizeRewardId?: string | null
+  prizeName?: string | null
+  prizeIcon?: string | null
+  walletRewardId?: string | null
+  canClaimToWallet?: boolean
+}
+
+export interface LotteryState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  drawDate: string
+  drawCompleted: boolean
+  drawCompletedAt?: string | null
+  active: boolean
+  canClaimTicket: boolean
+  hasTicket: boolean
+  ticketCount?: number
+  playsPerDay?: number
+  playsUsedToday?: number
+  playsRemaining?: number
+  ticket?: LotteryTicketDto | null
+  tickets?: LotteryTicketDto[]
+  wonTicket?: LotteryTicketDto | null
+  walletRewardStatus?: string | null
+  walletRewardId?: string | null
+  totalTickets: number
+  prizes: { tier: string; name: string; reward: string; icon: string }[]
+}
+
+export async function fetchLotteryState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: LotteryState }>(`/campaigns/${campaignId}/lottery-state`)
+  return data.data
+}
+
+export async function claimLotteryTicket(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      ticketId: string
+      ticketNumber: number
+      serialCode: string
+      drawDate: string
+      walletRewardId: string | null
+      playsRemaining?: number
+      playsUsedToday?: number
+      playsPerDay?: number
+      prizes: { tier: string; name: string; reward: string; icon: string }[]
+    }
+  }>(`/campaigns/${campaignId}/lottery/claim-ticket`, { playSessionToken })
+  return data.data
+}
+
+export async function claimLotteryWinToWallet(ticketId: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      walletRewardId: string
+      alreadyClaimed: boolean
+      rewardName?: string
+      icon?: string
+      redemptionCode?: string
+      redeemExpiresAt?: string | null
+    }
+  }>(`/campaigns/lottery/tickets/${ticketId}/claim-win`)
+  return data.data
+}
+
+export async function viewLotteryResult(rewardId: string) {
+  const { data } = await api.post<{ success: boolean; data: { archived: boolean } }>(
+    `/campaigns/customer/rewards/${rewardId}/view-lottery-result`,
+  )
+  return data.data
+}
+
+export interface BuyXGetYState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  userCap: number
+  spotsRemaining: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  rewardKind: string
+  condition: string
+  buyQuantity: number
+  spendAmount: number
+  termsAndConditions?: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchBuyXGetYState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: BuyXGetYState }>(
+    `/campaigns/${campaignId}/buy-x-get-y-state`,
+  )
+  return data.data
+}
+
+export async function claimBuyXGetYReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/buy-x-get-y/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface CouponState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  totalCoupons: number
+  spotsRemaining: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  termsAndConditions: string
+  rewardKind: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchCouponState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: CouponState }>(
+    `/campaigns/${campaignId}/coupon-state`,
+  )
+  return data.data
+}
+
+export async function claimCouponReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/coupon/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface FlashState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  totalSlots: number
+  spotsRemaining: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  termsAndConditions: string
+  rewardKind: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchFlashState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: FlashState }>(
+    `/campaigns/${campaignId}/flash-state`,
+  )
+  return data.data
+}
+
+export async function claimFlashReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/flash/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface ComboState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  totalSpots: number
+  spotsRemaining: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  termsAndConditions: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchComboState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: ComboState }>(
+    `/campaigns/${campaignId}/combo-state`,
+  )
+  return data.data
+}
+
+export async function claimComboReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/combo/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface FriendState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  userCap: number
+  spotsRemaining: number
+  minFriends: number
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  rewardKind: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchFriendState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: FriendState }>(
+    `/campaigns/${campaignId}/friend-state`,
+  )
+  return data.data
+}
+
+export async function claimFriendReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/friend/claim`, { playSessionToken })
+  return data.data
+}
+
+export interface GroupUnlockState {
+  campaignId: string
+  campaignName: string
+  businessName: string
+  active: boolean
+  canClaim: boolean
+  hasClaimed: boolean
+  claimedCount: number
+  targetParticipants: number
+  spotsRemaining: number
+  groupJoined: number
+  unlocked: boolean
+  offerSentence: string
+  rewardLabel: string
+  rewardDescription: string
+  rewardKind: string
+  endDate: string
+  walletReward?: {
+    id: string
+    status: string
+    code: string
+    redeemBefore: string | null
+  } | null
+}
+
+export async function fetchGroupUnlockState(campaignId: string) {
+  const { data } = await api.get<{ success: boolean; data: GroupUnlockState }>(
+    `/campaigns/${campaignId}/groupunlock-state`,
+  )
+  return data.data
+}
+
+export async function claimGroupUnlockReward(campaignId: string, playSessionToken: string) {
+  const { data } = await api.post<{
+    success: boolean
+    data: {
+      rewardId: string
+      reward: string
+      description: string
+      offerSentence: string
+      code: string
+      redeemBefore: string
+      icon: string
+    }
+  }>(`/campaigns/${campaignId}/groupunlock/claim`, { playSessionToken })
+  return data.data
+}
+
 export interface LoyaltyState {
   campaignId: string
   mechanic: 'check-in-loyalty'
@@ -907,6 +1724,7 @@ export interface LoyaltyState {
   nextMilestone: { name: string; pointsThreshold: number; pointsNeeded: number } | null
   userCap: number
   currentUsers: number
+  playingToday?: number
   campaignName: string
   businessId: string
   businessName: string

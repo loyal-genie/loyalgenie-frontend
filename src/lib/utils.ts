@@ -6,6 +6,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
+
+export function hexMix(hexA: string, hexB: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(hexA)
+  const [r2, g2, b2] = hexToRgb(hexB)
+  const mix = (a: number, b: number) => Math.round(a + (b - a) * t)
+  return `#${[mix(r1, r2), mix(g1, g2), mix(b1, b2)].map(v => v.toString(16).padStart(2, '0')).join('')}`
+}
+
 export function generatePIN(): string {
   return String(Math.floor(100 + Math.random() * 900))
 }
@@ -18,6 +30,12 @@ export function getMechanicLabel(mechanic: MechanicType): string {
     spin: 'Spin a Wheel',
     dice: 'Roll a Dice',
     lottery: 'Lottery',
+    'buy-x-get-y': 'Buy X Get Y',
+    coupon: 'Coupon Codes',
+    flash: 'Flash Deal',
+    combo: 'Package/Combo Deal',
+    friend: 'Bring a Friend',
+    groupunlock: 'Community Offer — Group Unlock',
   }
   return map[mechanic]
 }
@@ -30,6 +48,12 @@ export function getMechanicEmoji(mechanic: MechanicType | string): string {
     spin: '🎡',
     dice: '🎲',
     lottery: '🎟️',
+    'buy-x-get-y': '💰',
+    coupon: '🎫',
+    flash: '⚡',
+    combo: '🎁',
+    friend: '👫',
+    groupunlock: '🤝',
     scratch: '🎴',
   }
   return map[mechanic] ?? '🎮'
@@ -43,6 +67,12 @@ export function getMechanicColor(mechanic: MechanicType): string {
     spin: '#06B6D4',
     dice: '#22C55E',
     lottery: '#8B5CF6',
+    'buy-x-get-y': '#F97316',
+    coupon: '#0D9488',
+    flash: '#38BDF8',
+    combo: '#A3E635',
+    friend: '#F472B6',
+    groupunlock: '#818CF8',
   }
   return map[mechanic]
 }
@@ -84,6 +114,12 @@ export const MECHANIC_META: Record<MechanicType, { label: string; badgeBg: strin
   'check-in-loyalty': { label: 'LOYALTY', badgeBg: '#EDE9FE', badgeText: '#5B21B6', cardFrom: '#7C3AED', cardTo: '#4C1D95', emoji: '⭐' },
   spin: { label: 'SPIN A WHEEL', badgeBg: '#EDE9FE', badgeText: '#5B21B6', cardFrom: '#7C3AED', cardTo: '#4C1D95', emoji: '🎡' },
   shake: { label: 'SCRATCH', badgeBg: '#DBEAFE', badgeText: '#1E40AF', cardFrom: '#3B82F6', cardTo: '#1D4ED8', emoji: '🃏' },
-  dice: { label: 'MYSTERY BOX', badgeBg: '#FCE7F3', badgeText: '#9D174D', cardFrom: '#BE185D', cardTo: '#831843', emoji: '📦' },
+  dice: { label: 'ROLL A DICE', badgeBg: '#FFF1F2', badgeText: '#BE123C', cardFrom: '#FB7185', cardTo: '#F43F5E', emoji: '🎲' },
   lottery: { label: 'LOTTERY', badgeBg: '#FEF9C3', badgeText: '#854D0E', cardFrom: '#EAB308', cardTo: '#A16207', emoji: '🎟️' },
+  'buy-x-get-y': { label: 'BUY X GET Y', badgeBg: '#FFEDD5', badgeText: '#9A3412', cardFrom: '#F97316', cardTo: '#C2410C', emoji: '💰' },
+  coupon: { label: 'COUPON', badgeBg: '#CCFBF1', badgeText: '#115E59', cardFrom: '#14B8A6', cardTo: '#0F766E', emoji: '🎫' },
+  flash: { label: 'FLASH DEAL', badgeBg: '#E0F2FE', badgeText: '#0369A1', cardFrom: '#7DD3FC', cardTo: '#38BDF8', emoji: '⚡' },
+  combo: { label: 'COMBO DEAL', badgeBg: '#F7FEE7', badgeText: '#3F6212', cardFrom: '#D9F99D', cardTo: '#A3E635', emoji: '🎁' },
+  friend: { label: 'BRING A FRIEND', badgeBg: '#FCE7F3', badgeText: '#9D174D', cardFrom: '#F9A8D4', cardTo: '#F472B6', emoji: '👫' },
+  groupunlock: { label: 'COMMUNITY OFFER', badgeBg: '#EEF2FF', badgeText: '#3730A3', cardFrom: '#C7D2FE', cardTo: '#818CF8', emoji: '🤝' },
 }

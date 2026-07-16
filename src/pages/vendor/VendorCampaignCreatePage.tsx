@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Check, Zap, Plus, Trash2, AlertCircle, CalendarDays, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Zap, AlertCircle, CalendarDays, Loader2, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldInput as Input, Slider, Stepper } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -10,8 +10,71 @@ import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
 import { RewardPoolEditor, newRewardEntry, type RewardEntry } from '@/components/vendor/RewardPoolEditor'
 import { StampDropEditor } from '@/components/vendor/StampDropEditor'
-import { formatRedeemBeforeSummary } from '@/components/vendor/RedeemBeforeField'
+import { formatRedeemBeforeSummary, RedeemBeforeField } from '@/components/vendor/RedeemBeforeField'
 import { buildStampCampaignPayload, defaultStampUiState, isStampDropValid, type StampDropUiState } from '@/lib/stamp-drop-config'
+import { applySpinRedeem, buildSpinCampaignPayload, defaultSpinSegments, getSpinRedeem, isSpinSegmentConfigValid, spinWinRateFromSegments, type SpinSegmentUi } from '@/lib/spin-campaign-config'
+import { applyDiceRedeem, buildDiceCampaignPayload, defaultDiceOutcomes, diceWinRateFromOutcomes, getDiceRedeem, isDiceConfigValid, type DiceOutcomeUi } from '@/lib/dice-campaign-config'
+import { buildLotteryCampaignPayload, defaultLotteryPrizes, defaultLotteryRedeem, isLotteryConfigValid, type LotteryPrizeUi } from '@/lib/lottery-campaign-config'
+import {
+  buildBuyXGetYCampaignPayload,
+  defaultBuyXGetYConfig,
+  defaultBuyXGetYRedeem,
+  formatBuyXGetYSentence,
+  isBuyXGetYConfigValid,
+  type BuyXGetYConfigUi,
+} from '@/lib/buy-x-get-y-campaign-config'
+import {
+  buildCouponCampaignPayload,
+  defaultCouponConfig,
+  defaultCouponRedeem,
+  formatCouponSentence,
+  isCouponConfigValid,
+  type CouponConfigUi,
+} from '@/lib/coupon-campaign-config'
+import {
+  buildFlashCampaignPayload,
+  defaultFlashConfig,
+  defaultFlashRedeem,
+  formatFlashSentence,
+  isFlashConfigValid,
+  type FlashConfigUi,
+} from '@/lib/flash-campaign-config'
+import {
+  buildComboCampaignPayload,
+  defaultComboConfig,
+  defaultComboRedeem,
+  formatComboSentence,
+  isComboConfigValid,
+  type ComboConfigUi,
+} from '@/lib/combo-campaign-config'
+import {
+  buildFriendCampaignPayload,
+  defaultFriendConfig,
+  defaultFriendRedeem,
+  formatFriendRewardLabel,
+  formatFriendSentence,
+  isFriendConfigValid,
+  type FriendConfigUi,
+} from '@/lib/friend-campaign-config'
+import {
+  buildGroupUnlockCampaignPayload,
+  defaultGroupUnlockConfig,
+  defaultGroupUnlockRedeem,
+  formatGroupUnlockRewardLabel,
+  formatGroupUnlockSentence,
+  isGroupUnlockConfigValid,
+  type GroupUnlockConfigUi,
+} from '@/lib/groupunlock-campaign-config'
+import { SpinSegmentEditor } from '@/components/vendor/SpinSegmentEditor'
+import { SpinWheelPreview } from '@/components/vendor/SpinWheelPreview'
+import { DiceOutcomeEditor } from '@/components/vendor/DiceOutcomeEditor'
+import { LotteryPrizeEditor } from '@/components/vendor/LotteryPrizeEditor'
+import { BuyXGetYOfferEditor } from '@/components/vendor/BuyXGetYOfferEditor'
+import { CouponOfferEditor } from '@/components/vendor/CouponOfferEditor'
+import { FlashOfferEditor } from '@/components/vendor/FlashOfferEditor'
+import { ComboOfferEditor } from '@/components/vendor/ComboOfferEditor'
+import { FriendOfferEditor } from '@/components/vendor/FriendOfferEditor'
+import { GroupUnlockOfferEditor } from '@/components/vendor/GroupUnlockOfferEditor'
 import { LoyaltyCampaignImpact, LotteryCampaignImpact, StampCampaignImpact, WinBasedCampaignImpact } from '@/components/vendor/CampaignImpactCards'
 import { calcDailyWinners, calcTotalWinners, formatWinnerCount } from '@/lib/campaign-impact'
 import { computeCreateSchedule, fmtCampaignDate, durationModeToDays, type DurationMode } from '@/lib/campaign-duration'
@@ -26,11 +89,16 @@ const MECHANICS: { type: MechanicType; desc: string; tags: string[] }[] = [
   { type: 'check-in-loyalty', desc: 'Daily check-ins earn loyalty points. Redeem points for rewards from your catalog.', tags: ['Daily visits', 'Points'] },
   { type: 'spin',    desc: 'Spin a colourful wheel and land on exciting rewards.',                       tags: ['Visual', 'Exciting'] },
   { type: 'dice',    desc: 'Roll the dice — certain faces win. Pure luck, maximum thrill.',              tags: ['Gamble feel', 'Quick'] },
-  { type: 'lottery', desc: 'Scratch & reveal a lottery ticket with a jackpot and tiered prizes.',       tags: ['Jackpot', 'Tiered rewards'] },
+  { type: 'lottery', desc: 'Customers claim a ticket; winners are drawn automatically on the end date.', tags: ['Jackpot', 'Tiered rewards'] },
+  { type: 'buy-x-get-y', desc: 'Customers buy or spend to unlock a reward — purchases or spend thresholds.', tags: ['Perceived value', 'Loss aversion'] },
+  { type: 'coupon', desc: 'Limited coupon pool — customers claim a code and redeem at the counter.', tags: ['Scarcity', 'Easy claim'] },
+  { type: 'flash', desc: 'Urgent limited-spot deal — customers claim fast before spots run out.', tags: ['Urgency', 'Scarcity'] },
+  { type: 'combo', desc: 'Bundle items or services — discounted price or take X get Y free.', tags: ['Value', 'Cross-sell'] },
+  { type: 'friend', desc: 'Reward customers who bring friends along — unlock perks through referrals.', tags: ['Referral', 'Social'] },
+  { type: 'groupunlock', desc: 'Locked reward until N people reserve a spot — everyone unlocks together.', tags: ['Community', 'Collective'] },
 ]
 
 const STEPS = ['Mechanic', 'Basics', 'Game Config', 'Review']
-const SPIN_COLORS = ['#7C3AED', '#EC4899', '#F59E0B', '#06B6D4', '#22C55E', '#F43F5E', '#8B5CF6', '#10B981']
 
 const DURATION_ALL: { key: DurationMode; label: string; sub: string }[] = [
   { key: 'today',  label: 'Today',    sub: 'Right now'  },
@@ -41,12 +109,6 @@ const DURATION_ALL: { key: DurationMode; label: string; sub: string }[] = [
   { key: '3m',     label: '3 Months', sub: '~90 days'   },
   { key: 'custom', label: 'Custom',   sub: 'Date range' },
 ]
-const DURATION_LOTTERY: { key: DurationMode; label: string; sub: string }[] = [
-  { key: '7d',  label: '1 Week',  sub: '7 days'   },
-  { key: '14d', label: '2 Weeks', sub: '14 days'  },
-  { key: '1m',  label: '1 Month', sub: '~30 days' },
-]
-
 const TODAY = todayInCampaignTz()
 function fmtDate(iso: string) { return fmtCampaignDate(iso) }
 function fmtTime(t: string) { const [h, m] = t.split(':').map(Number); const ap = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ap}` }
@@ -54,9 +116,17 @@ function computeDates(mode: DurationMode, cs: string, ce: string, cst: string, c
   return computeCreateSchedule(mode, cs, ce, cst, cet)
 }
 
-const UNLIMITED_USER_CAP = 1_000_000
+function getDailyWindowTimes(
+  basics: { activeHoursEnabled: boolean; activeStartTime: string; activeEndTime: string },
+  dates: { startTime: string; endTime: string },
+) {
+  if (basics.activeHoursEnabled) {
+    return { startTime: basics.activeStartTime, endTime: basics.activeEndTime }
+  }
+  return { startTime: dates.startTime, endTime: dates.endTime }
+}
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+const UNLIMITED_USER_CAP = 1_000_000
 export function VendorCampaignCreatePage() {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
@@ -87,36 +157,28 @@ export function VendorCampaignCreatePage() {
   const [shakeRewards, setShakeRewards] = useState<RewardEntry[]>([newRewardEntry()])
 
   // Spin segments (reward embedded per winning segment)
-  const [spinSegments, setSpinSegments] = useState([
-    { label: 'Free Coffee',  color: '#7C3AED', isWin: true,  reward: 'Free Coffee' },
-    { label: 'Try Again',    color: '#E5E1F8', isWin: false, reward: '' },
-    { label: '20% Off',      color: '#EC4899', isWin: true,  reward: '20% Off' },
-    { label: 'Better Luck',  color: '#EDE9FF', isWin: false, reward: '' },
-    { label: 'Free Muffin',  color: '#F59E0B', isWin: true,  reward: 'Free Muffin' },
-    { label: '₹50 Off',      color: '#06B6D4', isWin: true,  reward: '₹50 Off' },
-  ])
+  const [spinSegments, setSpinSegments] = useState<SpinSegmentUi[]>(defaultSpinSegments())
 
   const [stampConfig, setStampConfig] = useState(defaultStampUiState)
 
   // Dice outcomes (reward per winning face)
-  const [diceOutcomes, setDiceOutcomes] = useState([
-    { value: 1, isWin: false, reward: '' },
-    { value: 2, isWin: false, reward: '' },
-    { value: 3, isWin: true,  reward: 'Free Dessert' },
-    { value: 4, isWin: true,  reward: '₹50 Off' },
-    { value: 5, isWin: false, reward: '' },
-    { value: 6, isWin: true,  reward: 'Free Dessert' },
-  ])
+  const [diceOutcomes, setDiceOutcomes] = useState<DiceOutcomeUi[]>(defaultDiceOutcomes())
 
-  // Lottery — jackpot fixed, free-form additional prizes (no probability — odds are built into ticket mechanics)
-  const [lotteryConfig, setLotteryConfig] = useState({
-    jackpotName: 'Grand Prize',
-    jackpotReward: 'Free Month Subscription',
-    prizes: [
-      { id: '1', name: '2nd Prize', reward: 'Free Breakfast' },
-      { id: '2', name: '3rd Prize', reward: 'Free Coffee' },
-    ] as { id: string; name: string; reward: string }[],
-  })
+  // Lottery — jackpot + tier prizes with universal redeem-before
+  const [lotteryPrizes, setLotteryPrizes] = useState<LotteryPrizeUi[]>(defaultLotteryPrizes())
+  const [lotteryRedeem, setLotteryRedeem] = useState(defaultLotteryRedeem())
+  const [buyXGetYConfig, setBuyXGetYConfig] = useState<BuyXGetYConfigUi>(defaultBuyXGetYConfig())
+  const [buyXGetYRedeem, setBuyXGetYRedeem] = useState(defaultBuyXGetYRedeem())
+  const [couponConfig, setCouponConfig] = useState<CouponConfigUi>(defaultCouponConfig())
+  const [couponRedeem, setCouponRedeem] = useState(defaultCouponRedeem())
+  const [flashConfig, setFlashConfig] = useState<FlashConfigUi>(defaultFlashConfig())
+  const [flashRedeem, setFlashRedeem] = useState(defaultFlashRedeem())
+  const [comboConfig, setComboConfig] = useState<ComboConfigUi>(defaultComboConfig())
+  const [comboRedeem, setComboRedeem] = useState(defaultComboRedeem())
+  const [friendConfig, setFriendConfig] = useState<FriendConfigUi>(defaultFriendConfig())
+  const [friendRedeem, setFriendRedeem] = useState(defaultFriendRedeem())
+  const [groupUnlockConfig, setGroupUnlockConfig] = useState<GroupUnlockConfigUi>(defaultGroupUnlockConfig())
+  const [groupUnlockRedeem, setGroupUnlockRedeem] = useState(defaultGroupUnlockRedeem())
 
   const [loyaltyConfig, setLoyaltyConfig] = useState({
     pointsPerCheckIn: 10,
@@ -127,15 +189,33 @@ export function VendorCampaignCreatePage() {
   const createMutation = useCreateCampaign()
 
   const isLottery        = mechanic === 'lottery'
+  const isBuyXGetY       = mechanic === 'buy-x-get-y'
+  const isCoupon         = mechanic === 'coupon'
+  const isFlash          = mechanic === 'flash'
+  const isCombo          = mechanic === 'combo'
+  const isFriend         = mechanic === 'friend'
+  const isGroupUnlock    = mechanic === 'groupunlock'
   const isStamp          = mechanic === 'stamp'
   const isLoyalty        = mechanic === 'check-in-loyalty'
   // Check-in has no Game Config — points live on Basics; rewards come from the standalone Rewards catalog.
-  const hasGameConfigStep = mechanic === 'shake' || mechanic === 'stamp'
+  // Coupon DOES have Game Config (pool size, value, T&Cs) via CouponOfferEditor — include it here.
+  const hasGameConfigStep =
+    mechanic === 'shake'
+    || mechanic === 'stamp'
+    || mechanic === 'spin'
+    || mechanic === 'dice'
+    || mechanic === 'lottery'
+    || mechanic === 'buy-x-get-y'
+    || mechanic === 'coupon'
+    || mechanic === 'flash'
+    || mechanic === 'combo'
+    || mechanic === 'friend'
+    || mechanic === 'groupunlock'
   const activeSteps = hasGameConfigStep ? STEPS : ['Mechanic', 'Basics', 'Review']
   const reviewStepIndex = activeSteps.length - 1
   const isShakeSpinOrDice = mechanic === 'shake' || mechanic === 'spin' || mechanic === 'dice'
   const isToday          = basics.durationMode === 'today'
-  const durationOptions  = isLottery ? DURATION_LOTTERY : DURATION_ALL
+  const durationOptions  = DURATION_ALL
 
   // Campaign duration in days
   const campaignDays = (() => {
@@ -171,8 +251,8 @@ export function VendorCampaignCreatePage() {
   // Shake: explicit vendor input (overallWinRate). Pool probabilities = share AMONG winners (sum to 100%)
   // Spin/Dice: structurally derived from config
   const shakePoolTotal = shakeRewards.reduce((s, r) => s + r.probability, 0)
-  const spinWinRate    = spinSegments.length > 0 ? Math.round((spinSegments.filter(s => s.isWin).length / spinSegments.length) * 100) : 0
-  const diceWinRate    = Math.round((diceOutcomes.filter(o => o.isWin).length / 6) * 100)
+  const spinWinRate    = spinWinRateFromSegments(spinSegments)
+  const diceWinRate    = diceWinRateFromOutcomes(diceOutcomes)
   const activeWinRate  = mechanic === 'spin' ? spinWinRate : mechanic === 'dice' ? diceWinRate : 0
   const totalWinners = mechanic === 'shake' ? basics.overallWinners : calcTotalWinners(basics.userCap, basics.playsPerDay, activeWinRate)
   const dailyWinners = calcDailyWinners(isToday ? basics.userCap : basics.perDayUserLimit, basics.playsPerDay, activeWinRate)
@@ -180,6 +260,9 @@ export function VendorCampaignCreatePage() {
   const selectMechanic = (m: MechanicType) => {
     if (!isMechanicLive(m)) return
     setMechanic(m)
+    if (m === 'friend') {
+      setBasics(p => ({ ...p, userCap: 200 }))
+    }
   }
 
   const schedule = computeDates(basics.durationMode, basics.customStart, basics.customEnd, basics.customStartTime, basics.customEndTime)
@@ -195,9 +278,15 @@ export function VendorCampaignCreatePage() {
         r.redeemExpiryMode === 'fixed' ? Boolean(r.redeemFixedDate) : r.redeemRelativeAmount > 0,
       )
     }
-    if (mechanic === 'spin')  return spinSegments.some(s => s.isWin && s.reward.trim())
-    if (mechanic === 'dice')  return diceOutcomes.some(o => o.isWin && o.reward.trim())
-    if (mechanic === 'lottery') return lotteryConfig.jackpotReward.trim().length > 0
+    if (mechanic === 'spin')  return isSpinSegmentConfigValid(spinSegments)
+    if (mechanic === 'dice')  return isDiceConfigValid(diceOutcomes)
+    if (mechanic === 'lottery') return isLotteryConfigValid(lotteryPrizes, lotteryRedeem)
+    if (mechanic === 'buy-x-get-y') return isBuyXGetYConfigValid(buyXGetYConfig, buyXGetYRedeem)
+    if (mechanic === 'coupon') return isCouponConfigValid(couponConfig, couponRedeem)
+    if (mechanic === 'flash') return isFlashConfigValid(flashConfig, flashRedeem)
+    if (mechanic === 'combo') return isComboConfigValid(comboConfig, comboRedeem)
+    if (mechanic === 'friend') return isFriendConfigValid(friendConfig, friendRedeem)
+    if (mechanic === 'groupunlock') return isGroupUnlockConfigValid(groupUnlockConfig, groupUnlockRedeem)
     if (mechanic === 'stamp') {
       const dropsValid = [...stampConfig.surpriseDrops, ...stampConfig.bigRewards].every(d =>
         d.to <= stampConfig.totalStamps && isStampDropValid(d),
@@ -215,20 +304,21 @@ export function VendorCampaignCreatePage() {
   }
 
   const handleLaunch = async () => {
-    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty') {
-      setLaunchError('Only Shake & Win, Stamp Card, and Check-in Loyalty are wired to the API in this release.')
+    if (mechanic !== 'shake' && mechanic !== 'stamp' && mechanic !== 'check-in-loyalty' && mechanic !== 'spin' && mechanic !== 'dice' && mechanic !== 'lottery' && mechanic !== 'buy-x-get-y' && mechanic !== 'coupon' && mechanic !== 'flash' && mechanic !== 'combo' && mechanic !== 'friend' && mechanic !== 'groupunlock') {
+      setLaunchError('This campaign type is not available yet.')
       return
     }
     setLaunchError(null)
     try {
       if (mechanic === 'shake') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
         const campaign = await createMutation.mutateAsync({
           name: basics.name.trim(),
           mechanic: 'shake',
           startDate: dates.start,
           endDate: dates.end,
-          startTime: dates.startTime,
-          endTime: dates.endTime,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
           userCap: basics.userCap,
           perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
           playsPerDay: basics.playsPerDay,
@@ -245,6 +335,157 @@ export function VendorCampaignCreatePage() {
               redeemRelativeAmount: r.redeemExpiryMode === 'relative' ? r.redeemRelativeAmount : undefined,
               redeemRelativeUnit: r.redeemExpiryMode === 'relative' ? r.redeemRelativeUnit : undefined,
             })),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'spin') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'spin',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          userCap: basics.userCap,
+          perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
+          playsPerDay: basics.playsPerDay,
+          ...buildSpinCampaignPayload(spinSegments),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'dice') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'dice',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          userCap: basics.userCap,
+          perDayUserLimit: isToday ? basics.userCap : basics.perDayUserLimit,
+          playsPerDay: basics.playsPerDay,
+          ...buildDiceCampaignPayload(diceOutcomes),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'lottery') {
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'lottery',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dates.startTime,
+          endTime: dates.endTime,
+          ...buildLotteryCampaignPayload(lotteryPrizes, lotteryRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'buy-x-get-y') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'buy-x-get-y',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          userCap: basics.userCap,
+          ...buildBuyXGetYCampaignPayload(buyXGetYConfig, buyXGetYRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'coupon') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'coupon',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          ...buildCouponCampaignPayload(couponConfig, couponRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'flash') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'flash',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          ...buildFlashCampaignPayload(flashConfig, flashRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'combo') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'combo',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          ...buildComboCampaignPayload(comboConfig, comboRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'friend') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'friend',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          userCap: basics.userCap,
+          ...buildFriendCampaignPayload(friendConfig, friendRedeem),
+        })
+        setLaunched(true)
+        setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
+        return
+      }
+
+      if (mechanic === 'groupunlock') {
+        const dailyWindow = getDailyWindowTimes(basics, dates)
+        const campaign = await createMutation.mutateAsync({
+          name: basics.name.trim(),
+          mechanic: 'groupunlock',
+          startDate: dates.start,
+          endDate: dates.end,
+          startTime: dailyWindow.startTime,
+          endTime: dailyWindow.endTime,
+          ...buildGroupUnlockCampaignPayload(groupUnlockConfig, groupUnlockRedeem),
         })
         setLaunched(true)
         setTimeout(() => navigate(`/vendor/campaigns/${campaign.id}`), 2200)
@@ -299,7 +540,7 @@ export function VendorCampaignCreatePage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <button onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)} className="inline-flex items-center gap-1.5 text-sm text-v-text-2 hover:text-v-text mb-4 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back
@@ -326,32 +567,39 @@ export function VendorCampaignCreatePage() {
 
           {/* ── Step 0: Mechanic ── */}
           {step === 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
               {MECHANICS.map(m => {
                 const selected = mechanic === m.type
                 const color = getMechanicColor(m.type)
                 const comingSoon = !isMechanicLive(m.type)
                 return (
-                  <motion.div key={m.type} whileHover={comingSoon ? {} : { y: -3 }} whileTap={comingSoon ? {} : { scale: 0.97 }}>
+                  <motion.div
+                    key={m.type}
+                    className="h-full"
+                    whileHover={comingSoon ? {} : { y: -3 }}
+                    whileTap={comingSoon ? {} : { scale: 0.97 }}
+                  >
                     <button
                       type="button"
                       disabled={comingSoon}
                       onClick={() => selectMechanic(m.type)}
-                      className={`w-full text-left rounded-2xl p-5 border-2 transition-all duration-200 ${selected ? '' : 'border-v-border bg-white hover:border-v-border-b'} ${comingSoon ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      className={`w-full h-full text-left rounded-2xl p-5 border-2 transition-colors duration-200 flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-v-purple/30 ${selected ? '' : 'border-v-border bg-white hover:border-v-border-b'} ${comingSoon ? 'opacity-70 cursor-not-allowed' : ''}`}
                       style={selected ? { borderColor: color, background: `${color}08` } : {}}
                     >
-                      <div className="text-4xl mb-3">{getMechanicEmoji(m.type)}</div>
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <span className="text-sm font-bold text-v-text">{getMechanicLabel(m.type)}</span>
-                        {comingSoon && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            Live soon
-                          </span>
-                        )}
-                        {selected && <Check className="w-4 h-4" style={{ color }} />}
+                      <div className="h-10 flex items-center text-3xl mb-3 leading-none shrink-0">{getMechanicEmoji(m.type)}</div>
+                      <div className="flex items-center gap-2 mb-2 min-h-[22px] shrink-0">
+                        <span className="text-sm font-bold text-v-text truncate">{getMechanicLabel(m.type)}</span>
+                        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                          {comingSoon && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                              Live soon
+                            </span>
+                          )}
+                          {selected && <Check className="w-4 h-4" style={{ color }} />}
+                        </div>
                       </div>
-                      <p className="text-xs text-v-text-3 mb-3 leading-relaxed">{m.desc}</p>
-                      <div className="flex flex-wrap gap-1">
+                      <p className="text-xs text-v-text-3 mb-3 leading-relaxed line-clamp-2 min-h-[2.5rem] flex-1">{m.desc}</p>
+                      <div className="flex flex-wrap gap-1 content-start min-h-[22px] mt-auto">
                         {m.tags.map(t => <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: `${color}12`, color }}>{t}</span>)}
                       </div>
                     </button>
@@ -430,8 +678,8 @@ export function VendorCampaignCreatePage() {
                     </div>
                   )}
 
-                  {/* Active hours — deferred (not enforced in v1) */}
-                  {false && !isLottery && (
+                  {/* Active hours — daily window for instant-win + Buy X Get Y */}
+                  {(isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) && (
                     <div className="mt-4 pt-4 border-t border-v-border">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -484,6 +732,60 @@ export function VendorCampaignCreatePage() {
                   {/* Stamp: single user cap */}
                   {isStamp && (
                     <Stepper label="User Cap" hint="users" value={basics.userCap} min={1} max={2000} step={1} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
+                  )}
+
+                  {isBuyXGetY && (
+                    <Stepper label="User Cap" hint="users" value={basics.userCap} min={10} max={5000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
+                  )}
+
+                  {isFriend && (
+                    <>
+                      <Stepper label="User Cap" hint="users" value={basics.userCap} min={10} max={5000} step={10} onChange={v => setBasics(p => ({ ...p, userCap: v }))} />
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Bring a Friend rewards trigger automatically once the minimum friend count is met — no win probability to configure. Reward type and expiry are set in the next step.</p>
+                      </div>
+                    </>
+                  )}
+
+                  {isCoupon && (
+                    <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                      <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                      <p>Coupon Codes has no separate user cap — the number of coupons you generate (next step) is the cap.</p>
+                    </div>
+                  )}
+
+                  {isFlash && (
+                    <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                      <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                      <p>Flash Deal has no separate user cap — the number of spots you set (next step) is the cap.</p>
+                    </div>
+                  )}
+
+                  {isCombo && (
+                    <>
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Package/Combo Deal has no separate user cap — the number of spots you set (next step) is the cap.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Package/Combo Deal rewards trigger automatically on claim — no win probability to configure. Bundle items, pricing, spots, and expiry are set in the next step.</p>
+                      </div>
+                    </>
+                  )}
+
+                  {isGroupUnlock && (
+                    <>
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Community Offer has no separate user cap — the target number of participants you set (next step) is the cap.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                        <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                        <p>Customers reserve a spot via staff PIN, but the reward stays locked for everyone until the target number of participants is reached — no win probability to configure.</p>
+                      </div>
+                    </>
                   )}
 
                   {/* Check-in Loyalty: all users by default, optional cap */}
@@ -551,6 +853,13 @@ export function VendorCampaignCreatePage() {
                   )}
                 </div>
 
+                {isBuyXGetY && (
+                  <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
+                    <AlertCircle className="w-4 h-4 text-v-purple shrink-0 mt-0.5" />
+                    <p>Buy X Get Y rewards trigger automatically — no win probability to configure. Reward type and redeem-before are set in the next step.</p>
+                  </div>
+                )}
+
                 {/* Stamp info note */}
                 {isStamp && (
                   <div className="flex items-start gap-2.5 p-3.5 bg-v-surface-2 border border-v-border rounded-xl text-xs text-v-text-2">
@@ -607,53 +916,43 @@ export function VendorCampaignCreatePage() {
 
           {/* SPIN A WHEEL */}
           {step === 2 && mechanic === 'spin' && (
-            <Card className="p-6">
-              <h2 className="text-base font-bold text-v-text mb-1">Spin a Wheel — Segments & Rewards</h2>
-              <p className="text-xs text-v-text-3 mb-5">Configure each segment. Mark it as a win and set the reward name directly on the segment.</p>
-              <div className="space-y-2">
-                {spinSegments.map((seg, i) => (
-                  <div key={i} className={`p-3 rounded-xl border-2 transition-all ${seg.isWin ? 'border-v-border-b/60 bg-v-surface-2' : 'border-v-border bg-white'}`}>
-                    <div className="flex items-center gap-2.5">
-                      {/* Color dot + picker */}
-                      <div className="relative group shrink-0">
-                        <div className="w-5 h-5 rounded-full border border-v-border cursor-pointer" style={{ background: seg.color }} />
-                        <div className="absolute left-0 top-7 z-10 hidden group-hover:flex flex-wrap gap-1 p-2 bg-white border border-v-border rounded-xl shadow-lg w-28">
-                          {SPIN_COLORS.map(c => <button key={c} onClick={() => setSpinSegments(s => s.map((x, j) => j === i ? { ...x, color: c } : x))} className="w-5 h-5 rounded-full border-2 transition-all" style={{ background: c, borderColor: seg.color === c ? '#1E1B4B' : 'transparent' }} />)}
-                        </div>
-                      </div>
-                      {/* Label */}
-                      <input className="flex-1 bg-transparent border-none text-sm font-semibold text-v-text placeholder:text-v-text-3 focus:outline-none" placeholder="Segment label" value={seg.label} onChange={e => setSpinSegments(s => s.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-                      {/* Win toggle */}
-                      <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
-                        <input type="checkbox" checked={seg.isWin} onChange={e => setSpinSegments(s => s.map((x, j) => j === i ? { ...x, isWin: e.target.checked, reward: e.target.checked ? x.reward : '' } : x))} className="w-3.5 h-3.5 accent-v-purple rounded" />
-                        <span className="text-xs text-v-text-3">Win</span>
-                      </label>
-                      {/* Delete */}
-                      {spinSegments.length > 2 && (
-                        <button onClick={() => setSpinSegments(s => s.filter((_, j) => j !== i))} className="p-1 rounded-lg text-v-text-3 hover:text-v-danger hover:bg-red-50 transition-colors">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                    {/* Reward field — only for winning segments */}
-                    {seg.isWin && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2 pl-8 overflow-hidden">
-                        <input className="w-full bg-white border border-v-border-b/50 rounded-lg px-3 py-1.5 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Reward (e.g. Free Coffee)" value={seg.reward} onChange={e => setSpinSegments(s => s.map((x, j) => j === i ? { ...x, reward: e.target.value } : x))} />
-                      </motion.div>
-                    )}
-                  </div>
-                ))}
-                <Button variant="secondary" size="sm" onClick={() => setSpinSegments(s => [...s, { label: 'New Segment', color: '#7C3AED', isWin: false, reward: '' }])}>
-                  <Plus className="w-3 h-3" /> Add Segment
-                </Button>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start xl:grid-cols-[minmax(0,1fr)_300px]">
+              <Card className="p-6">
+                <h2 className="text-base font-bold text-v-text mb-1">Spin a Wheel — Segments &amp; Rewards</h2>
+                <p className="text-xs text-v-text-3 mb-4">Configure each wheel segment, reward details, and slice share on the wheel.</p>
+                <div className="flex items-center gap-2 mb-5 p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
+                  <span className="text-v-text-3">Expected winners:</span>
+                  <span className="font-bold text-v-purple">{formatWinnerCount(totalWinners)} total</span>
+                  <span className="text-v-text-3 mx-1">·</span>
+                  <span className="text-v-text-3">{spinWinRate}% win rate</span>
+                  {!isToday && (
+                    <>
+                      <span className="text-v-text-3 mx-1">·</span>
+                      <span className="font-bold text-v-purple">{basics.perDayUserLimit.toLocaleString()} players / day</span>
+                    </>
+                  )}
+                </div>
+                <SpinSegmentEditor segments={spinSegments} setSegments={setSpinSegments} />
+                <div className="mt-5 border-t border-v-border pt-5">
+                  <p className="text-xs text-v-text-3 mb-3">
+                    This redeem window applies to <span className="font-semibold text-v-text-2">every</span> reward won on the wheel.
+                  </p>
+                  <RedeemBeforeField
+                    value={getSpinRedeem(spinSegments)}
+                    onChange={value => setSpinSegments(applySpinRedeem(spinSegments, value))}
+                  />
+                </div>
+              </Card>
+              <div className="lg:sticky lg:top-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-v-text">Wheel Preview</h3>
+                  <Eye className="h-4 w-4 text-v-text-3" />
+                </div>
+                <Card className="p-5">
+                  <SpinWheelPreview segments={spinSegments} />
+                </Card>
               </div>
-              <div className="mt-4 flex items-center justify-between p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
-                <span className="text-v-text-2">Effective win rate</span>
-                <span className="font-bold text-v-purple">
-                  {spinSegments.filter(s => s.isWin).length} of {spinSegments.length} segments win = {spinWinRate}%
-                </span>
-              </div>
-            </Card>
+            </div>
           )}
 
           {/* STAMP CARD */}
@@ -737,40 +1036,28 @@ export function VendorCampaignCreatePage() {
           {step === 2 && mechanic === 'dice' && (
             <Card className="p-6">
               <h2 className="text-base font-bold text-v-text mb-1">Roll a Dice — Face Rewards</h2>
-              <p className="text-xs text-v-text-3 mb-5">Toggle each face as a win and assign its reward. Non-winning faces show "Better luck next time! You almost won!"</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {diceOutcomes.map((o, i) => (
-                  <div key={i} className={`rounded-2xl border-2 p-3.5 transition-all ${o.isWin ? 'border-v-purple/40 bg-v-surface-2' : 'border-v-border bg-white'}`}>
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-v-border flex items-center justify-center">
-                        <DiceFaceSVG value={o.value} />
-                      </div>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" checked={o.isWin}
-                          onChange={e => setDiceOutcomes(d => d.map((x, j) => j === i ? { ...x, isWin: e.target.checked, reward: e.target.checked ? x.reward : '' } : x))}
-                          className="w-3.5 h-3.5 accent-v-purple" />
-                        <span className="text-xs font-semibold text-v-text-2">Win</span>
-                      </label>
-                    </div>
-                    <p className="text-xs font-bold text-v-text mb-1.5">Roll {o.value}</p>
-                    {o.isWin ? (
-                      <input
-                        className="w-full bg-white border border-v-border-b/50 rounded-lg px-2.5 py-1.5 text-xs text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple"
-                        placeholder="Reward name"
-                        value={o.reward}
-                        onChange={e => setDiceOutcomes(d => d.map((x, j) => j === i ? { ...x, reward: e.target.value } : x))}
-                      />
-                    ) : (
-                      <p className="text-[10px] text-v-text-3 italic leading-relaxed">Better luck next time! You almost won!</p>
-                    )}
-                  </div>
-                ))}
+              <p className="text-xs text-v-text-3 mb-4">Toggle each of the six faces as a win and assign its reward. Each face is equally likely.</p>
+              <div className="flex items-center gap-2 mb-5 p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
+                <span className="text-v-text-3">Expected winners:</span>
+                <span className="font-bold text-v-purple">{formatWinnerCount(totalWinners)} total</span>
+                <span className="text-v-text-3 mx-1">·</span>
+                <span className="text-v-text-3">{diceWinRate}% win rate</span>
+                {!isToday && (
+                  <>
+                    <span className="text-v-text-3 mx-1">·</span>
+                    <span className="font-bold text-v-purple">{basics.perDayUserLimit.toLocaleString()} players / day</span>
+                  </>
+                )}
               </div>
-              <div className="mt-4 flex items-center justify-between p-3 bg-v-surface-2 border border-v-border rounded-xl text-xs">
-                <span className="text-v-text-2">Effective win rate</span>
-                <span className="font-bold text-v-purple">
-                  {diceOutcomes.filter(o => o.isWin).length} of 6 faces win = {diceWinRate}%
-                </span>
+              <DiceOutcomeEditor outcomes={diceOutcomes} setOutcomes={setDiceOutcomes} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  This redeem window applies to <span className="font-semibold text-v-text-2">every</span> reward won on the dice.
+                </p>
+                <RedeemBeforeField
+                  value={getDiceRedeem(diceOutcomes)}
+                  onChange={value => setDiceOutcomes(applyDiceRedeem(diceOutcomes, value))}
+                />
               </div>
             </Card>
           )}
@@ -779,41 +1066,90 @@ export function VendorCampaignCreatePage() {
           {step === 2 && mechanic === 'lottery' && (
             <Card className="p-6">
               <h2 className="text-base font-bold text-v-text mb-1">Lottery — Prizes</h2>
-              <p className="text-xs text-v-text-3 mb-5">Configure the jackpot and add as many additional prizes as you need. Win odds are built into the scratch-card mechanics — no probability setup required.</p>
-              <div className="space-y-3">
+              <p className="text-xs text-v-text-3 mb-5">
+                Configure the jackpot and prize tiers. Draw runs automatically on the campaign end date — one random ticket wins each prize.
+              </p>
+              <LotteryPrizeEditor prizes={lotteryPrizes} setPrizes={setLotteryPrizes} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  This redeem window applies to <span className="font-semibold text-v-text-2">every</span> prize if a customer wins.
+                </p>
+                <RedeemBeforeField value={lotteryRedeem} onChange={setLotteryRedeem} />
+              </div>
+              <div className="mt-4 flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+                <span>Draw date = campaign end date. Open to all customers — no user cap.</span>
+              </div>
+            </Card>
+          )}
 
-                {/* Jackpot — always present, can't be deleted */}
-                <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl">👑</span>
-                    <span className="text-sm font-bold text-amber-700">Jackpot</span>
-                    <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 font-semibold border border-amber-200">Required</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input className="bg-white border border-amber-200 rounded-lg px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-amber-400" placeholder="Prize name (e.g. Grand Prize)" value={lotteryConfig.jackpotName} onChange={e => setLotteryConfig(p => ({ ...p, jackpotName: e.target.value }))} />
-                    <input className="bg-white border border-amber-200 rounded-lg px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-amber-400" placeholder="Reward (e.g. Free Month Sub)" value={lotteryConfig.jackpotReward} onChange={e => setLotteryConfig(p => ({ ...p, jackpotReward: e.target.value }))} />
-                  </div>
-                </div>
+          {step === 2 && mechanic === 'buy-x-get-y' && (
+            <Card className="p-6">
+              <BuyXGetYOfferEditor config={buyXGetYConfig} setConfig={setBuyXGetYConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claim of this offer.
+                </p>
+                <RedeemBeforeField value={buyXGetYRedeem} onChange={setBuyXGetYRedeem} />
+              </div>
+            </Card>
+          )}
 
-                {/* Additional prizes */}
-                {lotteryConfig.prizes.map((prize, i) => (
-                  <div key={prize.id} className="p-3.5 bg-v-surface-2 border border-v-border rounded-xl">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <span className="text-sm font-semibold text-v-text-2">Prize {i + 2}</span>
-                      <button onClick={() => setLotteryConfig(p => ({ ...p, prizes: p.prizes.filter(x => x.id !== prize.id) }))} className="ml-auto p-1 rounded-lg text-v-text-3 hover:text-v-danger hover:bg-red-50 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input className="bg-white border border-v-border rounded-lg px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder={`Prize name (e.g. ${i === 0 ? '2nd Prize' : '3rd Prize'})`} value={prize.name} onChange={e => setLotteryConfig(p => ({ ...p, prizes: p.prizes.map(x => x.id === prize.id ? { ...x, name: e.target.value } : x) }))} />
-                      <input className="bg-white border border-v-border rounded-lg px-3 py-2 text-sm text-v-text placeholder:text-v-text-3 focus:outline-none focus:border-v-purple" placeholder="Reward (e.g. Free Coffee)" value={prize.reward} onChange={e => setLotteryConfig(p => ({ ...p, prizes: p.prizes.map(x => x.id === prize.id ? { ...x, reward: e.target.value } : x) }))} />
-                    </div>
-                  </div>
-                ))}
+          {step === 2 && mechanic === 'coupon' && (
+            <Card className="p-6">
+              <CouponOfferEditor config={couponConfig} setConfig={setCouponConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed coupon.
+                </p>
+                <RedeemBeforeField value={couponRedeem} onChange={setCouponRedeem} />
+              </div>
+            </Card>
+          )}
 
-                <Button variant="secondary" size="sm" onClick={() => setLotteryConfig(p => ({ ...p, prizes: [...p.prizes, { id: Math.random().toString(36).slice(2), name: `Prize ${p.prizes.length + 2}`, reward: '' }] }))}>
-                  <Plus className="w-3 h-3" /> Add Prize
-                </Button>
+          {step === 2 && mechanic === 'flash' && (
+            <Card className="p-6">
+              <FlashOfferEditor config={flashConfig} setConfig={setFlashConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed flash deal.
+                </p>
+                <RedeemBeforeField value={flashRedeem} onChange={setFlashRedeem} />
+              </div>
+            </Card>
+          )}
+
+          {step === 2 && mechanic === 'combo' && (
+            <Card className="p-6">
+              <ComboOfferEditor config={comboConfig} setConfig={setComboConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed combo.
+                </p>
+                <RedeemBeforeField value={comboRedeem} onChange={setComboRedeem} />
+              </div>
+            </Card>
+          )}
+
+          {step === 2 && mechanic === 'friend' && (
+            <Card className="p-6">
+              <FriendOfferEditor config={friendConfig} setConfig={setFriendConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed Bring a Friend reward.
+                </p>
+                <RedeemBeforeField value={friendRedeem} onChange={setFriendRedeem} />
+              </div>
+            </Card>
+          )}
+
+          {step === 2 && mechanic === 'groupunlock' && (
+            <Card className="p-6">
+              <GroupUnlockOfferEditor config={groupUnlockConfig} setConfig={setGroupUnlockConfig} />
+              <div className="mt-5 border-t border-v-border pt-5">
+                <p className="text-xs text-v-text-3 mb-3">
+                  Reward redeem before — same window for every claimed Community Offer reward.
+                </p>
+                <RedeemBeforeField value={groupUnlockRedeem} onChange={setGroupUnlockRedeem} />
               </div>
             </Card>
           )}
@@ -839,11 +1175,15 @@ export function VendorCampaignCreatePage() {
                         return dur
                       })(),
                     },
-                    ...(!isLottery && !isLoyalty ? [{ label: isShakeSpinOrDice ? 'Overall User Cap' : 'User Cap', value: `${basics.userCap} users` }] : []),
+                    ...(!isLottery && !isLoyalty && !isCoupon && !isFlash && !isCombo && !isGroupUnlock ? [{ label: isShakeSpinOrDice ? 'Overall User Cap' : 'User Cap', value: `${basics.userCap} users` }] : []),
                     ...(isLoyalty ? [{ label: 'User Cap', value: basics.userCapLimited ? `${basics.userCap} users` : 'All customers (no limit)' }] : []),
                     ...(isStamp ? [{ label: 'Claim Period', value: `${durationModeToDays(basics.claimDurationMode)} days after enrollment closes` }] : []),
                     ...(isShakeSpinOrDice && !isToday ? [{ label: 'Daily User Limit', value: `${basics.perDayUserLimit} / day` }] : []),
                     ...(isShakeSpinOrDice ? [{ label: 'Plays Per User / Day', value: `${basics.playsPerDay}` }] : []),
+                    ...(basics.activeHoursEnabled && (isShakeSpinOrDice || isBuyXGetY || isCoupon || isFlash || isCombo || isFriend || isGroupUnlock) ? [{
+                      label: 'Active Hours',
+                      value: `${fmtTime(basics.activeStartTime)} – ${fmtTime(basics.activeEndTime)} daily`,
+                    }] : []),
                     ...(mechanic === 'shake' ? [
                       { label: 'Overall Winners', value: `${formatWinnerCount(basics.overallWinners, true)} customers` },
                     ] : []),
@@ -854,16 +1194,67 @@ export function VendorCampaignCreatePage() {
                     ...(mechanic === 'dice' ? [
                       { label: 'Total Winners', value: `${formatWinnerCount(totalWinners)} if cap fills (${activeWinRate}% win rate)` },
                       ...(!isToday ? [{ label: 'Winners / Day', value: `${formatWinnerCount(dailyWinners)} on a full day` }] : []),
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(getDiceRedeem(diceOutcomes)) },
+                    ] : []),
+                    ...(mechanic === 'lottery' ? [
+                      { label: 'Draw date', value: dates.end ? fmtDate(dates.end) : '—' },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(lotteryRedeem) },
+                    ] : []),
+                    ...(mechanic === 'buy-x-get-y' ? [
+                      { label: 'Offer', value: formatBuyXGetYSentence(buyXGetYConfig) },
+                      { label: 'Trigger', value: buyXGetYConfig.condition === 'spend' ? `₹${buyXGetYConfig.spendAmount} spend` : `${buyXGetYConfig.buyQuantity} purchases` },
+                      { label: 'Reward', value: buyXGetYConfig.rewardValue || '—' },
+                      { label: 'Terms & Conditions', value: buyXGetYConfig.termsAndConditions.trim() || '—' },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(buyXGetYRedeem) },
+                    ] : []),
+                    ...(mechanic === 'coupon' ? [
+                      { label: 'Coupon pool', value: `${couponConfig.totalCoupons} coupons` },
+                      { label: 'Offer', value: formatCouponSentence(couponConfig) },
+                      { label: 'Coupon value', value: couponConfig.rewardValue || '—' },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(couponRedeem) },
+                      { label: 'Terms & Conditions', value: couponConfig.termsAndConditions.trim() || '—' },
+                    ] : []),
+                    ...(mechanic === 'flash' ? [
+                      { label: 'Total spots', value: `${flashConfig.totalSlots} spots` },
+                      { label: 'Offer', value: formatFlashSentence(flashConfig) },
+                      { label: 'Reward value', value: flashConfig.rewardValue || '—' },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(flashRedeem) },
+                      { label: 'Terms & Conditions', value: flashConfig.termsAndConditions.trim() || '—' },
+                    ] : []),
+                    ...(mechanic === 'combo' ? [
+                      { label: 'Combo type', value: comboConfig.variant === 'freeitem' ? 'Take X, Get Y Free' : 'Discounted Bundle' },
+                      { label: 'Total spots', value: `${comboConfig.totalSpots} spots` },
+                      { label: 'Offer', value: formatComboSentence(comboConfig) },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(comboRedeem) },
+                      { label: 'Terms & Conditions', value: comboConfig.termsAndConditions.trim() || '—' },
+                    ] : []),
+                    ...(mechanic === 'friend' ? [
+                      { label: 'Minimum friends', value: `${friendConfig.minFriends} friend${friendConfig.minFriends !== 1 ? 's' : ''}` },
+                      { label: 'Offer', value: formatFriendSentence(friendConfig) },
+                      { label: 'Reward value', value: formatFriendRewardLabel(friendConfig) },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(friendRedeem) },
+                    ] : []),
+                    ...(mechanic === 'groupunlock' ? [
+                      { label: 'Target participants', value: `${groupUnlockConfig.targetParticipants} people` },
+                      { label: 'Offer', value: formatGroupUnlockSentence(groupUnlockConfig) },
+                      { label: 'Reward', value: formatGroupUnlockRewardLabel(groupUnlockConfig) },
+                      { label: 'Redeem before', value: formatRedeemBeforeSummary(groupUnlockRedeem) },
                     ] : []),
                     {
                       label: 'Rewards',
                       value:
                         mechanic === 'shake'   ? `${shakeRewards.filter(r => r.name).length} reward type${shakeRewards.filter(r => r.name).length !== 1 ? 's' : ''} · split among ${formatWinnerCount(totalWinners)} winners` :
-                        mechanic === 'spin'    ? `${spinSegments.filter(s => s.isWin && s.reward).length} winning segment${spinSegments.filter(s => s.isWin).length !== 1 ? 's' : ''} · ${formatWinnerCount(totalWinners)} expected winners` :
-                        mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin).length} of 6 faces win · ${formatWinnerCount(totalWinners)} expected winners` :
+                        mechanic === 'spin'    ? `${spinSegments.length} segments · ${spinWinRate}% win rate · ${formatWinnerCount(totalWinners)} expected winners` :
+                        mechanic === 'dice'    ? `${diceOutcomes.filter(o => o.isWin && o.reward.trim()).length} of 6 faces win · ${diceWinRate}% win rate · ${formatWinnerCount(totalWinners)} expected winners` :
                         mechanic === 'stamp'   ? `${stampConfig.prefillStamps > 0 ? `${stampConfig.prefillStamps} pre-filled · ` : ''}${stampConfig.surpriseDrops.length} surprise · ${stampConfig.bigRewards.length} big reward(s)` :
                         mechanic === 'check-in-loyalty' ? `+${loyaltyConfig.pointsPerCheckIn} pts/check-in` :
-                        mechanic === 'lottery' ? `Jackpot + ${lotteryConfig.prizes.length} prize${lotteryConfig.prizes.length !== 1 ? 's' : ''}` : '—',
+                        mechanic === 'lottery' ? `Jackpot + ${lotteryPrizes.filter(p => p.tier !== 'jackpot').length} prize${lotteryPrizes.filter(p => p.tier !== 'jackpot').length !== 1 ? 's' : ''} · Draw ${fmtDate(dates.end)}` :
+                        mechanic === 'buy-x-get-y' ? formatBuyXGetYSentence(buyXGetYConfig) :
+                        mechanic === 'coupon' ? formatCouponSentence(couponConfig) :
+                        mechanic === 'flash' ? formatFlashSentence(flashConfig) :
+                        mechanic === 'combo' ? formatComboSentence(comboConfig) :
+                        mechanic === 'friend' ? formatFriendSentence(friendConfig) :
+                        mechanic === 'groupunlock' ? formatGroupUnlockSentence(groupUnlockConfig) : '—',
                     },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between py-3 border-b border-v-border last:border-0">
@@ -890,6 +1281,38 @@ export function VendorCampaignCreatePage() {
                     ))}
                   </div>
                 </Card>
+              )}
+
+              {mechanic === 'spin' && (
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4">
+                  <Card className="p-6">
+                    <h3 className="text-sm font-bold text-v-text mb-3">Wheel Configuration</h3>
+                    <div className="mb-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
+                      <span className="text-v-text-2">Redeem before</span>
+                      <span className="font-semibold text-v-text">{formatRedeemBeforeSummary(getSpinRedeem(spinSegments))}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {spinSegments.map(seg => (
+                        <div key={seg.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-v-surface-2 border border-v-border text-sm">
+                          <div className="min-w-0 flex items-start gap-2">
+                            <span className="size-3 rounded-full shrink-0 mt-1" style={{ background: seg.color }} />
+                            <div>
+                              <p className="font-semibold text-v-text">
+                                {seg.label}
+                                {!seg.isWin && <span className="text-v-text-3 font-normal"> · no win</span>}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-xs font-bold text-v-purple">{seg.probability}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                  <Card className="p-5 h-fit">
+                    <p className="text-[11px] font-semibold text-v-text-2 uppercase tracking-wider mb-3">Preview</p>
+                    <SpinWheelPreview segments={spinSegments} size={200} />
+                  </Card>
+                </div>
               )}
 
               {mechanic === 'stamp' && (
@@ -953,6 +1376,18 @@ export function VendorCampaignCreatePage() {
                   isSingleDay={isToday}
                 />
               )}
+
+              {(mechanic === 'spin' || mechanic === 'dice') && (
+                <WinBasedCampaignImpact
+                  userCap={basics.userCap}
+                  overallWinners={totalWinners}
+                  perDayUserLimit={isToday ? basics.userCap : basics.perDayUserLimit}
+                  campaignDays={campaignDays}
+                  startDate={dates.start}
+                  endDate={dates.end}
+                  isSingleDay={isToday}
+                />
+              )}
               {isStamp && (
                 <StampCampaignImpact userCap={basics.userCap} totalStamps={stampConfig.totalStamps} />
               )}
@@ -965,7 +1400,7 @@ export function VendorCampaignCreatePage() {
                 />
               )}
               {isLottery && (
-                <LotteryCampaignImpact prizeCount={1 + lotteryConfig.prizes.length} />
+                <LotteryCampaignImpact prizeCount={lotteryPrizes.length} />
               )}
 
               <Card className="p-5 text-center">
@@ -1030,18 +1465,3 @@ function StampDropReviewRow({ drop }: { drop: StampDropUiState }) {
   )
 }
 
-function DiceFaceSVG({ value }: { value: number }) {
-  const dots: Record<number, [number, number][]> = {
-    1: [[50, 50]],
-    2: [[28, 28], [72, 72]],
-    3: [[28, 28], [50, 50], [72, 72]],
-    4: [[28, 28], [72, 28], [28, 72], [72, 72]],
-    5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
-    6: [[28, 28], [72, 28], [28, 50], [72, 50], [28, 72], [72, 72]],
-  }
-  return (
-    <svg viewBox="0 0 100 100" width="28" height="28">
-      {(dots[value] || []).map(([cx, cy], i) => <circle key={i} cx={cx} cy={cy} r="9" fill="#1E1B4B" />)}
-    </svg>
-  )
-}

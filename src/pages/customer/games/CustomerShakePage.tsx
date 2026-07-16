@@ -11,13 +11,12 @@ import { SimulateShakeButton } from '@/components/customer/SimulateShakeButton'
 import { getCampaignIdFromSearch, getPlaySession } from '@/lib/customer-game'
 import { fetchPublicCampaign, fetchPlayState, executeShake, getApiErrorMessage, type PlayState } from '@/lib/api'
 import { getUser } from '@/lib/auth'
+import { getCampaignTheme, getPlayScreenBackground } from '@/lib/campaign-themes'
 import { getCustomerBusinessPath } from '@/lib/customer-ui'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { useShakeCharge } from '@/hooks/useShakeCharge'
 
 type Phase = 'idle' | 'submitting' | 'result'
-
-const GAME_BG = 'linear-gradient(165deg, #43036d 0%, #2d110e 38%, #1c0038 100%)'
 
 function fireConfetti() {
   confetti({
@@ -32,6 +31,7 @@ export function CustomerShakePage() {
   const navigate = useNavigate()
   const { search } = useLocation()
   const campaignId = getCampaignIdFromSearch(search)
+  const theme = getCampaignTheme('shake')
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [won, setWon] = useState(false)
@@ -167,6 +167,7 @@ export function CustomerShakePage() {
         code={rewardCode}
         businessName={businessName}
         onBackToCafe={handleBackToCafe}
+        mechanic="shake"
       />
     )
   }
@@ -178,13 +179,14 @@ export function CustomerShakePage() {
         onBackToCafe={handleBackToCafe}
         playsLeft={playsLeft ?? undefined}
         attempts={attempts ?? undefined}
+        mechanic="shake"
       />
     )
   }
 
   if (campaignLoading || stateLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-[#1c0038]">
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: getPlayScreenBackground('shake') }}>
         <Loader2 className="w-10 h-10 text-[#d4a8ff] animate-spin" />
       </div>
     )
@@ -215,7 +217,7 @@ export function CustomerShakePage() {
   return (
     <div
       className="min-h-dvh flex flex-col items-center justify-between px-4 sm:px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] overflow-hidden relative max-w-md mx-auto w-full"
-      style={{ background: GAME_BG }}
+      style={{ background: getPlayScreenBackground('shake') }}
     >
       <StarField />
       <FloatingPrizes visible={phase === 'idle'} />
@@ -292,7 +294,8 @@ export function CustomerShakePage() {
             <button
               type="button"
               onClick={() => void requestPermission()}
-              className="px-6 py-2.5 rounded-lg text-sm font-medium bg-white text-[#43036d] hover:bg-white/90 transition-colors cursor-pointer border-0"
+              className="px-6 py-2.5 rounded-lg text-sm font-medium bg-white hover:bg-white/90 transition-colors cursor-pointer border-0"
+              style={{ color: theme.accent }}
             >
               Enable Shake Detection
             </button>

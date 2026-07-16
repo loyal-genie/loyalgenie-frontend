@@ -44,6 +44,17 @@ function CustomerRewardClaimPageWithKey() {
   return <CustomerRewardClaimPage key={rewardId} />
 }
 const CustomerShakePage = lazyWithRetry(() => import('@/pages/customer/games/CustomerShakePage').then(m => ({ default: m.CustomerShakePage })))
+const CustomerSpinPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerSpinPage').then(m => ({ default: m.CustomerSpinPage })))
+const CustomerDicePage = lazyWithRetry(() => import('@/pages/customer/games/CustomerDicePage').then(m => ({ default: m.CustomerDicePage })))
+const CustomerLotteryPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerLotteryPage').then(m => ({ default: m.CustomerLotteryPage })))
+const CustomerLotteryStatusPage = lazyWithRetry(() => import('@/pages/customer/CustomerLotteryStatusPage').then(m => ({ default: m.CustomerLotteryStatusPage })))
+const CustomerGroupUnlockStatusPage = lazyWithRetry(() => import('@/pages/customer/CustomerGroupUnlockStatusPage').then(m => ({ default: m.CustomerGroupUnlockStatusPage })))
+const CustomerBuyXGetYPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerBuyXGetYPage').then(m => ({ default: m.CustomerBuyXGetYPage })))
+const CustomerCouponPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerCouponPage').then(m => ({ default: m.CustomerCouponPage })))
+const CustomerFlashPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerFlashPage').then(m => ({ default: m.CustomerFlashPage })))
+const CustomerComboPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerComboPage').then(m => ({ default: m.CustomerComboPage })))
+const CustomerFriendPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerFriendPage').then(m => ({ default: m.CustomerFriendPage })))
+const CustomerGroupUnlockPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerGroupUnlockPage').then(m => ({ default: m.CustomerGroupUnlockPage })))
 const CustomerStampPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerStampPage').then(m => ({ default: m.CustomerStampPage })))
 const CustomerMechanicComingSoonPage = lazyWithRetry(() => import('@/pages/customer/games/CustomerMechanicComingSoonPage').then(m => ({ default: m.CustomerMechanicComingSoonPage })))
 
@@ -123,13 +134,21 @@ export function App() {
             <Route path="check-in" element={<CustomerCheckInPage />} />
             <Route path="business/:id" element={<CustomerBusinessPage />} />
             <Route path="campaigns/:id" element={<CustomerCampaignPage />} />
+            <Route path="campaigns/:id/lottery-status" element={<CustomerLotteryStatusPage />} />
+            <Route path="campaigns/:id/groupunlock-status" element={<CustomerGroupUnlockStatusPage />} />
             <Route path="rewards/:rewardId/claim" element={<CustomerRewardClaimPageWithKey />} />
             <Route path="games/shake" element={<CustomerShakePage />} />
+            <Route path="games/spin" element={<CustomerSpinPage />} />
             <Route path="games/stamp" element={<CustomerStampPage />} />
             <Route path="games/coming-soon" element={<CustomerMechanicComingSoonPage />} />
-            <Route path="games/spin" element={<Navigate to="/customer/games/coming-soon?mechanic=spin" replace />} />
-            <Route path="games/dice" element={<Navigate to="/customer/games/coming-soon?mechanic=dice" replace />} />
-            <Route path="games/lottery" element={<Navigate to="/customer/games/coming-soon?mechanic=lottery" replace />} />
+            <Route path="games/dice" element={<CustomerDicePage />} />
+            <Route path="games/lottery" element={<CustomerLotteryPage />} />
+            <Route path="games/buy-x-get-y" element={<CustomerBuyXGetYPage />} />
+            <Route path="games/coupon" element={<CustomerCouponPage />} />
+            <Route path="games/flash" element={<CustomerFlashPage />} />
+            <Route path="games/combo" element={<CustomerComboPage />} />
+            <Route path="games/friend" element={<CustomerFriendPage />} />
+            <Route path="games/groupunlock" element={<CustomerGroupUnlockPage />} />
           </Route>
 
           <Route path="/:slug" element={<SlugPage />} />

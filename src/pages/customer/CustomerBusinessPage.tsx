@@ -13,8 +13,11 @@ import { CustomerRewardCard } from '@/components/customer/CustomerRewardCard'
 import { PullToRefresh } from '@/components/customer/PullToRefresh'
 import {
   CampaignListingCard,
+  GroupUnlockCardActions,
+  LotteryCardActions,
   LoyaltyCampaignSectionHeader,
 } from '@/components/customer/CampaignListingCard'
+import { CountdownTimer } from '@/components/customer/CountdownTimer'
 import { useBusinessesWithCampaigns, useBusinessCampaignStatesRealtime } from '@/hooks/useCustomerData'
 import { useCustomerBusinessRewards } from '@/hooks/useRewards'
 import { getClaimableTheme, getLockedTheme } from '@/lib/customer-reward-themes'
@@ -25,27 +28,133 @@ import {
   type PlayState,
   type StampState,
 } from '@/lib/api'
+import { formatCampaignTimeShort, formatCampaignLiveOnLabel, isCampaignUpcoming } from '@/lib/customer-ui'
+import { currentTimeInCampaignTz, nextDailyDeadline } from '@/lib/campaign-dates'
+import { getCampaignTheme } from '@/lib/campaign-themes'
+
+function isFullDayWindow(startTime: string | undefined, endTime: string) {
+  const start = (startTime ?? '00:00').slice(0, 5)
+  return (start === '00:00' || start === '0:00') && (endTime === '23:59' || endTime === '24:00')
+}
+
+function formatClockAmPm(hhmm: string) {
+  const [hRaw, mRaw] = hhmm.split(':')
+  const h = Number(hRaw)
+  const m = Number(mRaw ?? 0)
+  if (!Number.isFinite(h)) return formatCampaignTimeShort(hhmm)
+  const ap = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${String(m).padStart(2, '0')} ${ap}`
+}
+
+function hasActiveHoursWindow(startTime?: string, endTime?: string): boolean {
+  const end = (endTime ?? '23:59').slice(0, 5)
+  return !isFullDayWindow(startTime, end)
+}
+
+function liveOnProps(campaign: { startDate: string; startTime?: string; endTime?: string }) {
+  const upcoming = isCampaignUpcoming(campaign.startDate, campaign.startTime)
+  return {
+    upcoming,
+    comingSoon: upcoming,
+    comingSoonLabel: upcoming
+      ? formatCampaignLiveOnLabel(campaign.startDate, campaign.startTime, campaign.endTime)
+      : undefined,
+  }
+}
+
+/** e.g. "Today · Active Hours 4:00 PM–9:00 PM" */
+function activeHoursBlockedLabel(startTime?: string, endTime?: string): string {
+  const start = (startTime ?? '00:00').slice(0, 5)
+  const end = (endTime ?? '23:59').slice(0, 5)
+  if (isFullDayWindow(start, end)) return 'Outside active hours'
+  return `Today · Active Hours ${formatClockAmPm(start)}–${formatClockAmPm(end)}`
+}
+
+/** Listing CTA when canClaim is false — capacity vs Active Hours vs not started. */
+function claimBlockedLabel(opts: {
+  hasClaimed?: boolean
+  active?: boolean
+  spotsRemaining?: number
+  claimedCount?: number
+  total?: number
+  exhaustedLabel: string
+  startDate?: string
+  startTime?: string
+  endTime?: string
+}): string {
+  if (opts.hasClaimed) return 'Already claimed'
+  if (opts.startDate && isCampaignUpcoming(opts.startDate, opts.startTime)) {
+    return formatCampaignLiveOnLabel(opts.startDate, opts.startTime, opts.endTime)
+  }
+  const exhausted =
+    (opts.spotsRemaining != null && opts.spotsRemaining <= 0)
+    || (
+      opts.claimedCount != null
+      && opts.total != null
+      && opts.total > 0
+      && opts.claimedCount >= opts.total
+    )
+  if (exhausted) return opts.exhaustedLabel
+  if (opts.active === false && hasActiveHoursWindow(opts.startTime, opts.endTime)) {
+    return activeHoursBlockedLabel(opts.startTime, opts.endTime)
+  }
+  if (opts.active === false) return 'Not available now'
+  return opts.exhaustedLabel
+}
+
+function playOutsideHoursLabel(opts: {
+  blockReason?: string | null
+  message?: string
+  quotaUsed: boolean
+  quotaLabel: string
+  startDate?: string
+  startTime?: string
+  endTime?: string
+}): string | undefined {
+  if (opts.quotaUsed) return opts.quotaLabel
+  if (opts.startDate && isCampaignUpcoming(opts.startDate, opts.startTime)) {
+    return formatCampaignLiveOnLabel(opts.startDate, opts.startTime, opts.endTime)
+  }
+  if (opts.blockReason === 'campaign_inactive' && hasActiveHoursWindow(opts.startTime, opts.endTime)) {
+    return activeHoursBlockedLabel(opts.startTime, opts.endTime)
+  }
+  return opts.message
+}
+
+/** Countdown to window open if before Active Hours today; otherwise to daily end. */
+function flashCountdownTarget(startTime: string | undefined, endTime: string): string {
+  const start = (startTime ?? '00:00').slice(0, 5)
+  const end = endTime.slice(0, 5)
+  if (isFullDayWindow(start, end)) return nextDailyDeadline(end)
+  const time = currentTimeInCampaignTz()
+  if (time < start) return nextDailyDeadline(start)
+  return nextDailyDeadline(end)
+}
 
 function StampCampaignBlock({
   campaign,
   stampState,
 }: {
-  campaign: { id: string; name: string; mechanic: string; startDate: string; endDate: string }
+  campaign: { id: string; name: string; mechanic: string; startDate: string; endDate: string; startTime?: string; endTime?: string }
   stampState?: StampState
 }) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
   const collectedToday = Boolean(
     stampState?.enrolled && !stampState.canCollectToday && !stampState.cardComplete,
   )
   const cardComplete = Boolean(stampState?.cardComplete)
   const blocked =
-    collectedToday ||
-    cardComplete ||
-    stampState?.status === 'expired' ||
-    Boolean(stampState && !stampState.enrolled && !stampState.enrollmentOpen)
+    !upcoming && (
+      collectedToday ||
+      cardComplete ||
+      stampState?.status === 'expired' ||
+      Boolean(stampState && !stampState.enrolled && !stampState.enrollmentOpen)
+    )
 
   const progressLine =
-    stampState?.enrolled && stampState.totalStamps
-      ? `${stampState.stampsCollected}/${stampState.totalStamps} stamps collected`
+    stampState?.totalStamps
+      ? `${stampState.stampsCollected}/${stampState.totalStamps}`
       : undefined
 
   return (
@@ -53,6 +162,8 @@ function StampCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
       blockedLabel={
         collectedToday
           ? `✓ Stamp collected today · ${stampState!.stampsCollected}/${stampState!.totalStamps}`
@@ -63,11 +174,7 @@ function StampCampaignBlock({
               : 'Enrollment closed — no spots left'
       }
       progressLine={progressLine}
-      statsLine={
-        stampState
-          ? `${stampState.currentUsers}/${stampState.userCap} playing today`
-          : undefined
-      }
+      playingToday={stampState?.playingToday}
     />
   )
 }
@@ -82,12 +189,17 @@ function ShakeCampaignBlock({
     mechanic: string
     startDate: string
     endDate: string
+    startTime?: string
+    endTime?: string
     winRatePercent?: number
     playsPerDay?: number
+    overallWinners?: number
+    userCap?: number
   }
   playState?: PlayState
 }) {
-  const blocked = Boolean(playState && !playState.canPlay)
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const blocked = !upcoming && Boolean(playState && !playState.canPlay)
   const quotaUsed = playState?.blockReason === 'no_plays_remaining'
 
   return (
@@ -95,15 +207,587 @@ function ShakeCampaignBlock({
       campaign={campaign}
       href={`/customer/campaigns/${campaign.id}`}
       blocked={blocked}
-      blockedLabel={
-        quotaUsed
-          ? `✓ All plays used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`
-          : playState?.message
-      }
-      statsLine={
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      blockedLabel={playOutsideHoursLabel({
+        blockReason: playState?.blockReason,
+        message: playState?.message,
+        quotaUsed,
+        quotaLabel: `✓ All plays used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`,
+        startDate: campaign.startDate,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
+      playingToday={playState?.playingToday}
+      possibleRewards={playState?.possibleRewards}
+    />
+  )
+}
+
+function SpinCampaignBlock({
+  campaign,
+  playState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    startTime?: string
+    endTime?: string
+    winRatePercent?: number
+    playsPerDay?: number
+  }
+  playState?: PlayState
+}) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const blocked = !upcoming && Boolean(playState && !playState.canPlay)
+  const quotaUsed = playState?.blockReason === 'no_plays_remaining'
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      blockedLabel={playOutsideHoursLabel({
+        blockReason: playState?.blockReason,
+        message: playState?.message,
+        quotaUsed,
+        quotaLabel: `✓ All spins used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`,
+        startDate: campaign.startDate,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
+      titleSuffix={
         playState
-          ? `${playState.playsUsedToday}/${playState.playsPerDay} attempts today`
-          : `${campaign.playsPerDay ?? 1} play per day`
+          ? `(${playState.playsUsedToday}/${playState.playsPerDay})`
+          : campaign.playsPerDay != null
+            ? `(0/${campaign.playsPerDay})`
+            : undefined
+      }
+      playingToday={playState?.playingToday}
+      possibleRewards={playState?.possibleRewards}
+    />
+  )
+}
+
+function DiceCampaignBlock({
+  campaign,
+  playState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    startTime?: string
+    endTime?: string
+    winRatePercent?: number
+    playsPerDay?: number
+  }
+  playState?: PlayState
+}) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const blocked = !upcoming && Boolean(playState && !playState.canPlay)
+  const quotaUsed = playState?.blockReason === 'no_plays_remaining'
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      blockedLabel={playOutsideHoursLabel({
+        blockReason: playState?.blockReason,
+        message: playState?.message,
+        quotaUsed,
+        quotaLabel: `✓ All rolls used today · ${playState!.playsUsedToday}/${playState!.playsPerDay}`,
+        startDate: campaign.startDate,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
+      titleSuffix={
+        playState
+          ? `(${playState.playsUsedToday}/${playState.playsPerDay})`
+          : campaign.playsPerDay != null
+            ? `(0/${campaign.playsPerDay})`
+            : undefined
+      }
+      playingToday={playState?.playingToday}
+      possibleRewards={playState?.possibleRewards}
+    />
+  )
+}
+
+function LotteryCampaignBlock({
+  campaign,
+  lotteryState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    startTime?: string
+    endTime?: string
+    playsPerDay?: number
+  }
+  lotteryState?: {
+    drawDate?: string
+    hasTicket?: boolean
+    canClaimTicket?: boolean
+    totalTickets?: number
+    drawCompleted?: boolean
+    ticketCount?: number
+    playsUsedToday?: number
+    playsPerDay?: number
+    playsRemaining?: number
+    playingToday?: number
+  }
+}) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const canClaim = Boolean(lotteryState?.canClaimTicket)
+  const hasTicket = Boolean(lotteryState?.hasTicket)
+  const drawDate = lotteryState?.drawDate ?? campaign.endDate
+  const ticketCount = lotteryState?.ticketCount ?? 0
+  const entriesClosed = Boolean(lotteryState && !canClaim && !hasTicket)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={!upcoming && entriesClosed}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      blockedLabel={lotteryState?.drawCompleted ? 'Draw complete' : 'Entries closed'}
+      playingToday={lotteryState?.playingToday}
+      lotteryDrawDate={drawDate}
+      lotteryTicketCount={ticketCount}
+      actions={
+        upcoming || (entriesClosed && !hasTicket)
+          ? undefined
+          : (
+            <LotteryCardActions
+              campaignId={campaign.id}
+              canClaim={canClaim}
+              hasTicket={hasTicket}
+              claimHref={`/customer/campaigns/${campaign.id}`}
+            />
+          )
+      }
+    />
+  )
+}
+
+function BuyXGetYCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    startTime?: string
+    endTime?: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    claimedCount?: number
+    userCap?: number
+    redeemBefore?: string | null
+    active?: boolean
+  }
+}) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const blocked = !upcoming && Boolean(offerState && !offerState.canClaim)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.userCap,
+        exhaustedLabel: 'Offer closed',
+        startDate: campaign.startDate,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={
+        offerState?.claimedCount != null && offerState?.userCap != null
+          ? { current: offerState.claimedCount, total: offerState.userCap, label: 'claimed' }
+          : undefined
+      }
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
+    />
+  )
+}
+
+function CouponCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    startTime?: string
+    endTime?: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    claimedCount?: number
+    totalCoupons?: number
+    redeemBefore?: string | null
+    active?: boolean
+  }
+}) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const blocked = !upcoming && Boolean(offerState && !offerState.canClaim)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.totalCoupons,
+        exhaustedLabel: 'Coupons gone',
+        startDate: campaign.startDate,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={
+        offerState?.claimedCount != null && offerState?.totalCoupons != null
+          ? { current: offerState.claimedCount, total: offerState.totalCoupons, label: 'claimed' }
+          : undefined
+      }
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
+    />
+  )
+}
+
+function FlashCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    startTime?: string
+    endTime?: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    claimedCount?: number
+    totalSlots?: number
+    redeemBefore?: string | null
+    active?: boolean
+  }
+}) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const blocked = !upcoming && Boolean(offerState && !offerState.canClaim)
+  const theme = getCampaignTheme('flash')
+  const startTime = (campaign.startTime ?? '00:00').slice(0, 5)
+  const endTime = (campaign.endTime ?? '23:59').slice(0, 5)
+  const hasWindowedHours = hasActiveHoursWindow(startTime, endTime)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.totalSlots,
+        exhaustedLabel: 'Spots gone',
+        startDate: campaign.startDate,
+        startTime,
+        endTime,
+      })}
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={
+        offerState?.claimedCount != null && offerState?.totalSlots != null
+          ? { current: offerState.claimedCount, total: offerState.totalSlots, label: 'claimed' }
+          : undefined
+      }
+      claimBefore={campaign.endDate}
+      claimTime={hasWindowedHours ? formatClockAmPm(endTime) : undefined}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
+      titleAccessory={
+        upcoming || !hasWindowedHours
+          ? undefined
+          : (
+            <CountdownTimer
+              target={flashCountdownTarget(startTime, endTime)}
+              color={theme.accent}
+            />
+          )
+      }
+    />
+  )
+}
+
+function ComboCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    startTime?: string
+    endTime?: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    claimedCount?: number
+    totalSpots?: number
+    redeemBefore?: string | null
+    variant?: 'discount' | 'freeitem'
+    originalPrice?: number
+    bundlePrice?: number
+    active?: boolean
+  }
+}) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const blocked = !upcoming && Boolean(offerState && !offerState.canClaim)
+  const theme = getCampaignTheme('combo')
+  const showDiscountPrices =
+    offerState?.variant === 'discount'
+    && offerState.originalPrice != null
+    && offerState.bundlePrice != null
+  const savePct = showDiscountPrices && offerState.originalPrice! > offerState.bundlePrice!
+    ? Math.round(((offerState.originalPrice! - offerState.bundlePrice!) / offerState.originalPrice!) * 100)
+    : null
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.totalSpots,
+        exhaustedLabel: 'No bundles left',
+        startDate: campaign.startDate,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
+      rewardLabel={offerState?.rewardLabel ?? campaign.name}
+      claimProgress={
+        offerState?.claimedCount != null && offerState?.totalSpots != null
+          ? { current: offerState.claimedCount, total: offerState.totalSpots, label: 'claimed' }
+          : undefined
+      }
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
+      claimExtra={
+        showDiscountPrices ? (
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xs text-gray-400 line-through">₹{offerState!.originalPrice}</span>
+              <span className="text-sm font-bold" style={{ color: theme.accent }}>₹{offerState!.bundlePrice}</span>
+            </div>
+            {savePct != null && savePct > 0 && (
+              <span
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white"
+                style={{ color: theme.accent }}
+              >
+                Save {savePct}%
+              </span>
+            )}
+          </div>
+        ) : undefined
+      }
+    />
+  )
+}
+
+function FriendCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    startTime?: string
+    endTime?: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    spotsRemaining?: number
+    claimedCount?: number
+    userCap?: number
+    minFriends?: number
+    redeemBefore?: string | null
+    active?: boolean
+  }
+}) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const blocked = !upcoming && Boolean(offerState && !offerState.canClaim)
+  const minFriends = offerState?.minFriends
+  const friendsProgress =
+    minFriends != null
+      ? {
+          current: offerState?.hasClaimed ? minFriends : 0,
+          total: minFriends,
+          label: 'friends',
+        }
+      : offerState?.claimedCount != null && offerState?.userCap != null
+        ? { current: offerState.claimedCount, total: offerState.userCap, label: 'claimed' }
+        : undefined
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={`/customer/campaigns/${campaign.id}`}
+      blocked={blocked}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      blockedLabel={claimBlockedLabel({
+        hasClaimed: offerState?.hasClaimed,
+        active: offerState?.active,
+        spotsRemaining: offerState?.spotsRemaining,
+        claimedCount: offerState?.claimedCount,
+        total: offerState?.userCap,
+        exhaustedLabel: 'Claims full',
+        startDate: campaign.startDate,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+      })}
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={friendsProgress}
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
+    />
+  )
+}
+
+function GroupUnlockCampaignBlock({
+  campaign,
+  offerState,
+}: {
+  campaign: {
+    id: string
+    name: string
+    mechanic: string
+    startDate: string
+    endDate: string
+    startTime?: string
+    endTime?: string
+  }
+  offerState?: {
+    rewardLabel?: string
+    canClaim?: boolean
+    hasClaimed?: boolean
+    unlocked?: boolean
+    spotsRemaining?: number
+    groupJoined?: number
+    targetParticipants?: number
+    redeemBefore?: string | null
+    active?: boolean
+  }
+}) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
+  const hasClaimed = Boolean(offerState?.hasClaimed)
+  const canClaim = Boolean(offerState?.canClaim)
+  const unlocked = Boolean(offerState?.unlocked)
+  const claimHref = `/customer/campaigns/${campaign.id}`
+  const outsideHours =
+    !upcoming
+    && offerState?.active === false
+    && hasActiveHoursWindow(campaign.startTime, campaign.endTime)
+
+  return (
+    <CampaignListingCard
+      campaign={campaign}
+      href={hasClaimed ? `/customer/campaigns/${campaign.id}/groupunlock-status` : claimHref}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
+      rewardLabel={offerState?.rewardLabel}
+      claimProgress={
+        offerState?.groupJoined != null && offerState?.targetParticipants != null
+          ? { current: offerState.groupJoined, total: offerState.targetParticipants, label: 'joined' }
+          : undefined
+      }
+      claimBefore={campaign.endDate}
+      redeemBefore={offerState?.redeemBefore ?? undefined}
+      actions={
+        upcoming
+          ? undefined
+          : (
+            <GroupUnlockCardActions
+              campaignId={campaign.id}
+              canClaim={canClaim}
+              hasClaimed={hasClaimed}
+              unlocked={unlocked}
+              claimHref={claimHref}
+              outsideHoursLabel={
+                outsideHours
+                  ? activeHoursBlockedLabel(campaign.startTime, campaign.endTime)
+                  : undefined
+              }
+            />
+          )
       }
     />
   )
@@ -113,19 +797,35 @@ function LoyaltyCampaignBlock({
   campaign,
   state,
 }: {
-  campaign: { id: string; name: string; mechanic: string; startDate: string; endDate: string }
+  campaign: { id: string; name: string; mechanic: string; startDate: string; endDate: string; startTime?: string; endTime?: string }
   state?: LoyaltyState
 }) {
+  const { upcoming, comingSoon, comingSoonLabel } = liveOnProps(campaign)
   const checkedInToday = state?.checkedInToday ?? false
+  const pointsPer = state?.pointsPerCheckIn
 
   return (
     <CampaignListingCard
       campaign={campaign}
-      href={checkedInToday ? '#' : `/customer/campaigns/${campaign.id}`}
-      blocked={checkedInToday}
+      href={checkedInToday || upcoming ? '#' : `/customer/campaigns/${campaign.id}`}
+      blocked={!upcoming && checkedInToday}
+      comingSoon={comingSoon}
+      comingSoonLabel={comingSoonLabel}
       blockedLabel={`✓ Checked in today · ${state?.loyaltyPoints ?? 0} pts`}
-      extraBadge={state ? `${state.loyaltyPoints} pts` : undefined}
-      statsLine={state ? `${state.loyaltyPoints} pts · ${state.currentUsers}/${state.userCap} players` : undefined}
+      titleAccessory={
+        pointsPer != null ? (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+            +{pointsPer} pts
+          </span>
+        ) : state ? (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+            {state.loyaltyPoints} pts
+          </span>
+        ) : undefined
+      }
+      checkInPointsPer={pointsPer}
+      checkInTotalPoints={state?.loyaltyPoints}
+      playingToday={state?.playingToday}
     />
   )
 }
@@ -215,9 +915,18 @@ export function CustomerBusinessPage() {
 
   const stampCampaigns = biz.campaigns.filter(c => c.mechanic === 'stamp')
   const shakeCampaigns = biz.campaigns.filter(c => c.mechanic === 'shake')
+  const spinCampaigns = biz.campaigns.filter(c => c.mechanic === 'spin')
+  const diceCampaigns = biz.campaigns.filter(c => c.mechanic === 'dice')
+  const lotteryCampaigns = biz.campaigns.filter(c => c.mechanic === 'lottery')
+  const buyXGetYCampaigns = biz.campaigns.filter(c => c.mechanic === 'buy-x-get-y')
+  const couponCampaigns = biz.campaigns.filter(c => c.mechanic === 'coupon')
+  const flashCampaigns = biz.campaigns.filter(c => c.mechanic === 'flash')
+  const comboCampaigns = biz.campaigns.filter(c => c.mechanic === 'combo')
+  const friendCampaigns = biz.campaigns.filter(c => c.mechanic === 'friend')
+  const groupUnlockCampaigns = biz.campaigns.filter(c => c.mechanic === 'groupunlock')
   const loyaltyCampaigns = biz.campaigns.filter(c => c.mechanic === 'check-in-loyalty')
   const otherCampaigns = biz.campaigns.filter(
-    c => !['stamp', 'shake', 'check-in-loyalty'].includes(c.mechanic),
+    c => !['stamp', 'shake', 'spin', 'dice', 'lottery', 'buy-x-get-y', 'coupon', 'flash', 'combo', 'friend', 'groupunlock', 'check-in-loyalty'].includes(c.mechanic),
   )
 
   return (
@@ -252,6 +961,139 @@ export function CustomerBusinessPage() {
                     playState={stateByCampaignId.get(c.id)?.state as PlayState | undefined}
                   />
                 ))}
+                {spinCampaigns.map(c => (
+                  <SpinCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    playState={stateByCampaignId.get(c.id)?.state as PlayState | undefined}
+                  />
+                ))}
+                {diceCampaigns.map(c => (
+                  <DiceCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    playState={stateByCampaignId.get(c.id)?.state as PlayState | undefined}
+                  />
+                ))}
+                {lotteryCampaigns.map(c => (
+                  <LotteryCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    lotteryState={stateByCampaignId.get(c.id)?.state as {
+                      drawDate?: string
+                      hasTicket?: boolean
+                      canClaimTicket?: boolean
+                      totalTickets?: number
+                      drawCompleted?: boolean
+                      ticketCount?: number
+                      playsUsedToday?: number
+                      playsPerDay?: number
+                      playsRemaining?: number
+                      playingToday?: number
+                    } | undefined}
+                  />
+                ))}
+                {buyXGetYCampaigns.map(c => (
+                  <BuyXGetYCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      claimedCount?: number
+                      userCap?: number
+                      redeemBefore?: string | null
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {couponCampaigns.map(c => (
+                  <CouponCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      claimedCount?: number
+                      totalCoupons?: number
+                      redeemBefore?: string | null
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {flashCampaigns.map(c => (
+                  <FlashCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      claimedCount?: number
+                      totalSlots?: number
+                      redeemBefore?: string | null
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {comboCampaigns.map(c => (
+                  <ComboCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      claimedCount?: number
+                      totalSpots?: number
+                      redeemBefore?: string | null
+                      variant?: 'discount' | 'freeitem'
+                      originalPrice?: number
+                      bundlePrice?: number
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {friendCampaigns.map(c => (
+                  <FriendCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      spotsRemaining?: number
+                      claimedCount?: number
+                      userCap?: number
+                      minFriends?: number
+                      redeemBefore?: string | null
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
+                {groupUnlockCampaigns.map(c => (
+                  <GroupUnlockCampaignBlock
+                    key={c.id}
+                    campaign={c}
+                    offerState={stateByCampaignId.get(c.id)?.state as {
+                      rewardLabel?: string
+                      canClaim?: boolean
+                      hasClaimed?: boolean
+                      unlocked?: boolean
+                      spotsRemaining?: number
+                      groupJoined?: number
+                      targetParticipants?: number
+                      redeemBefore?: string | null
+                      active?: boolean
+                    } | undefined}
+                  />
+                ))}
                 {loyaltyCampaigns.map(c => (
                   <LoyaltyCampaignBlock
                     key={c.id}
@@ -265,6 +1107,7 @@ export function CustomerBusinessPage() {
                     campaign={c}
                     href={`/customer/campaigns/${c.id}`}
                     comingSoon
+                    comingSoonLabel={formatCampaignLiveOnLabel(c.startDate, c.startTime, c.endTime)}
                     statsLine="Launching soon"
                   />
                 ))}

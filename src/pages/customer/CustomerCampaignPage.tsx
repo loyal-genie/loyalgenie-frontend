@@ -7,12 +7,19 @@ import {
   fetchPlayState,
   fetchStampState,
   fetchLoyaltyState,
+  fetchLotteryState,
+  fetchBuyXGetYState,
+  fetchCouponState,
+  fetchFlashState,
+  fetchComboState,
+  fetchFriendState,
+  fetchGroupUnlockState,
   fetchAuthSession,
   getApiErrorMessage,
 } from '@/lib/api'
 import { setPlaySession, markMotionGesture } from '@/lib/customer-game'
 import { primeMotionSensors } from '@/lib/shake-motion-sensors'
-import { getGameRouteForMechanic } from '@/lib/customer-ui'
+import { getGameRouteForMechanic, formatCampaignLiveOnLabel, isCampaignUpcoming } from '@/lib/customer-ui'
 import { formatShakeWinLabel } from '@/lib/campaign-impact'
 import { isMechanicComingSoon } from '@/lib/live-mechanics'
 import { MechanicComingSoon } from '@/components/shared/MechanicComingSoon'
@@ -24,6 +31,15 @@ import {
   CampaignPinShell,
 } from '@/components/customer/CampaignPinShell'
 import { ShakeCampaignDetail } from '@/components/customer/ShakeCampaignDetail'
+import { SpinCampaignDetail } from '@/components/customer/SpinCampaignDetail'
+import { DiceCampaignDetail } from '@/components/customer/DiceCampaignDetail'
+import { LotteryCampaignDetail } from '@/components/customer/LotteryCampaignDetail'
+import { BuyXGetYCampaignDetail } from '@/components/customer/BuyXGetYCampaignDetail'
+import { CouponCampaignDetail } from '@/components/customer/CouponCampaignDetail'
+import { FlashCampaignDetail } from '@/components/customer/FlashCampaignDetail'
+import { ComboCampaignDetail } from '@/components/customer/ComboCampaignDetail'
+import { FriendCampaignDetail } from '@/components/customer/FriendCampaignDetail'
+import { GroupUnlockCampaignDetail } from '@/components/customer/GroupUnlockCampaignDetail'
 import { StampCampaignDetail } from '@/components/customer/StampCampaignDetail'
 import { LoyaltyCampaignDetail } from '@/components/customer/LoyaltyCampaignDetail'
 import { StampCollectOverlay } from '@/components/customer/StampCollectOverlay'
@@ -78,7 +94,7 @@ export function CustomerCampaignPage() {
   const { data: playState, isLoading: playStateLoading } = useQuery({
     queryKey: ['play-state', id, serverSession?.userId],
     queryFn: () => fetchPlayState(id!),
-    enabled: Boolean(id) && authReady && campaign?.mechanic === 'shake',
+    enabled: Boolean(id) && authReady && (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice'),
     staleTime: 0,
   })
 
@@ -93,6 +109,55 @@ export function CustomerCampaignPage() {
     queryKey: ['loyalty-state', id, serverSession?.userId],
     queryFn: () => fetchLoyaltyState(id!),
     enabled: Boolean(id) && authReady && campaign?.mechanic === 'check-in-loyalty',
+    staleTime: 0,
+  })
+
+  const { data: lotteryState, isLoading: lotteryStateLoading } = useQuery({
+    queryKey: ['lottery-state', id, serverSession?.userId],
+    queryFn: () => fetchLotteryState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'lottery',
+    staleTime: 0,
+  })
+
+  const { data: buyXGetYState, isLoading: buyXGetYStateLoading } = useQuery({
+    queryKey: ['buy-x-get-y-state', id, serverSession?.userId],
+    queryFn: () => fetchBuyXGetYState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'buy-x-get-y',
+    staleTime: 0,
+  })
+
+  const { data: couponState, isLoading: couponStateLoading } = useQuery({
+    queryKey: ['coupon-state', id, serverSession?.userId],
+    queryFn: () => fetchCouponState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'coupon',
+    staleTime: 0,
+  })
+
+  const { data: flashState, isLoading: flashStateLoading } = useQuery({
+    queryKey: ['flash-state', id, serverSession?.userId],
+    queryFn: () => fetchFlashState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'flash',
+    staleTime: 0,
+  })
+
+  const { data: comboState, isLoading: comboStateLoading } = useQuery({
+    queryKey: ['combo-state', id, serverSession?.userId],
+    queryFn: () => fetchComboState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'combo',
+    staleTime: 0,
+  })
+
+  const { data: friendState, isLoading: friendStateLoading } = useQuery({
+    queryKey: ['friend-state', id, serverSession?.userId],
+    queryFn: () => fetchFriendState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'friend',
+    staleTime: 0,
+  })
+
+  const { data: groupUnlockState, isLoading: groupUnlockStateLoading } = useQuery({
+    queryKey: ['groupunlock-state', id, serverSession?.userId],
+    queryFn: () => fetchGroupUnlockState(id!),
+    enabled: Boolean(id) && authReady && campaign?.mechanic === 'groupunlock',
     staleTime: 0,
   })
 
@@ -170,11 +235,19 @@ export function CustomerCampaignPage() {
   }, [pin, authReady, stampCollect]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const stateStillLoading =
-    (campaign?.mechanic === 'shake' && playStateLoading)
+    ((campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playStateLoading)
     || (campaign?.mechanic === 'stamp' && stampStateLoading)
     || (campaign?.mechanic === 'check-in-loyalty' && loyaltyStateLoading)
+    || (campaign?.mechanic === 'lottery' && lotteryStateLoading)
+    || (campaign?.mechanic === 'buy-x-get-y' && buyXGetYStateLoading)
+    || (campaign?.mechanic === 'coupon' && couponStateLoading)
+    || (campaign?.mechanic === 'flash' && flashStateLoading)
+    || (campaign?.mechanic === 'combo' && comboStateLoading)
+    || (campaign?.mechanic === 'friend' && friendStateLoading)
+    || (campaign?.mechanic === 'groupunlock' && groupUnlockStateLoading)
 
-  const shakeBlocked = campaign?.mechanic === 'shake' && playState && !playState.canPlay
+  const instantWinBlocked = (campaign?.mechanic === 'shake' || campaign?.mechanic === 'spin' || campaign?.mechanic === 'dice') && playState && !playState.canPlay
+  const shakeBlocked = instantWinBlocked
   const stampBlocked = campaign?.mechanic === 'stamp' && stampState && (
     stampState.cardComplete
     || stampState.status === 'expired'
@@ -182,7 +255,14 @@ export function CustomerCampaignPage() {
     || (!stampState.enrolled && !stampState.enrollmentOpen)
   )
   const loyaltyBlocked = campaign?.mechanic === 'check-in-loyalty' && loyaltyState?.checkedInToday
-  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked)
+  const lotteryBlocked = campaign?.mechanic === 'lottery' && lotteryState && !lotteryState.canClaimTicket && !lotteryState.hasTicket
+  const buyXGetYBlocked = campaign?.mechanic === 'buy-x-get-y' && buyXGetYState && !buyXGetYState.canClaim && !buyXGetYState.hasClaimed
+  const couponBlocked = campaign?.mechanic === 'coupon' && couponState && !couponState.canClaim && !couponState.hasClaimed
+  const flashBlocked = campaign?.mechanic === 'flash' && flashState && !flashState.canClaim && !flashState.hasClaimed
+  const comboBlocked = campaign?.mechanic === 'combo' && comboState && !comboState.canClaim && !comboState.hasClaimed
+  const friendBlocked = campaign?.mechanic === 'friend' && friendState && !friendState.canClaim && !friendState.hasClaimed
+  const groupUnlockBlocked = campaign?.mechanic === 'groupunlock' && groupUnlockState && !groupUnlockState.canClaim && !groupUnlockState.hasClaimed
+  const blocked = Boolean(shakeBlocked || stampBlocked || loyaltyBlocked || lotteryBlocked || buyXGetYBlocked || couponBlocked || flashBlocked || comboBlocked || friendBlocked || groupUnlockBlocked)
 
   useEffect(() => {
     if (!blocked || stampCollect || loyaltySplash || !campaign || sessionLoading || isLoading || stateStillLoading) return
@@ -248,6 +328,17 @@ export function CustomerCampaignPage() {
     )
   }
 
+  if (isCampaignUpcoming(campaign.startDate, campaign.startTime)) {
+    return (
+      <CampaignPinBlocked
+        title={formatCampaignLiveOnLabel(campaign.startDate, campaign.startTime, campaign.endTime)}
+        detail="This campaign isn’t playable yet. Come back when it goes live."
+        emoji="📅"
+        onBack={handleBack}
+      />
+    )
+  }
+
   if (blocked && !stampCollect && !loyaltySplash) return <CampaignPinLoading />
 
   const isStamp = campaign.mechanic === 'stamp'
@@ -292,15 +383,28 @@ export function CustomerCampaignPage() {
       : campaign.mechanic === 'spin'
         ? 'Spin the wheel'
         : campaign.mechanic === 'dice'
-          ? 'Open mystery box'
+          ? 'Roll the dice'
           : campaign.mechanic === 'lottery'
-            ? 'Enter lottery'
-            : "Let's shake!"
+            ? 'Claim ticket'
+            : campaign.mechanic === 'buy-x-get-y'
+              ? 'Claim offer'
+              : campaign.mechanic === 'coupon'
+                ? 'Claim coupon'
+                : campaign.mechanic === 'flash'
+                  ? 'Claim flash deal'
+                  : campaign.mechanic === 'combo'
+                    ? 'Claim combo'
+                    : campaign.mechanic === 'friend'
+                    ? 'Claim reward'
+                    : campaign.mechanic === 'groupunlock'
+                      ? 'Reserve spot'
+                      : "Let's shake!"
 
   if (campaign.mechanic === 'shake') {
     return (
       <ShakeCampaignDetail
         campaign={campaign}
+        businessName={businessName}
         pin={pin}
         error={error}
         loading={verifyMutation.isPending}
@@ -309,6 +413,186 @@ export function CustomerCampaignPage() {
         userCap={campaign.userCap}
         playsUsedToday={playState?.playsUsedToday}
         playsPerDay={playState?.playsPerDay ?? campaign.playsPerDay}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'spin') {
+    return (
+      <SpinCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        winRatePercent={campaign.winRatePercent}
+        overallWinners={campaign.overallWinners}
+        userCap={campaign.userCap}
+        playsUsedToday={playState?.playsUsedToday}
+        playsPerDay={playState?.playsPerDay ?? campaign.playsPerDay}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'dice') {
+    return (
+      <DiceCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        winRatePercent={campaign.winRatePercent}
+        overallWinners={campaign.overallWinners}
+        userCap={campaign.userCap}
+        playsUsedToday={playState?.playsUsedToday}
+        playsPerDay={playState?.playsPerDay ?? campaign.playsPerDay}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'lottery') {
+    return (
+      <LotteryCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasTicket={lotteryState?.hasTicket}
+        canClaimTicket={lotteryState?.canClaimTicket ?? true}
+        ticketCount={lotteryState?.ticketCount ?? 0}
+        playsRemaining={lotteryState?.playsRemaining}
+        playsPerDay={lotteryState?.playsPerDay}
+        drawDate={lotteryState?.drawDate ?? campaign.drawDate ?? campaign.endDate}
+        totalTickets={lotteryState?.totalTickets}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'buy-x-get-y') {
+    return (
+      <BuyXGetYCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={buyXGetYState?.hasClaimed}
+        spotsRemaining={buyXGetYState?.spotsRemaining}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'coupon') {
+    return (
+      <CouponCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={couponState?.hasClaimed}
+        spotsRemaining={couponState?.spotsRemaining}
+        totalCoupons={couponState?.totalCoupons}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'flash') {
+    return (
+      <FlashCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={flashState?.hasClaimed}
+        spotsRemaining={flashState?.spotsRemaining}
+        totalSlots={flashState?.totalSlots}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'combo') {
+    return (
+      <ComboCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={comboState?.hasClaimed}
+        spotsRemaining={comboState?.spotsRemaining}
+        totalSpots={comboState?.totalSpots}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'friend') {
+    return (
+      <FriendCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={friendState?.hasClaimed}
+        spotsRemaining={friendState?.spotsRemaining}
+        userCap={friendState?.userCap}
+        onBack={handleBack}
+        onKey={handleKey}
+        onDelete={handleDelete}
+        onSubmit={handleSubmit}
+      />
+    )
+  }
+
+  if (campaign.mechanic === 'groupunlock') {
+    return (
+      <GroupUnlockCampaignDetail
+        campaign={campaign}
+        businessName={businessName}
+        pin={pin}
+        error={error}
+        loading={verifyMutation.isPending}
+        hasClaimed={groupUnlockState?.hasClaimed}
+        unlocked={groupUnlockState?.unlocked}
+        canClaim={groupUnlockState?.canClaim ?? true}
+        groupJoined={groupUnlockState?.groupJoined}
+        targetParticipants={groupUnlockState?.targetParticipants}
         onBack={handleBack}
         onKey={handleKey}
         onDelete={handleDelete}
