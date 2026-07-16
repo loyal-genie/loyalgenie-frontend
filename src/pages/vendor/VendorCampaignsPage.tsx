@@ -307,9 +307,10 @@ export function VendorCampaignsPage() {
 
   const windowMeta = DATE_WINDOWS.find(w => w.key === dateWindow)!
   const { data: stats } = useVendorDashboardStats(windowMeta.statsPeriod)
+  // Always lifetime unique customers — never period window, never sum(campaign.currentUsers)
+  const { data: lifetimeStats } = useVendorDashboardStats('all')
 
-  // Accurate business-wide aggregates (unique players — not sum of campaign.currentUsers)
-  const wPlayers  = stats?.uniquePlayers ?? 0
+  const wPlayers  = lifetimeStats?.totalCustomers ?? stats?.totalCustomers ?? 0
   const wRewards  = stats?.totalWins ?? 0
   const wRedeemed = stats?.totalRedeemed ?? 0
 
@@ -364,7 +365,7 @@ export function VendorCampaignsPage() {
             <span className="text-xs font-semibold text-v-text-2">Total Players</span>
           </div>
           <div className="text-4xl font-black text-v-purple leading-none mb-2">{wPlayers.toLocaleString()}</div>
-          <p className="text-xs text-v-text-3">unique players in this window</p>
+          <p className="text-xs text-v-text-3">unique customers</p>
         </Card>
 
         <Card className="p-5 border border-green-100 bg-gradient-to-br from-white to-green-50">

@@ -122,7 +122,8 @@ export function VendorDashboardPage() {
   const activeCamps = apiCampaigns.filter(c => c.status === 'active')
   const totalCustomers = stats?.totalCustomers ?? 0
   const activeCustomers = stats?.activeCustomers ?? 0
-  const uniquePlayers = stats?.uniquePlayers ?? 0
+  // Total Players = unique customers for the business (never sum of campaign enrollments / plays)
+  const uniquePlayers = totalCustomers
   const repeatVisitRate = stats?.repeatVisitRate ?? 0
   const retentionRate = stats?.retentionRate ?? 0
   const totalWins = stats?.totalWins ?? 0
@@ -237,8 +238,8 @@ export function VendorDashboardPage() {
                 {
                   label: 'Total Players',
                   value: uniquePlayers,
-                  prev: prev?.uniquePlayers ?? uniquePlayers,
-                  sub: 'unique players',
+                  prev: prev?.totalCustomers ?? uniquePlayers,
+                  sub: 'unique customers',
                   color: '#7C3AED',
                   bg: 'bg-purple-50',
                   border: 'border-purple-200',
