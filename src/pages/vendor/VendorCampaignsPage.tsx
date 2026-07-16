@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, LayoutList, LayoutGrid, ArrowUpDown,
-  CalendarDays, Users, Trophy, TrendingUp,
+  CalendarDays, Users, Trophy, TrendingUp, Gift,
   Eye, Loader2, RefreshCw, Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, ProgressBar } from '@/components/ui/card'
 import { MechanicBadge, StatusBadge } from '@/components/ui/badge'
 import { MechanicComingSoonBadge } from '@/components/vendor/MechanicComingSoonBanner'
+import { LivePIN } from '@/components/vendor/live-pin'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { getMechanicEmoji, getMechanicColor, formatDate, capPercent } from '@/lib/utils'
 import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
@@ -194,6 +195,12 @@ function ListCard({ c }: { c: CampaignDto }) {
                 </div>
               </div>
 
+              {status === 'active' && (
+                <div className="shrink-0" onClick={e => e.preventDefault()}>
+                  <LivePIN campaignId={c.id} active compact />
+                </div>
+              )}
+
               {/* Actions */}
               <CampaignCardActions id={c.id} />
             </div>
@@ -270,6 +277,13 @@ function GridCard({ c }: { c: CampaignDto }) {
             ))}
           </div>
 
+          {status === 'active' && (
+            <div className="rounded-xl bg-v-surface-2 border border-v-border p-3 flex items-center justify-between" onClick={e => e.preventDefault()}>
+              <p className="uppercase tracking-[0.18em] text-[10px] text-v-text-3 font-semibold">Staff PIN</p>
+              <LivePIN campaignId={c.id} active compact />
+            </div>
+          )}
+
           {/* Cap bar */}
           <div>
             <div className="flex justify-between text-[10px] text-v-text-3 mb-1">
@@ -302,16 +316,9 @@ export function VendorCampaignsPage() {
   const windowDays = DATE_WINDOWS.find(w => w.key === dateWindow)!.days
   const wCampaigns = campaignsInWindow(campaigns, windowDays)
 
-  const wPlayers       = wCampaigns.reduce((s, c) => s + c.currentUsers, 0)
-  const wCap           = wCampaigns.reduce((s, c) => s + c.userCap, 0)
-  const wEngagePct     = wCap > 0 ? Math.round((wPlayers / wCap) * 100) : 0
-
-  const wParticipations = wCampaigns.reduce((s, c) => s + c.participations, 0)
-  const wRewards        = wCampaigns.reduce((s, c) => s + c.rewardsClaimed, 0)
-  const wWinPct         = wParticipations > 0 ? Math.round((wRewards / wParticipations) * 100) : 0
-
-  const wRedeemed      = wCampaigns.reduce((s, c) => s + c.redeemedCount, 0)
-  const wRedemptionPct = wRewards > 0 ? Math.round((wRedeemed / wRewards) * 100) : 0
+  const wPlayers  = wCampaigns.reduce((s, c) => s + c.currentUsers, 0)
+  const wRewards  = wCampaigns.reduce((s, c) => s + c.rewardsClaimed, 0)
+  const wRedeemed = wCampaigns.reduce((s, c) => s + c.redeemedCount, 0)
 
   const filtered = campaigns
     .filter(c => {
@@ -356,61 +363,37 @@ export function VendorCampaignsPage() {
       <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
         className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
 
-        {/* Engagement Rate */}
         <Card className="p-5 border border-purple-100 bg-gradient-to-br from-white to-purple-50">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
               <Users className="w-4 h-4 text-v-purple" />
             </div>
-            <span className="text-xs font-semibold text-v-text-2">Engagement Rate</span>
+            <span className="text-xs font-semibold text-v-text-2">Total Players</span>
           </div>
-          <div className="text-4xl font-black text-v-purple leading-none mb-2">{wEngagePct}%</div>
-          <p className="text-xs text-v-text-3 mb-3">
-            <span className="text-v-text font-semibold">{wPlayers.toLocaleString()}</span> players
-            {' · '}
-            <span className="text-v-text font-semibold">{wCap.toLocaleString()}</span> cap
-          </p>
-          <div className="h-1.5 bg-purple-100 rounded-full overflow-hidden">
-            <div className="h-full bg-v-purple rounded-full transition-all duration-500" style={{ width: `${wEngagePct}%` }} />
-          </div>
+          <div className="text-4xl font-black text-v-purple leading-none mb-2">{wPlayers.toLocaleString()}</div>
+          <p className="text-xs text-v-text-3">unique players in this window</p>
         </Card>
 
-        {/* Win Rate */}
         <Card className="p-5 border border-green-100 bg-gradient-to-br from-white to-green-50">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-4 h-4 text-green-600" />
+              <Trophy className="w-4 h-4 text-green-600" />
             </div>
-            <span className="text-xs font-semibold text-v-text-2">Win Rate</span>
+            <span className="text-xs font-semibold text-v-text-2">Total Winners</span>
           </div>
-          <div className="text-4xl font-black text-green-600 leading-none mb-2">{wWinPct}%</div>
-          <p className="text-xs text-v-text-3 mb-3">
-            <span className="text-v-text font-semibold">{wRewards.toLocaleString()}</span> rewards given
-            {' · '}
-            <span className="text-v-text font-semibold">{wParticipations.toLocaleString()}</span> plays
-          </p>
-          <div className="h-1.5 bg-green-100 rounded-full overflow-hidden">
-            <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${wWinPct}%` }} />
-          </div>
+          <div className="text-4xl font-black text-green-600 leading-none mb-2">{wRewards.toLocaleString()}</div>
+          <p className="text-xs text-v-text-3">rewards won</p>
         </Card>
 
-        {/* Redemption Rate */}
         <Card className="p-5 border border-amber-100 bg-gradient-to-br from-white to-amber-50">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-              <Trophy className="w-4 h-4 text-amber-600" />
+              <Gift className="w-4 h-4 text-amber-600" />
             </div>
-            <span className="text-xs font-semibold text-v-text-2">Redemption Rate</span>
+            <span className="text-xs font-semibold text-v-text-2">Redemptions</span>
           </div>
-          <div className="text-4xl font-black text-amber-600 leading-none mb-2">{wRedemptionPct}%</div>
-          <p className="text-xs text-v-text-3 mb-3">
-            <span className="text-v-text font-semibold">{wRedeemed.toLocaleString()}</span> redeemed
-            {' · '}
-            <span className="text-v-text font-semibold">{wRewards.toLocaleString()}</span> rewards given
-          </p>
-          <div className="h-1.5 bg-amber-100 rounded-full overflow-hidden">
-            <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${wRedemptionPct}%` }} />
-          </div>
+          <div className="text-4xl font-black text-amber-600 leading-none mb-2">{wRedeemed.toLocaleString()}</div>
+          <p className="text-xs text-v-text-3">claimed at the counter</p>
         </Card>
 
       </motion.div>

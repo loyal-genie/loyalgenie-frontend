@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, Crown, TrendingUp, Clock, Users, Activity, Gift, Gamepad2, CheckCircle2, Loader2, Star } from 'lucide-react'
+import { Search, Crown, TrendingUp, Clock, Users, Activity, Gift, Gamepad2, CheckCircle2, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { formatRelativeTime, formatDate } from '@/lib/utils'
+import { formatRelativeTime } from '@/lib/utils'
 import { useVendorCustomers } from '@/hooks/useVendorAnalytics'
 import { daysSince, getCustomerSegment, type CustomerSegment } from '@/lib/vendor-customers'
 import type { VendorCustomerSummary } from '@/lib/api'
@@ -65,6 +65,12 @@ export function VendorCustomersPage() {
 
   const isFiltered = segment !== 'all' || visitWindow !== 'all' || search.length > 0
 
+  const clearFilters = () => {
+    setSegment('all')
+    setVisitWindow('all')
+    setSearch('')
+  }
+
   const windowCohort = customers.filter(c =>
     windowDays === null || daysSince(c.lastVisit) <= windowDays
   )
@@ -73,12 +79,10 @@ export function VendorCustomersPage() {
   const statGames = windowCohort.reduce((s, c) => s + c.gamesPlayed, 0)
   const statRewards = windowCohort.reduce((s, c) => s + c.rewardsEarned, 0)
   const statRedeemed = windowCohort.reduce((s, c) => s + c.redeemedCount, 0)
-  const statLoyaltyPoints = windowCohort.reduce((s, c) => s + c.totalLoyaltyPoints, 0)
 
   const SUMMARY = [
     { label: 'Total Customers', value: statTotalCustomers, icon: <Users className="w-4 h-4" />, color: 'text-v-purple', bg: 'bg-purple-50', border: 'border-purple-100' },
     { label: 'Total Check-ins', value: statCheckIns, icon: <Activity className="w-4 h-4" />, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-    { label: 'Reward Points', value: statLoyaltyPoints, icon: <Star className="w-4 h-4" />, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
     { label: 'Games Played', value: statGames, icon: <Gamepad2 className="w-4 h-4" />, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
     { label: 'Rewards Earned', value: statRewards, icon: <Gift className="w-4 h-4" />, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
     { label: 'Redeemed', value: statRedeemed, icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
@@ -89,7 +93,11 @@ export function VendorCustomersPage() {
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <h1 className="text-2xl font-extrabold text-v-text">Customers</h1>
         <p className="text-v-text-2 text-sm mt-1">
-          {isLoading ? 'Loading…' : `${filtered.length} customer${filtered.length !== 1 ? 's' : ''} who played your campaigns`}
+          {isLoading
+            ? 'Loading…'
+            : isFiltered
+              ? `${filtered.length} of ${customers.length} registered`
+              : `${customers.length} registered`}
         </p>
       </motion.div>
 
@@ -107,7 +115,7 @@ export function VendorCustomersPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.04 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-7"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-7"
       >
         {SUMMARY.map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 + i * 0.04 }}>
@@ -158,7 +166,7 @@ export function VendorCustomersPage() {
           />
         </div>
         {isFiltered && (
-          <button onClick={() => { setSegment('all'); setVisitWindow('all'); setSearch('') }}
+          <button onClick={clearFilters}
             className="text-xs text-v-purple font-semibold hover:underline shrink-0 border-0 bg-transparent cursor-pointer">
             Clear filters
           </button>
@@ -179,9 +187,15 @@ export function VendorCustomersPage() {
               </p>
               <p className="text-xs text-v-text-3 mt-1">
                 {customers.length === 0
-                  ? 'Customers appear here after they play your campaigns (not all sign-ups)'
+                  ? 'Customers appear here after they play your campaigns'
                   : 'Try a different segment or visit window'}
               </p>
+              {isFiltered && (
+                <button onClick={clearFilters}
+                  className="mt-3 text-xs text-v-purple font-semibold hover:underline border-0 bg-transparent cursor-pointer">
+                  Clear all filters
+                </button>
+              )}
             </div>
           )}
           {filtered.map((c, i) => {
@@ -203,33 +217,26 @@ export function VendorCustomersPage() {
                             {badge.label}
                           </span>
                         </div>
-                        <p className="text-xs text-v-text-3 mt-0.5">{c.email}</p>
                         <p className="text-xs text-v-text-3 mt-0.5">
-                          Last visit:{' '}
-                          <span className={days > 14 ? 'text-orange-500 font-semibold' : 'text-v-text-2'}>
-                            {!c.lastVisit ? '—' : days === 0 ? 'Today' : formatDate(c.lastVisit.slice(0, 10))}
-                          </span>
-                          {' · '}Joined {formatRelativeTime(c.joinedAt)}
+                          {c.phone || c.email} · Joined {formatRelativeTime(c.joinedAt)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-4 sm:gap-7 text-right shrink-0">
-                        {c.totalLoyaltyPoints > 0 && (
-                          <div className="hidden sm:block">
-                            <div className="text-sm font-bold text-purple-600">{c.totalLoyaltyPoints}</div>
-                            <div className="text-[10px] text-v-text-3">Reward pts</div>
-                          </div>
-                        )}
-                        <div className="hidden sm:block">
+                      <div className="hidden md:flex items-center gap-7 text-right shrink-0">
+                        <div>
                           <div className="text-sm font-bold text-v-text">{c.totalVisits}</div>
-                          <div className="text-[10px] text-v-text-3">Plays</div>
+                          <div className="text-[10px] text-v-text-3">Visits</div>
                         </div>
-                        <div className="hidden sm:block">
+                        <div>
+                          <div className="text-sm font-bold text-v-text">{c.gamesPlayed}</div>
+                          <div className="text-[10px] text-v-text-3">Games</div>
+                        </div>
+                        <div>
                           <div className={`text-sm font-bold ${rate >= 50 ? 'text-v-success' : rate > 0 ? 'text-v-gold' : 'text-v-text-3'}`}>{rate}%</div>
                           <div className="text-[10px] text-v-text-3">Win rate</div>
                         </div>
                         <div>
                           <div className={`text-sm font-bold ${days > 45 ? 'text-gray-400' : days > 14 ? 'text-orange-500' : 'text-v-text'}`}>
-                            {!c.lastVisit ? '—' : days === 0 ? 'Today' : `${days}d`}
+                            {!c.lastVisit ? '—' : days === 0 ? 'Today' : `${days}d ago`}
                           </div>
                           <div className="text-[10px] text-v-text-3">Last visit</div>
                         </div>

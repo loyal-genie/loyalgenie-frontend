@@ -13,8 +13,18 @@ import { daysSince, getCustomerSegment, estimateLifetimeValue } from '@/lib/vend
 import type { VendorCustomerDetail } from '@/lib/api'
 import type { MechanicType } from '@/lib/types'
 
-// ── Segment logic ─────────────────────────────────────────────────────────────
 type Segment = 'loyalist' | 'regular' | 'at-risk' | 'inactive'
+
+type Period = 'all' | '7d' | 'month' | '3m' | 'year'
+const PERIODS: { key: Period; label: string }[] = [
+  { key: 'all', label: 'All time' },
+  { key: '7d', label: '7 Days' },
+  { key: 'month', label: 'Month' },
+  { key: '3m', label: '3 Months' },
+  { key: 'year', label: 'Year' },
+]
+const PERIOD_DAYS: Record<Period, number> = { all: Infinity, '7d': 7, month: 30, '3m': 90, year: 365 }
+const PERIOD_SCALE: Record<Period, number> = { all: 1, '7d': 0.08, month: 0.28, '3m': 0.55, year: 0.85 }
 
 const SEGMENT_META: Record<Segment, {
   label: string; icon: string; color: string
@@ -47,7 +57,6 @@ const SEGMENT_META: Record<Segment, {
   },
 }
 
-// ── Visit history builder ─────────────────────────────────────────────────────
 type VisitEvent = {
   id: string
   type: 'game_win' | 'game_loss' | 'reward_redeemed' | 'visit'
@@ -86,31 +95,25 @@ function buildVisitHistory(customer: VendorCustomerDetail): VisitEvent[] {
 }
 
 function buildCampaignActivity(customer: VendorCustomerDetail) {
-  const all = customer.campaignActivity.map(c => ({
-    id: c.id,
-    name: c.name,
-    mechanic: c.mechanic as MechanicType,
-    plays: c.plays,
-    wins: c.wins,
-    status: c.status,
-  }))
+  const all = customer.campaignActivity.map(c => {
+    const redeems = customer.rewards.filter(
+      r => r.campaignId === c.id && r.status === 'redeemed',
+    ).length
+    return {
+      id: c.id,
+      name: c.name,
+      mechanic: c.mechanic as MechanicType,
+      plays: c.plays,
+      wins: c.wins,
+      redeems,
+      status: c.status,
+    }
+  })
   return { active: all.filter(c => c.status === 'active'), previous: all.filter(c => c.status !== 'active') }
 }
 
-function rewardStatusLabel(status: string) {
-  if (status === 'earned') return 'In wallet'
-  if (status === 'pending') return 'Awaiting pickup'
-  return 'Redeemed'
-}
-
-function rewardStatusStyle(status: string) {
-  if (status === 'redeemed') return 'bg-v-surface-3 text-v-text-3'
-  if (status === 'pending') return 'bg-amber-50 text-amber-700 border border-amber-200'
-  return 'bg-v-surface-2 text-v-text-2 border border-v-border'
-}
-
 function buildRedemption(customer: VendorCustomerDetail) {
-  const pending = customer.rewards.filter(r => r.status === 'pending')
+  const pending = customer.rewards.filter(r => r.status === 'pending' || r.status === 'earned')
   const redeemed = customer.rewards.filter(r => r.status === 'redeemed')
   return { pending, redeemed, total: customer.rewards.length, totalValue: customer.rewardsEarned * 50 }
 }
@@ -136,12 +139,12 @@ type VisitFilter = typeof VISIT_FILTERS[number]['key']
 
 type Tab = 'overview' | 'visits' | 'campaigns' | 'rewards'
 
-// ── Page ──────────────────────────────────────────────────────────────────────
 export function VendorCustomerDetailPage() {
   const { id } = useParams()
   const { data: customer, isLoading, isError } = useVendorCustomer(id)
   const [tab, setTab] = useState<Tab>('overview')
   const [visitFilter, setVisitFilter] = useState<VisitFilter>('all')
+  const [period, setPeriod] = useState<Period>('all')
 
   if (isLoading) {
     return (
@@ -171,18 +174,33 @@ export function VendorCustomerDetailPage() {
     ? Math.round((customer.rewardsEarned / customer.gamesPlayed) * 100) : 0
   const lifetimeValue  = estimateLifetimeValue(customer.totalVisits)
 
+  const periodDays = PERIOD_DAYS[period]
+  const gamesInPeriod = customer.gameHistory.filter(g => daysSince(g.playedAt) <= periodDays)
+  const playsInPeriod = gamesInPeriod.length
+  const winsInPeriod = gamesInPeriod.filter(g => g.won).length
+  const redeemsInPeriod = customer.rewards.filter(r =>
+    r.status === 'redeemed' && r.redeemedAt && daysSince(r.redeemedAt) <= periodDays
+  ).length
+  const visitsInPeriod = period === 'all'
+    ? customer.totalVisits
+    : Math.round(customer.totalVisits * PERIOD_SCALE[period])
+  const points = customer.totalLoyaltyPoints > 0
+    ? customer.totalLoyaltyPoints
+    : customer.totalVisits * 100
+
   const filteredHistory = visitHistory.filter(e => {
     if (visitFilter === 'all') return true
     const cutoff = { '7d': 7, '30d': 30, '90d': 90 }[visitFilter]
     return daysSince(e.date) <= cutoff
   })
 
-  const isAtRisk   = segment === 'at-risk' || segment === 'inactive'
+  const isAtRisk = segment === 'at-risk' || segment === 'inactive'
+  const pendingBadgeCount = customer.rewards.filter(r => r.status === 'pending').length
   const tabs: { key: Tab; label: string; count?: number }[] = [
-    { key: 'overview',   label: 'Overview' },
-    { key: 'visits',     label: 'Visit History',   count: customer.totalVisits },
-    { key: 'campaigns',  label: 'Campaigns',        count: campaignAct.active.length + campaignAct.previous.length },
-    { key: 'rewards',    label: 'Rewards',          count: redemption.pending.length || undefined },
+    { key: 'overview',  label: 'Overview' },
+    { key: 'campaigns', label: 'Campaigns',     count: campaignAct.active.length + campaignAct.previous.length },
+    { key: 'rewards',   label: 'Rewards',       count: pendingBadgeCount || undefined },
+    { key: 'visits',    label: 'Visit History', count: customer.totalVisits },
   ]
 
   return (
@@ -192,7 +210,6 @@ export function VendorCustomerDetailPage() {
           <ArrowLeft className="w-4 h-4" /> Customers
         </Link>
 
-        {/* ── Header ── */}
         <div className="flex items-start gap-5">
           <div className="relative shrink-0">
             <div className="w-16 h-16 rounded-2xl bg-v-surface-3 border border-v-border-b flex items-center justify-center text-2xl font-extrabold text-v-purple">
@@ -206,9 +223,9 @@ export function VendorCustomerDetailPage() {
               <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-bold border ${segMeta.bg} ${segMeta.border} ${segMeta.textColor}`}>
                 {segMeta.icon} {segMeta.label}
               </span>
-              {redemption.pending.length > 0 && (
+              {pendingBadgeCount > 0 && (
                 <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 border border-amber-300 text-amber-700">
-                  <Gift className="w-3 h-3" /> {redemption.pending.length} reward{redemption.pending.length > 1 ? 's' : ''} pending
+                  <Gift className="w-3 h-3" /> {pendingBadgeCount} reward{pendingBadgeCount > 1 ? 's' : ''} pending
                 </span>
               )}
             </div>
@@ -227,7 +244,6 @@ export function VendorCustomerDetailPage() {
         </div>
       </motion.div>
 
-      {/* ── At-Risk / Inactive alert ── */}
       {isAtRisk && (
         <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
           className={`flex items-start gap-3 px-4 py-3 rounded-xl border mb-5 ${segMeta.bg} ${segMeta.border}`}>
@@ -237,7 +253,7 @@ export function VendorCustomerDetailPage() {
             <p className="text-xs mt-0.5" style={{ color: segMeta.color }}>{segMeta.action}</p>
           </div>
           <Link to="/vendor/campaigns/create">
-            <button className="text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all hover:opacity-80 shrink-0"
+            <button type="button" className="text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all hover:opacity-80 shrink-0 cursor-pointer"
               style={{ borderColor: segMeta.color, color: segMeta.color, background: 'white' }}>
               Launch Campaign
             </button>
@@ -245,40 +261,50 @@ export function VendorCustomerDetailPage() {
         </motion.div>
       )}
 
-      {/* ── Decision Stats ── */}
+      {/* Stat period filter */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.06 }}
+        className="inline-flex items-center gap-1 p-1.5 rounded-full bg-v-purple/5 border border-v-purple/10 w-fit mb-3 flex-wrap">
+        {PERIODS.map(p => (
+          <button key={p.key} type="button" onClick={() => setPeriod(p.key)}
+            className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap border-0 cursor-pointer ${period === p.key ? 'bg-white text-v-text shadow-sm' : 'bg-transparent text-v-purple/50 hover:text-v-purple'}`}>
+            {p.label}
+          </button>
+        ))}
+      </motion.div>
+
+      {/* Decision Stats — matches prototype */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}
-        className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
         {[
           {
-            label: 'Visits / Month',
-            value: `${visitsPerMonth}×`,
-            sub: `${customer.totalVisits} total visits`,
+            label: 'No. of Visits',
+            value: visitsInPeriod,
+            sub: period === 'all' ? `${visitsPerMonth}× / month` : `est. for ${PERIODS.find(p => p.key === period)!.label.toLowerCase()}`,
             icon: '📅', color: '#7C3AED',
           },
           {
-            label: 'Reward Points',
-            value: customer.totalLoyaltyPoints,
-            sub: customer.totalLoyaltyPoints > 0 ? 'Check-in loyalty at your store' : 'No check-in points yet',
-            icon: '⭐', color: customer.totalLoyaltyPoints > 0 ? '#7C3AED' : '#6B7280',
+            label: 'Plays',
+            value: playsInPeriod,
+            sub: `${visitsInPeriod} visits`,
+            icon: '🎮', color: '#DB2777',
           },
           {
-            label: 'Win Rate',
-            value: `${winRatePct}%`,
-            sub: `${customer.rewardsEarned} of ${customer.gamesPlayed} plays`,
-            icon: '🎯', color: winRatePct >= 50 ? '#16A34A' : winRatePct > 0 ? '#D97706' : '#6B7280',
+            label: 'Wins',
+            value: winsInPeriod,
+            sub: `of ${playsInPeriod} plays`,
+            icon: '🎯', color: '#D97706',
           },
           {
-            label: 'Lifetime Value',
-            value: `₹${lifetimeValue.toLocaleString()}`,
-            sub: `est. ₹300/visit`,
-            icon: '💰', color: '#D97706',
+            label: 'Redeems',
+            value: redeemsInPeriod,
+            sub: `of ${winsInPeriod} rewards earned`,
+            icon: '🎁', color: '#16A34A',
           },
           {
-            label: 'Pending Rewards',
-            value: redemption.pending.length,
-            sub: redemption.pending.length > 0 ? 'Needs redemption' : 'All redeemed',
-            icon: redemption.pending.length > 0 ? '🔔' : '✅',
-            color: redemption.pending.length > 0 ? '#C2410C' : '#16A34A',
+            label: 'Points',
+            value: points.toLocaleString(),
+            sub: customer.totalLoyaltyPoints > 0 ? 'lifetime balance' : '100 pts / visit · lifetime',
+            icon: '⭐', color: '#2563EB',
           },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}>
@@ -292,11 +318,10 @@ export function VendorCustomerDetailPage() {
         ))}
       </motion.div>
 
-      {/* ── Tab bar ── */}
-      <div className="flex gap-1 mb-6 bg-v-surface-2 border border-v-border rounded-xl p-1">
+      <div className="flex gap-1 mb-6 bg-v-surface-2 border border-v-border rounded-xl p-1 flex-wrap">
         {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${tab === t.key ? 'bg-white text-v-text shadow-sm border border-v-border' : 'text-v-text-2 hover:text-v-text'}`}>
+          <button key={t.key} type="button" onClick={() => setTab(t.key)}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 border-0 cursor-pointer ${tab === t.key ? 'bg-white text-v-text shadow-sm border border-v-border' : 'bg-transparent text-v-text-2 hover:text-v-text'}`}>
             {t.label}
             {t.count !== undefined && (
               <span className={`text-[10px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-bold ${tab === t.key ? 'bg-v-purple text-white' : 'bg-v-border text-v-text-3'}`}>
@@ -307,15 +332,11 @@ export function VendorCustomerDetailPage() {
         ))}
       </div>
 
-      {/* ── Tab content ── */}
       <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
 
-        {/* OVERVIEW */}
         {tab === 'overview' && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-              {/* Loyalty profile */}
               <Card className="p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Crown className="w-4 h-4 text-v-purple" />
@@ -354,7 +375,6 @@ export function VendorCustomerDetailPage() {
                 </div>
               </Card>
 
-              {/* Redemption summary */}
               <Card className="p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Gift className="w-4 h-4 text-v-purple" />
@@ -387,11 +407,10 @@ export function VendorCustomerDetailPage() {
                   <p className="text-xs text-v-text-3 text-center py-2">No rewards yet</p>
                 )}
 
-                {/* Campaigns quick view */}
                 <div className="mt-4 pt-4 border-t border-v-border">
                   <div className="flex items-center justify-between mb-2.5">
                     <p className="text-xs font-semibold text-v-text">Campaigns</p>
-                    <button onClick={() => setTab('campaigns')} className="text-[10px] text-v-purple font-semibold hover:underline">
+                    <button type="button" onClick={() => setTab('campaigns')} className="text-[10px] text-v-purple font-semibold hover:underline border-0 bg-transparent cursor-pointer">
                       View all
                     </button>
                   </div>
@@ -417,14 +436,13 @@ export function VendorCustomerDetailPage() {
               </Card>
             </div>
 
-            {/* Recent activity */}
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-v-purple" />
                   <h3 className="text-sm font-bold text-v-text">Recent Activity</h3>
                 </div>
-                <button onClick={() => setTab('visits')} className="text-xs text-v-purple font-semibold hover:underline">
+                <button type="button" onClick={() => setTab('visits')} className="text-xs text-v-purple font-semibold hover:underline border-0 bg-transparent cursor-pointer">
                   Full history
                 </button>
               </div>
@@ -450,66 +468,6 @@ export function VendorCustomerDetailPage() {
           </div>
         )}
 
-        {/* VISIT HISTORY */}
-        {tab === 'visits' && (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-v-purple" />
-                <h3 className="text-sm font-bold text-v-text">Visit History</h3>
-                <span className="text-xs text-v-text-3">· {customer.totalVisits} total</span>
-              </div>
-              {/* Date filter */}
-              <div className="flex items-center gap-1 bg-v-surface-2 border border-v-border rounded-xl p-1">
-                {VISIT_FILTERS.map(f => (
-                  <button key={f.key} onClick={() => setVisitFilter(f.key)}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${visitFilter === f.key ? 'bg-white text-v-text shadow-sm border border-v-border' : 'text-v-text-3 hover:text-v-text-2'}`}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {filteredHistory.length === 0 ? (
-              <div className="text-center py-10">
-                <div className="text-3xl mb-2">📭</div>
-                <p className="text-sm text-v-text-3">No activity in this period</p>
-              </div>
-            ) : (
-              <div className="relative">
-                <div className="absolute left-[13px] top-4 bottom-4 w-px bg-v-border" />
-                <div className="space-y-0">
-                  {filteredHistory.map((event, i) => (
-                    <motion.div key={event.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
-                      className="flex gap-4 pb-4 last:pb-0">
-                      <div className={`relative z-10 w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 shrink-0 ${EVENT_STYLE[event.type]}`}>
-                        {event.icon}
-                      </div>
-                      <div className="flex-1 pt-0.5 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-v-text">{event.label}</p>
-                            {event.sub && <p className="text-xs text-v-text-3 mt-0.5">{event.sub}</p>}
-                            {event.mechanic && (
-                              <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 bg-v-surface-3 border border-v-border rounded-full text-v-text-2 font-medium">
-                                {getMechanicEmoji(event.mechanic)} {getMechanicLabel(event.mechanic)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-[10px] text-v-text-3">{formatRelativeTime(event.date)}</p>
-                            <p className="text-[10px] text-v-text-3">{new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Card>
-        )}
-
-        {/* CAMPAIGNS */}
         {tab === 'campaigns' && (
           <div className="space-y-5">
             <div>
@@ -524,35 +482,32 @@ export function VendorCustomerDetailPage() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {campaignAct.active.map(c => {
-                    const wr = c.plays > 0 ? Math.round((c.wins / c.plays) * 100) : 0
-                    return (
-                      <Card key={c.id} className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-v-surface-2 border border-v-border flex items-center justify-center text-xl shrink-0">
-                            {getMechanicEmoji(c.mechanic)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-v-text leading-tight truncate">{c.name}</p>
-                            <p className="text-xs text-v-text-3 mt-0.5">{getMechanicLabel(c.mechanic)}</p>
-                          </div>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-v-success border border-emerald-200 shrink-0">Live</span>
+                  {campaignAct.active.map(c => (
+                    <Card key={c.id} className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-v-surface-2 border border-v-border flex items-center justify-center text-xl shrink-0">
+                          {getMechanicEmoji(c.mechanic)}
                         </div>
-                        <div className="grid grid-cols-3 gap-2 mt-3">
-                          {[
-                            { label: 'Plays',    value: c.plays },
-                            { label: 'Wins',     value: c.wins },
-                            { label: 'Win Rate', value: `${wr}%` },
-                          ].map(s => (
-                            <div key={s.label} className="text-center p-2 bg-v-surface-2 rounded-lg border border-v-border">
-                              <div className="text-sm font-bold text-v-text">{s.value}</div>
-                              <div className="text-[10px] text-v-text-3">{s.label}</div>
-                            </div>
-                          ))}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-v-text leading-tight truncate">{c.name}</p>
+                          <p className="text-xs text-v-text-3 mt-0.5">{getMechanicLabel(c.mechanic)}</p>
                         </div>
-                      </Card>
-                    )
-                  })}
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-v-success border border-emerald-200 shrink-0">Live</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mt-3">
+                        {[
+                          { label: 'Plays',   value: c.plays },
+                          { label: 'Wins',    value: c.wins },
+                          { label: 'Redeems', value: c.redeems },
+                        ].map(s => (
+                          <div key={s.label} className="text-center p-2 bg-v-surface-2 rounded-lg border border-v-border">
+                            <div className="text-sm font-bold text-v-text">{s.value}</div>
+                            <div className="text-[10px] text-v-text-3">{s.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               )}
             </div>
@@ -569,28 +524,24 @@ export function VendorCustomerDetailPage() {
                 </Card>
               ) : (
                 <div className="space-y-2">
-                  {campaignAct.previous.map(c => {
-                    const wr = c.plays > 0 ? Math.round((c.wins / c.plays) * 100) : 0
-                    return (
-                      <Card key={c.id} className="p-3.5 opacity-80">
-                        <div className="flex items-center gap-3">
-                          <div className="text-xl shrink-0">{getMechanicEmoji(c.mechanic)}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-v-text truncate">{c.name}</p>
-                            <p className="text-xs text-v-text-3">{c.plays} plays · {c.wins} wins · {wr}% win rate</p>
-                          </div>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-v-surface-3 text-v-text-3 border border-v-border shrink-0">Ended</span>
+                  {campaignAct.previous.map(c => (
+                    <Card key={c.id} className="p-3.5 opacity-80">
+                      <div className="flex items-center gap-3">
+                        <div className="text-xl shrink-0">{getMechanicEmoji(c.mechanic)}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-v-text truncate">{c.name}</p>
+                          <p className="text-xs text-v-text-3">{c.plays} plays · {c.wins} wins · {c.redeems} redeems</p>
                         </div>
-                      </Card>
-                    )
-                  })}
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-v-surface-3 text-v-text-3 border border-v-border shrink-0">Ended</span>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* REWARDS */}
         {tab === 'rewards' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <Card className="p-5">
@@ -605,16 +556,20 @@ export function VendorCustomerDetailPage() {
                 <div className="space-y-2.5">
                   {customer.rewards.map(r => (
                     <div key={r.id} className={`p-3.5 rounded-xl border transition-all ${
-                      r.status === 'redeemed' ? 'border-v-border bg-v-surface-2 opacity-60'
-                      : r.status === 'pending' ? 'border-amber-200 bg-amber-50'
-                      : 'border-v-border bg-v-surface-2'
+                      r.status === 'redeemed'
+                        ? 'border-v-border bg-v-surface-2 opacity-60'
+                        : 'border-amber-200 bg-amber-50'
                     }`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="text-sm font-bold text-v-text">{r.reward}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${rewardStatusStyle(r.status)}`}>
-                              {rewardStatusLabel(r.status)}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                              r.status === 'redeemed'
+                                ? 'bg-v-surface-3 text-v-text-3'
+                                : 'bg-emerald-50 text-v-success border border-emerald-200'
+                            }`}>
+                              {r.status}
                             </span>
                           </div>
                           <p className="text-xs text-v-text-3">{r.campaignName}</p>
@@ -667,6 +622,63 @@ export function VendorCustomerDetailPage() {
               )}
             </Card>
           </div>
+        )}
+
+        {tab === 'visits' && (
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-v-purple" />
+                <h3 className="text-sm font-bold text-v-text">Visit History</h3>
+                <span className="text-xs text-v-text-3">· {customer.totalVisits} total</span>
+              </div>
+              <div className="flex items-center gap-1 bg-v-surface-2 border border-v-border rounded-xl p-1">
+                {VISIT_FILTERS.map(f => (
+                  <button key={f.key} type="button" onClick={() => setVisitFilter(f.key)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border-0 cursor-pointer ${visitFilter === f.key ? 'bg-white text-v-text shadow-sm border border-v-border' : 'bg-transparent text-v-text-3 hover:text-v-text-2'}`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {filteredHistory.length === 0 ? (
+              <div className="text-center py-10">
+                <div className="text-3xl mb-2">📭</div>
+                <p className="text-sm text-v-text-3">No activity in this period</p>
+              </div>
+            ) : (
+              <div className="relative">
+                <div className="absolute left-[13px] top-4 bottom-4 w-px bg-v-border" />
+                <div className="space-y-0">
+                  {filteredHistory.map((event, i) => (
+                    <motion.div key={event.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
+                      className="flex gap-4 pb-4 last:pb-0">
+                      <div className={`relative z-10 w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 shrink-0 ${EVENT_STYLE[event.type]}`}>
+                        {event.icon}
+                      </div>
+                      <div className="flex-1 pt-0.5 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-v-text">{event.label}</p>
+                            {event.sub && <p className="text-xs text-v-text-3 mt-0.5">{event.sub}</p>}
+                            {event.mechanic && (
+                              <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 bg-v-surface-3 border border-v-border rounded-full text-v-text-2 font-medium">
+                                {getMechanicEmoji(event.mechanic)} {getMechanicLabel(event.mechanic)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[10px] text-v-text-3">{formatRelativeTime(event.date)}</p>
+                            <p className="text-[10px] text-v-text-3">{new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
         )}
 
       </motion.div>
