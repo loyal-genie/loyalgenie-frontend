@@ -1851,6 +1851,7 @@ export interface VendorDashboardStats {
   }
   atRiskCustomers: VendorCustomerSummary[]
   pendingRedemptions: number
+  totalVisits: number
   totalPlays: number
   totalWins: number
   totalRedeemed: number

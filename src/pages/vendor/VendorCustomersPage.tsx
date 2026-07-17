@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, Crown, TrendingUp, Clock, Users, Gamepad2, CheckCircle2, Loader2, Trophy } from 'lucide-react'
+import { Search, Crown, TrendingUp, Clock, Users, CalendarDays, Gamepad2, CheckCircle2, Loader2, Trophy } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { formatRelativeTime } from '@/lib/utils'
 import { useVendorCustomers, useVendorDashboardStats } from '@/hooks/useVendorAnalytics'
@@ -75,19 +75,19 @@ export function VendorCustomersPage() {
   }
 
   // Same vendor metrics as Dashboard / Campaigns (Total Check-ins removed)
-  const totalUsers = stats?.totalCustomers ?? customers.length
+  const totalVisits = stats?.totalVisits ?? 0
   const totalPlays = stats?.totalPlays ?? 0
   const totalWins = stats?.totalWins ?? 0
   const totalRedeemed = stats?.totalRedeemed ?? 0
 
   const SUMMARY = [
     {
-      label: 'Total Users',
-      value: totalUsers,
+      label: 'Total Visits',
+      value: totalVisits,
       sub: visitWindow === 'all'
-        ? 'unique customers who’ve ever played'
-        : `lifetime unique · plays below are ${windowMeta.label.toLowerCase()}`,
-      icon: <Users className="w-4 h-4" />,
+        ? 'sum of customer days visited'
+        : `distinct customer visit-days in ${windowMeta.label.toLowerCase()}`,
+      icon: <CalendarDays className="w-4 h-4" />,
       color: 'text-v-purple',
       bg: 'bg-purple-50',
       border: 'border-purple-100',
