@@ -3,17 +3,19 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, LayoutList, LayoutGrid, ArrowUpDown,
-  CalendarDays, Users, Trophy, TrendingUp,
+  CalendarDays, Users, Trophy, TrendingUp, Gift, Gamepad2,
   Eye, Loader2, RefreshCw, Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, ProgressBar } from '@/components/ui/card'
 import { MechanicBadge, StatusBadge } from '@/components/ui/badge'
 import { MechanicComingSoonBadge } from '@/components/vendor/MechanicComingSoonBanner'
+import { LivePIN } from '@/components/vendor/live-pin'
 import { useCampaigns } from '@/hooks/useCampaigns'
+import { useVendorDashboardStats } from '@/hooks/useVendorAnalytics'
 import { getMechanicEmoji, getMechanicColor, formatDate, capPercent } from '@/lib/utils'
 import { ApiErrorBanner } from '@/components/shared/ApiErrorBanner'
-import type { CampaignDto } from '@/lib/api'
+import type { CampaignDto, VendorStatsPeriod } from '@/lib/api'
 import {
   campaignDaysLeft,
   campaignDaysLeftLabel,
@@ -31,7 +33,6 @@ import type { CampaignStatus } from '@/lib/types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const TODAY = todayInCampaignTz()
-const TODAY_DATE = new Date(`${TODAY}T12:00:00`)
 
 function daysLeft(endDate: string) {
   return campaignDaysLeft(endDate, TODAY)
@@ -45,21 +46,13 @@ function winRate(c: CampaignDto) {
 
 // ── Date-window filter ────────────────────────────────────────────────────────
 type DateWindow = 'all' | '7d' | '30d' | '90d' | '1y'
-const DATE_WINDOWS: { key: DateWindow; label: string; days: number | null }[] = [
-  { key: 'all', label: 'All time',  days: null },
-  { key: '7d',  label: '7 Days',    days: 7    },
-  { key: '30d', label: 'Month',     days: 30   },
-  { key: '90d', label: '3 Months',  days: 90   },
-  { key: '1y',  label: 'Year',      days: 365  },
+const DATE_WINDOWS: { key: DateWindow; label: string; statsPeriod: VendorStatsPeriod }[] = [
+  { key: 'all', label: 'All time',  statsPeriod: 'all' },
+  { key: '7d',  label: '7 Days',    statsPeriod: '7d' },
+  { key: '30d', label: 'Month',     statsPeriod: 'month' },
+  { key: '90d', label: '3 Months',  statsPeriod: '3m' },
+  { key: '1y',  label: 'Year',      statsPeriod: 'year' },
 ]
-
-function campaignsInWindow(campaigns: CampaignDto[], days: number | null) {
-  if (days === null) return campaigns
-  const windowStart = new Date(TODAY_DATE.getTime() - days * 86400000)
-  return campaigns.filter(c =>
-    new Date(c.startDate) <= TODAY_DATE && new Date(c.endDate) >= windowStart
-  )
-}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FILTERS: { label: string; value: CampaignStatus | 'all' }[] = [
@@ -194,6 +187,12 @@ function ListCard({ c }: { c: CampaignDto }) {
                 </div>
               </div>
 
+              {status === 'active' && (
+                <div className="shrink-0" onClick={e => e.preventDefault()}>
+                  <LivePIN campaignId={c.id} active compact />
+                </div>
+              )}
+
               {/* Actions */}
               <CampaignCardActions id={c.id} />
             </div>
@@ -270,6 +269,13 @@ function GridCard({ c }: { c: CampaignDto }) {
             ))}
           </div>
 
+          {status === 'active' && (
+            <div className="rounded-xl bg-v-surface-2 border border-v-border p-3 flex items-center justify-between" onClick={e => e.preventDefault()}>
+              <p className="uppercase tracking-[0.18em] text-[10px] text-v-text-3 font-semibold">Staff PIN</p>
+              <LivePIN campaignId={c.id} active compact />
+            </div>
+          )}
+
           {/* Cap bar */}
           <div>
             <div className="flex justify-between text-[10px] text-v-text-3 mb-1">
@@ -298,20 +304,12 @@ export function VendorCampaignsPage() {
 
   const activeCampaigns = activeCampaignsCount(campaigns)
 
-  // ── Window-scoped metrics ───────────────────────────────────────────────────
-  const windowDays = DATE_WINDOWS.find(w => w.key === dateWindow)!.days
-  const wCampaigns = campaignsInWindow(campaigns, windowDays)
+  const windowMeta = DATE_WINDOWS.find(w => w.key === dateWindow)!
+  const { data: stats } = useVendorDashboardStats(windowMeta.statsPeriod)
 
-  const wPlayers       = wCampaigns.reduce((s, c) => s + c.currentUsers, 0)
-  const wCap           = wCampaigns.reduce((s, c) => s + c.userCap, 0)
-  const wEngagePct     = wCap > 0 ? Math.round((wPlayers / wCap) * 100) : 0
-
-  const wParticipations = wCampaigns.reduce((s, c) => s + c.participations, 0)
-  const wRewards        = wCampaigns.reduce((s, c) => s + c.rewardsClaimed, 0)
-  const wWinPct         = wParticipations > 0 ? Math.round((wRewards / wParticipations) * 100) : 0
-
-  const wRedeemed      = wCampaigns.reduce((s, c) => s + c.redeemedCount, 0)
-  const wRedemptionPct = wRewards > 0 ? Math.round((wRedeemed / wRewards) * 100) : 0
+  const totalPlays = stats?.totalPlays ?? 0
+  const totalWins = stats?.totalWins ?? 0
+  const totalRedeemed = stats?.totalRedeemed ?? 0
 
   const filtered = campaigns
     .filter(c => {
@@ -356,61 +354,45 @@ export function VendorCampaignsPage() {
       <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
         className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
 
-        {/* Engagement Rate */}
         <Card className="p-5 border border-purple-100 bg-gradient-to-br from-white to-purple-50">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-              <Users className="w-4 h-4 text-v-purple" />
+              <Gamepad2 className="w-4 h-4 text-v-purple" />
             </div>
-            <span className="text-xs font-semibold text-v-text-2">Engagement Rate</span>
+            <span className="text-xs font-semibold text-v-text-2">Total Plays</span>
           </div>
-          <div className="text-4xl font-black text-v-purple leading-none mb-2">{wEngagePct}%</div>
-          <p className="text-xs text-v-text-3 mb-3">
-            <span className="text-v-text font-semibold">{wPlayers.toLocaleString()}</span> players
-            {' · '}
-            <span className="text-v-text font-semibold">{wCap.toLocaleString()}</span> cap
-          </p>
-          <div className="h-1.5 bg-purple-100 rounded-full overflow-hidden">
-            <div className="h-full bg-v-purple rounded-full transition-all duration-500" style={{ width: `${wEngagePct}%` }} />
-          </div>
+          <div className="text-4xl font-black text-v-purple leading-none mb-2">{totalPlays.toLocaleString()}</div>
+          <p className="text-xs text-v-text-3">across all campaigns</p>
         </Card>
 
-        {/* Win Rate */}
         <Card className="p-5 border border-green-100 bg-gradient-to-br from-white to-green-50">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-4 h-4 text-green-600" />
+              <Trophy className="w-4 h-4 text-green-600" />
             </div>
-            <span className="text-xs font-semibold text-v-text-2">Win Rate</span>
+            <span className="text-xs font-semibold text-v-text-2">Total Wins</span>
           </div>
-          <div className="text-4xl font-black text-green-600 leading-none mb-2">{wWinPct}%</div>
-          <p className="text-xs text-v-text-3 mb-3">
-            <span className="text-v-text font-semibold">{wRewards.toLocaleString()}</span> rewards given
-            {' · '}
-            <span className="text-v-text font-semibold">{wParticipations.toLocaleString()}</span> plays
+          <div className="text-4xl font-black text-green-600 leading-none mb-2">{totalWins.toLocaleString()}</div>
+          <p className="text-xs text-v-text-3">
+            {totalPlays > 0
+              ? `${totalWins} of ${totalPlays} plays · rewards won`
+              : 'rewards won'}
           </p>
-          <div className="h-1.5 bg-green-100 rounded-full overflow-hidden">
-            <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${wWinPct}%` }} />
-          </div>
         </Card>
 
-        {/* Redemption Rate */}
         <Card className="p-5 border border-amber-100 bg-gradient-to-br from-white to-amber-50">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-              <Trophy className="w-4 h-4 text-amber-600" />
+              <Gift className="w-4 h-4 text-amber-600" />
             </div>
-            <span className="text-xs font-semibold text-v-text-2">Redemption Rate</span>
+            <span className="text-xs font-semibold text-v-text-2">Total Redemptions</span>
           </div>
-          <div className="text-4xl font-black text-amber-600 leading-none mb-2">{wRedemptionPct}%</div>
-          <p className="text-xs text-v-text-3 mb-3">
-            <span className="text-v-text font-semibold">{wRedeemed.toLocaleString()}</span> redeemed
-            {' · '}
-            <span className="text-v-text font-semibold">{wRewards.toLocaleString()}</span> rewards given
+          <div className="text-4xl font-black text-amber-600 leading-none mb-2">{totalRedeemed.toLocaleString()}</div>
+          <p className="text-xs text-v-text-3">
+            {totalWins > 0
+              ? `${totalRedeemed} of ${totalWins} wins claimed at the counter`
+              : 'claimed at the counter'}
           </p>
-          <div className="h-1.5 bg-amber-100 rounded-full overflow-hidden">
-            <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${wRedemptionPct}%` }} />
-          </div>
         </Card>
 
       </motion.div>

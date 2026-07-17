@@ -125,8 +125,8 @@ export function VendorRewardsPage() {
               description={reward.description}
               pointsRequired={reward.pointsRequired}
               availableRewards={reward.maxClaims ?? undefined}
-              expiryLabel={reward.claimBefore ?? '31 Dec 2026'}
-              claimBefore={reward.claimBefore ?? '31 Dec 2026'}
+              expiryLabel={reward.claimBefore ?? 'No expiry'}
+              claimBefore={reward.claimBefore ?? undefined}
               claimedCount={reward.claimsCount}
               maxClaims={reward.maxClaims}
               onEdit={() => navigate(`/vendor/rewards/${reward.id}/edit`)}

@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, Crown, TrendingUp, Clock, Users, Activity, Gift, Gamepad2, CheckCircle2, Loader2, Star } from 'lucide-react'
+import { Search, Crown, TrendingUp, Clock, Users, CalendarDays, Gamepad2, CheckCircle2, Loader2, Trophy } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { formatRelativeTime, formatDate } from '@/lib/utils'
-import { useVendorCustomers } from '@/hooks/useVendorAnalytics'
+import { formatRelativeTime } from '@/lib/utils'
+import { useVendorCustomers, useVendorDashboardStats } from '@/hooks/useVendorAnalytics'
 import { daysSince, getCustomerSegment, type CustomerSegment } from '@/lib/vendor-customers'
-import type { VendorCustomerSummary } from '@/lib/api'
+import type { VendorCustomerSummary, VendorStatsPeriod } from '@/lib/api'
 
 const SEGMENTS: { key: CustomerSegment | 'all'; label: string; icon: React.ReactNode; color: string; bg: string; border: string }[] = [
   { key: 'all',      label: 'All',      icon: <Users className="w-3.5 h-3.5" />,     color: '#6B68A8', bg: 'bg-v-surface-2',   border: 'border-v-border' },
@@ -25,12 +25,12 @@ const BADGE: Record<CustomerSegment, { label: string; className: string }> = {
 
 type VisitWindow = 'all' | '7d' | '30d' | '3m' | '1y'
 
-const VISIT_WINDOWS: { key: VisitWindow; label: string; days: number | null }[] = [
-  { key: 'all', label: 'All time',  days: null },
-  { key: '7d',  label: '7 Days',    days: 7    },
-  { key: '30d', label: 'Month',     days: 30   },
-  { key: '3m',  label: '3 Months',  days: 90   },
-  { key: '1y',  label: 'Year',      days: 365  },
+const VISIT_WINDOWS: { key: VisitWindow; label: string; days: number | null; statsPeriod: VendorStatsPeriod }[] = [
+  { key: 'all', label: 'All time',  days: null, statsPeriod: 'all' },
+  { key: '7d',  label: '7 Days',    days: 7,    statsPeriod: '7d' },
+  { key: '30d', label: 'Month',     days: 30,   statsPeriod: 'month' },
+  { key: '3m',  label: '3 Months',  days: 90,   statsPeriod: '3m' },
+  { key: '1y',  label: 'Year',      days: 365,  statsPeriod: 'year' },
 ]
 
 function winRate(c: VendorCustomerSummary) {
@@ -43,6 +43,9 @@ export function VendorCustomersPage() {
   const [segment, setSegment] = useState<CustomerSegment | 'all'>('all')
   const [visitWindow, setVisitWindow] = useState<VisitWindow>('all')
 
+  const windowMeta = VISIT_WINDOWS.find(w => w.key === visitWindow)!
+  const { data: stats } = useVendorDashboardStats(windowMeta.statsPeriod)
+
   const withSegments = customers.map(c => ({ ...c, segment: getCustomerSegment(c) }))
 
   const counts: Record<CustomerSegment | 'all', number> = {
@@ -53,7 +56,7 @@ export function VendorCustomersPage() {
     inactive: withSegments.filter(c => c.segment === 'inactive').length,
   }
 
-  const windowDays = VISIT_WINDOWS.find(w => w.key === visitWindow)?.days ?? null
+  const windowDays = windowMeta.days
 
   const filtered = withSegments.filter(c => {
     const matchSeg = segment === 'all' || c.segment === segment
@@ -65,23 +68,63 @@ export function VendorCustomersPage() {
 
   const isFiltered = segment !== 'all' || visitWindow !== 'all' || search.length > 0
 
-  const windowCohort = customers.filter(c =>
-    windowDays === null || daysSince(c.lastVisit) <= windowDays
-  )
-  const statTotalCustomers = windowCohort.length
-  const statCheckIns = windowCohort.reduce((s, c) => s + c.totalVisits, 0)
-  const statGames = windowCohort.reduce((s, c) => s + c.gamesPlayed, 0)
-  const statRewards = windowCohort.reduce((s, c) => s + c.rewardsEarned, 0)
-  const statRedeemed = windowCohort.reduce((s, c) => s + c.redeemedCount, 0)
-  const statLoyaltyPoints = windowCohort.reduce((s, c) => s + c.totalLoyaltyPoints, 0)
+  const clearFilters = () => {
+    setSegment('all')
+    setVisitWindow('all')
+    setSearch('')
+  }
+
+  // Same vendor metrics as Dashboard / Campaigns (Total Check-ins removed)
+  const totalVisits = stats?.totalVisits ?? 0
+  const totalPlays = stats?.totalPlays ?? 0
+  const totalWins = stats?.totalWins ?? 0
+  const totalRedeemed = stats?.totalRedeemed ?? 0
 
   const SUMMARY = [
-    { label: 'Total Customers', value: statTotalCustomers, icon: <Users className="w-4 h-4" />, color: 'text-v-purple', bg: 'bg-purple-50', border: 'border-purple-100' },
-    { label: 'Total Check-ins', value: statCheckIns, icon: <Activity className="w-4 h-4" />, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-    { label: 'Reward Points', value: statLoyaltyPoints, icon: <Star className="w-4 h-4" />, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
-    { label: 'Games Played', value: statGames, icon: <Gamepad2 className="w-4 h-4" />, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
-    { label: 'Rewards Earned', value: statRewards, icon: <Gift className="w-4 h-4" />, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
-    { label: 'Redeemed', value: statRedeemed, icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
+    {
+      label: 'Total Visits',
+      value: totalVisits,
+      sub: visitWindow === 'all'
+        ? 'sum of customer days visited'
+        : `distinct customer visit-days in ${windowMeta.label.toLowerCase()}`,
+      icon: <CalendarDays className="w-4 h-4" />,
+      color: 'text-v-purple',
+      bg: 'bg-purple-50',
+      border: 'border-purple-100',
+    },
+    {
+      label: 'Total Plays',
+      value: totalPlays,
+      sub: visitWindow === 'all'
+        ? 'all play events across the vendor'
+        : `play events in ${windowMeta.label.toLowerCase()}`,
+      icon: <Gamepad2 className="w-4 h-4" />,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-50',
+      border: 'border-indigo-100',
+    },
+    {
+      label: 'Total Wins',
+      value: totalWins,
+      sub: totalPlays > 0
+        ? `${totalWins} of ${totalPlays} plays · rewards won`
+        : 'rewards won',
+      icon: <Trophy className="w-4 h-4" />,
+      color: 'text-amber-600',
+      bg: 'bg-amber-50',
+      border: 'border-amber-100',
+    },
+    {
+      label: 'Total Redemptions',
+      value: totalRedeemed,
+      sub: totalWins > 0
+        ? `${totalRedeemed} of ${totalWins} wins claimed at the counter`
+        : 'claimed at the counter',
+      icon: <CheckCircle2 className="w-4 h-4" />,
+      color: 'text-green-600',
+      bg: 'bg-green-50',
+      border: 'border-green-100',
+    },
   ]
 
   return (
@@ -89,7 +132,11 @@ export function VendorCustomersPage() {
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <h1 className="text-2xl font-extrabold text-v-text">Customers</h1>
         <p className="text-v-text-2 text-sm mt-1">
-          {isLoading ? 'Loading…' : `${filtered.length} customer${filtered.length !== 1 ? 's' : ''} who played your campaigns`}
+          {isLoading
+            ? 'Loading…'
+            : isFiltered
+              ? `${filtered.length} of ${customers.length} registered`
+              : `${customers.length} registered`}
         </p>
       </motion.div>
 
@@ -107,16 +154,17 @@ export function VendorCustomersPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.04 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-7"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7"
       >
         {SUMMARY.map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 + i * 0.04 }}>
-            <Card className={`p-4 border ${s.border} ${s.bg} flex flex-col gap-2`}>
+            <Card className={`p-4 border ${s.border} ${s.bg} flex flex-col gap-2 h-full`}>
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center bg-white shadow-sm ${s.color}`}>
                 {s.icon}
               </div>
-              <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
-              <div className="text-[11px] font-medium text-v-text-3 leading-tight">{s.label}</div>
+              <div className={`text-2xl font-black ${s.color}`}>{s.value.toLocaleString()}</div>
+              <div className="text-[11px] font-semibold text-v-text leading-tight">{s.label}</div>
+              <div className="text-[10px] font-medium text-v-text-3 leading-tight">{s.sub}</div>
             </Card>
           </motion.div>
         ))}
@@ -158,7 +206,7 @@ export function VendorCustomersPage() {
           />
         </div>
         {isFiltered && (
-          <button onClick={() => { setSegment('all'); setVisitWindow('all'); setSearch('') }}
+          <button onClick={clearFilters}
             className="text-xs text-v-purple font-semibold hover:underline shrink-0 border-0 bg-transparent cursor-pointer">
             Clear filters
           </button>
@@ -179,9 +227,15 @@ export function VendorCustomersPage() {
               </p>
               <p className="text-xs text-v-text-3 mt-1">
                 {customers.length === 0
-                  ? 'Customers appear here after they play your campaigns (not all sign-ups)'
+                  ? 'Customers appear here after they play your campaigns'
                   : 'Try a different segment or visit window'}
               </p>
+              {isFiltered && (
+                <button onClick={clearFilters}
+                  className="mt-3 text-xs text-v-purple font-semibold hover:underline border-0 bg-transparent cursor-pointer">
+                  Clear all filters
+                </button>
+              )}
             </div>
           )}
           {filtered.map((c, i) => {
@@ -203,33 +257,26 @@ export function VendorCustomersPage() {
                             {badge.label}
                           </span>
                         </div>
-                        <p className="text-xs text-v-text-3 mt-0.5">{c.email}</p>
                         <p className="text-xs text-v-text-3 mt-0.5">
-                          Last visit:{' '}
-                          <span className={days > 14 ? 'text-orange-500 font-semibold' : 'text-v-text-2'}>
-                            {!c.lastVisit ? '—' : days === 0 ? 'Today' : formatDate(c.lastVisit.slice(0, 10))}
-                          </span>
-                          {' · '}Joined {formatRelativeTime(c.joinedAt)}
+                          {c.phone || c.email} · Joined {formatRelativeTime(c.joinedAt)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-4 sm:gap-7 text-right shrink-0">
-                        {c.totalLoyaltyPoints > 0 && (
-                          <div className="hidden sm:block">
-                            <div className="text-sm font-bold text-purple-600">{c.totalLoyaltyPoints}</div>
-                            <div className="text-[10px] text-v-text-3">Reward pts</div>
-                          </div>
-                        )}
-                        <div className="hidden sm:block">
+                      <div className="hidden md:flex items-center gap-7 text-right shrink-0">
+                        <div>
                           <div className="text-sm font-bold text-v-text">{c.totalVisits}</div>
-                          <div className="text-[10px] text-v-text-3">Plays</div>
+                          <div className="text-[10px] text-v-text-3">Visits</div>
                         </div>
-                        <div className="hidden sm:block">
+                        <div>
+                          <div className="text-sm font-bold text-v-text">{c.gamesPlayed}</div>
+                          <div className="text-[10px] text-v-text-3">Games</div>
+                        </div>
+                        <div>
                           <div className={`text-sm font-bold ${rate >= 50 ? 'text-v-success' : rate > 0 ? 'text-v-gold' : 'text-v-text-3'}`}>{rate}%</div>
                           <div className="text-[10px] text-v-text-3">Win rate</div>
                         </div>
                         <div>
                           <div className={`text-sm font-bold ${days > 45 ? 'text-gray-400' : days > 14 ? 'text-orange-500' : 'text-v-text'}`}>
-                            {!c.lastVisit ? '—' : days === 0 ? 'Today' : `${days}d`}
+                            {!c.lastVisit ? '—' : days === 0 ? 'Today' : `${days}d ago`}
                           </div>
                           <div className="text-[10px] text-v-text-3">Last visit</div>
                         </div>

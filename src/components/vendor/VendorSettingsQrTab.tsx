@@ -3,19 +3,19 @@ import { Link } from 'react-router-dom'
 import { Check, Copy, Download } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { business } from '@/lib/mock-data'
 import { useBusinessQr } from '@/hooks/useBusinessProfile'
 import { displayJoinPath } from '@/lib/reserved-slugs'
 
 export function VendorSettingsQrTab() {
-  const { data: qr } = useBusinessQr()
+  const { data: qr, isLoading } = useBusinessQr()
   const [copied, setCopied] = useState(false)
 
-  const joinPath = qr ? displayJoinPath(qr.qrSlug) : 'loyalgenie.in/b/brew-bite'
-  const businessName = qr?.businessName ?? business.name
+  const joinPath = qr ? displayJoinPath(qr.qrSlug) : '…'
+  const businessName = qr?.businessName ?? 'Your business'
 
   async function handleCopy() {
-    const url = qr?.joinUrl ?? `https://${joinPath}`
+    if (!qr) return
+    const url = qr.joinUrl ?? `https://${joinPath}`
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -30,23 +30,17 @@ export function VendorSettingsQrTab() {
           <div className="w-36 h-36 rounded-2xl bg-white flex items-center justify-center p-3 border border-v-border shrink-0 mx-auto sm:mx-0">
             {qr?.qrCodeDataUrl ? (
               <img src={qr.qrCodeDataUrl} alt="QR code" className="w-full h-full object-contain" />
+            ) : isLoading ? (
+              <div className="text-xs text-v-text-3">Loading…</div>
             ) : (
-              <svg viewBox="0 0 100 100" width="110" height="110">
-                {[0, 1, 2, 3, 4, 5, 6].flatMap((r) =>
-                  [0, 1, 2, 3, 4, 5, 6].map((c) => {
-                    const inCorner = (r < 3 && c < 3) || (r < 3 && c > 3) || (r > 3 && c < 3)
-                    const fill = inCorner ? '#1A1840' : (((r * 7 + c) * 13 + 7) % 3 === 0 ? '#1A1840' : 'white')
-                    return <rect key={`${r}-${c}`} x={c * 14 + 1} y={r * 14 + 1} width="12" height="12" fill={fill} rx="1" />
-                  }),
-                )}
-              </svg>
+              <div className="text-xs text-v-text-3 text-center px-2">QR unavailable</div>
             )}
           </div>
           <div className="flex-1 w-full">
             <div className="text-xs text-v-text-3 mb-1.5">Customer loyalty URL</div>
             <div className="flex items-center gap-2 mb-5">
               <code className="text-xs text-v-purple bg-v-surface-2 border border-v-border px-3 py-2 rounded-lg flex-1 truncate">{joinPath}</code>
-              <Button variant="ghost" size="sm" type="button" onClick={handleCopy}>
+              <Button variant="ghost" size="sm" type="button" onClick={handleCopy} disabled={!qr}>
                 {copied ? <Check className="w-3.5 h-3.5 text-v-success" /> : <Copy className="w-3.5 h-3.5" />}
               </Button>
             </div>
@@ -84,7 +78,6 @@ export function VendorSettingsQrTab() {
               )}
             </div>
             <p className="text-xs font-bold text-gray-800 mt-2">{businessName}</p>
-            <p className="text-[9px] text-gray-400">{business.tagline}</p>
           </div>
         </div>
       </Card>
