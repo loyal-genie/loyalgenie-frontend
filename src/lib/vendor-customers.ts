@@ -9,11 +9,14 @@ export function daysSince(iso: string | null | undefined): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
 }
 
-export function getCustomerSegment(c: Pick<VendorCustomerSummary, 'lastVisit' | 'totalVisits'>): CustomerSegment {
+export function getCustomerSegment(
+  c: Pick<VendorCustomerSummary, 'lastVisit' | 'gamesPlayed'>,
+): CustomerSegment {
   const days = daysSince(c.lastVisit)
   if (days > 45) return 'inactive'
   if (days > 14) return 'at-risk'
-  if (c.totalVisits >= 15) return 'loyalist'
+  // Engagement tier uses plays; visits are distinct days and stay separate
+  if (c.gamesPlayed >= 15) return 'loyalist'
   return 'regular'
 }
 

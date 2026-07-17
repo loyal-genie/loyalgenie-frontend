@@ -210,6 +210,7 @@ export function VendorCustomerDetailPage() {
     { key: 'overview',  label: 'Overview' },
     { key: 'campaigns', label: 'Campaigns',     count: campaignAct.active.length + campaignAct.previous.length },
     { key: 'rewards',   label: 'Rewards',       count: pendingBadgeCount || undefined },
+    // Badge = distinct visit days (same definition as No. of Visits), not play/event count
     { key: 'visits',    label: 'Visit History', count: customer.totalVisits },
   ]
 
@@ -646,7 +647,9 @@ export function VendorCustomerDetailPage() {
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-v-purple" />
                 <h3 className="text-sm font-bold text-v-text">Visit History</h3>
-                <span className="text-xs text-v-text-3">· {customer.totalVisits} total</span>
+                <span className="text-xs text-v-text-3">
+                  · {customer.totalVisits} visit day{customer.totalVisits === 1 ? '' : 's'} · {visitHistory.length} events
+                </span>
               </div>
               <div className="flex items-center gap-1 bg-v-surface-2 border border-v-border rounded-xl p-1">
                 {VISIT_FILTERS.map(f => (
